@@ -46,6 +46,8 @@ struct Spec {
     int steps = 500;
     float lr = 3e-3f, clip = 1.0f, lambda_gate = 0.05f;
     int eval_every = 50, ckpt_every = 100;
+    int accum = 1;                       // sequences per optimizer step
+    int gradmap_every = 5;               // per-layer grad-norm event cadence
     size_t es_patience = 0;              // early stopping (0 = off)
     float es_min_delta = 0.0f;
     // export/serve
@@ -100,6 +102,8 @@ Spec parse_spec(const std::string& path) {
     s.clip = tr.value("clip", s.clip);
     s.eval_every = tr.value("eval_every", s.eval_every);
     s.ckpt_every = tr.value("checkpoint_every", s.ckpt_every);
+    s.accum = tr.value("accum", s.accum);
+    s.gradmap_every = tr.value("gradmap_every", s.gradmap_every);
     if (tr.contains("early_stopping")) {
         s.es_patience = tr["early_stopping"].value("patience", size_t(0));
         s.es_min_delta = tr["early_stopping"].value("min_delta", 0.0f);
@@ -138,6 +142,27 @@ parity::AttnKind attn_kind(const std::string& s) {
     if (s == "kimi") return parity::AttnKind::KIMI;
     if (s == "srd") return parity::AttnKind::SRD;
     return parity::AttnKind::EXACT;
+}
+
+// Per-module L2 gradient norms, grouped by the first dotted-path segment
+// ("wte", "attn_0", "mlp_1", ...). This is the data the M2 node-graph
+// glows with: fading nodes = vanishing gradients, flashing = exploding.
+json grad_map(const nn::Module& m) {
+    std::map<std::string, double> sq;
+    for (const auto& [name, p] : m.named_parameters()) {
+        if (p->grad.rows() == 0) continue;
+        const auto cut = name.find('.');
+        const std::string group =
+            cut == std::string::npos ? name : name.substr(0, cut);
+        double acc = 0;
+        for (size_t i = 0; i < p->grad.rows(); ++i)
+            for (size_t j = 0; j < p->grad.cols(); ++j)
+                acc += static_cast<double>(p->grad(i, j)) * p->grad(i, j);
+        sq[group] += acc;
+    }
+    json out = json::object();
+    for (const auto& [k, v] : sq) out[k] = std::sqrt(v);
+    return out;
 }
 
 int run(const Spec& s, bool plan_only) {
@@ -195,7 +220,7 @@ int run(const Spec& s, bool plan_only) {
     }
 
     std::mt19937 rng(123);
-    for (int i = 0; i < start_step; ++i) rng();
+    for (int i = 0; i < start_step * s.accum; ++i) rng();
     auto save = [&](int step) {
         save_safetensors(ckpt, model.state_dict());
         std::ofstream st(state_path);
@@ -206,26 +231,44 @@ int run(const Spec& s, bool plan_only) {
     float best_val = 1e30f;
     size_t evals_flat = 0;
     bool stopped_early = false;
+    const bool is_srd = attn_kind(s.attention) == parity::AttnKind::SRD;
     for (int step = start_step + 1; step <= s.steps; ++step) {
         const size_t lim = val_start - s.T - 1;
-        const size_t at = rng() % lim;
-        std::vector<int> x(ids.begin() + at, ids.begin() + at + s.T);
-        std::vector<int> y(ids.begin() + at + 1, ids.begin() + at + s.T + 1);
-
-        Var logits = model.forward(x);
-        Var task = ops::cross_entropy(logits, y);
-        Var loss = task;
-        if (attn_kind(s.attention) == parity::AttnKind::SRD)
-            loss = ops::add(task, ops::scale(model.mean_gate(), s.lambda_gate));
+        // Gradient accumulation: s.accum sequences share one optimizer
+        // step; each backward is pre-scaled by 1/accum so the summed
+        // gradient equals the mean-over-batch gradient.
         opt.zero_grad();
-        backward(loss);
-        ops::clip_grad_norm(model.parameters(), s.clip);
+        float task_mean = 0, gate_mean = 0;
+        for (int k = 0; k < s.accum; ++k) {
+            const size_t at = rng() % lim;
+            std::vector<int> x(ids.begin() + at, ids.begin() + at + s.T);
+            std::vector<int> y(ids.begin() + at + 1,
+                               ids.begin() + at + s.T + 1);
+            Var logits = model.forward(x);
+            Var task = ops::cross_entropy(logits, y);
+            Var loss = task;
+            if (is_srd)
+                loss = ops::add(task, ops::scale(model.mean_gate(),
+                                                 s.lambda_gate));
+            backward(ops::scale(loss, 1.0f / static_cast<float>(s.accum)));
+            task_mean += task->data(0, 0) / static_cast<float>(s.accum);
+            if (is_srd)
+                gate_mean += model.mean_gate()->data(0, 0) /
+                             static_cast<float>(s.accum);
+        }
+        // Per-module grad norms BEFORE clipping: this is the true signal
+        // the glow UI wants (clipping would mask explosions).
+        json gm;
+        if (s.gradmap_every > 0 && step % s.gradmap_every == 0)
+            gm = grad_map(model);
+        const float total_norm =
+            ops::clip_grad_norm(model.parameters(), s.clip);
         opt.step();
 
-        json e = {{"event", "step"}, {"step", step},
-                  {"loss", task->data(0, 0)}};
-        if (attn_kind(s.attention) == parity::AttnKind::SRD)
-            e["gate"] = model.mean_gate()->data(0, 0);
+        json e = {{"event", "step"}, {"step", step}, {"loss", task_mean},
+                  {"grad_norm", total_norm}};
+        if (is_srd) e["gate"] = gate_mean;
+        if (!gm.is_null()) e["grads"] = gm;
         ev.emit(e);
 
         if (step % s.eval_every == 0) {
