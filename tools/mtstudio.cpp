@@ -463,16 +463,101 @@ std::vector<int> tokenize(const std::string& text,
 }
 }  // namespace
 
-int main(int argc, char** argv) {
-    if (argc < 3 || (std::string(argv[1]) != "run" &&
-                     std::string(argv[1]) != "plan")) {
-        std::fprintf(stderr, "usage: mtstudio run|plan spec.json\n");
-        return 2;
+// ---- M2 live mode: minimal HTTP server (POSIX; runs under WSL/Linux).
+// GET /              -> the studio UI (index.html)
+// GET /events.jsonl  -> the run dir's current event stream
+// The UI polls /events.jsonl every 2s when served over http, turning the
+// dashboard into a live training monitor.
+#ifndef _WIN32
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
+#include <unistd.h>
+#endif
+
+namespace {
+std::string slurp(const std::string& path) {
+    std::ifstream f(path, std::ios::binary);
+    if (!f) return "";
+    return std::string((std::istreambuf_iterator<char>(f)),
+                       std::istreambuf_iterator<char>());
+}
+
+int serve_ui(const std::string& out_dir, int port, const std::string& ui_path) {
+#ifdef _WIN32
+    std::fprintf(stderr, "mtstudio serve: POSIX-only for now (run under "
+                         "WSL); Windows needs a winsock port.\n");
+    (void)out_dir; (void)port; (void)ui_path;
+    return 1;
+#else
+    const std::string ui = slurp(ui_path);
+    if (ui.empty())
+        throw std::runtime_error("cannot read UI at " + ui_path +
+                                 " (set MTSTUDIO_UI)");
+    int fd = ::socket(AF_INET, SOCK_STREAM, 0);
+    if (fd < 0) throw std::runtime_error("socket failed");
+    int one = 1;
+    ::setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
+    sockaddr_in addr{};
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    addr.sin_port = htons(static_cast<uint16_t>(port));
+    if (::bind(fd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) < 0)
+        throw std::runtime_error("bind failed (port in use?)");
+    if (::listen(fd, 8) < 0) throw std::runtime_error("listen failed");
+    std::printf("mtstudio serve: http://localhost:%d/  (events from %s, "
+                "Ctrl-C to stop)\n", port, out_dir.c_str());
+
+    auto respond = [](int c, const char* status, const char* ctype,
+                      const std::string& body) {
+        char head[256];
+        const int n = std::snprintf(
+            head, sizeof(head),
+            "HTTP/1.1 %s\r\nContent-Type: %s\r\nContent-Length: %zu\r\n"
+            "Cache-Control: no-store\r\nConnection: close\r\n\r\n",
+            status, ctype, body.size());
+        (void)!::write(c, head, n);
+        (void)!::write(c, body.data(), body.size());
+    };
+
+    for (;;) {
+        const int c = ::accept(fd, nullptr, nullptr);
+        if (c < 0) continue;
+        char req[1024] = {0};
+        const ssize_t r = ::read(c, req, sizeof(req) - 1);
+        std::string line = r > 0 ? std::string(req) : "";
+        if (line.rfind("GET /events.jsonl", 0) == 0) {
+            respond(c, "200 OK", "application/jsonl",
+                    slurp(out_dir + "/events.jsonl"));
+        } else if (line.rfind("GET / ", 0) == 0 ||
+                   line.rfind("GET /index.html", 0) == 0) {
+            respond(c, "200 OK", "text/html; charset=utf-8", ui);
+        } else {
+            respond(c, "404 Not Found", "text/plain", "404");
+        }
+        ::close(c);
     }
+#endif
+}
+}  // namespace
+
+int main(int argc, char** argv) {
+    const std::string cmd = argc > 1 ? argv[1] : "";
     try {
-        return run(parse_spec(argv[2]), std::string(argv[1]) == "plan");
+        if ((cmd == "run" || cmd == "plan") && argc >= 3)
+            return run(parse_spec(argv[2]), cmd == "plan");
+        if (cmd == "serve" && argc >= 3) {
+            const int port = argc > 3 ? std::atoi(argv[3]) : 8123;
+            const char* ui = std::getenv("MTSTUDIO_UI");
+            return serve_ui(argv[2], port, ui ? ui : "studio/index.html");
+        }
     } catch (const std::exception& e) {
         std::fprintf(stderr, "mtstudio: %s\n", e.what());
         return 1;
     }
+    std::fprintf(stderr,
+                 "usage: mtstudio run|plan spec.json\n"
+                 "       mtstudio serve <out_dir> [port]   (MTSTUDIO_UI "
+                 "overrides the index.html path)\n");
+    return 2;
 }
