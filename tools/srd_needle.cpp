@@ -5,6 +5,7 @@
 // positions.
 //
 //   srd_needle [steps=600] [T=256] [d=128] [csv_prefix=/tmp/srd_needle]
+//              [batch=1]
 //
 // Task (synthetic vocab of 256 symbols):
 //   [filler | 8 x (key value) pairs | random filler ... | QUERY key_j]
@@ -84,6 +85,10 @@ int main(int argc, char** argv) {
     const size_t T = argc > 2 ? static_cast<size_t>(std::atoi(argv[2])) : 256;
     const size_t d = argc > 3 ? static_cast<size_t>(std::atoi(argv[3])) : 128;
     const std::string prefix = argc > 4 ? argv[4] : "/tmp/srd_needle";
+    // Batch>1 is the pre-registered escalation after two runs where no lane
+    // (incl. exact) escaped the log-64 plateau at 1 seq/step: B sequences
+    // per optimizer step, gradients accumulated, identical batch per lane.
+    const int B = argc > 5 ? std::max(1, std::atoi(argv[5])) : 1;
     const float lr = 3e-3f, lambda_gate = 0.05f;
     const int PROBE_EVERY = 25, NPROBE = 32;
 
@@ -125,7 +130,7 @@ int main(int argc, char** argv) {
     }
 
     std::mt19937 batch_rng(123);
-    for (int s = 0; s < start_step; ++s) make_seq(T, batch_rng);  // fast-forward
+    for (int s = 0; s < start_step * B; ++s) make_seq(T, batch_rng);  // fast-forward
 
     auto save_ckpt = [&](int step_done) {
         std::system(("mkdir -p " + ckpt_dir).c_str());
@@ -184,27 +189,34 @@ int main(int argc, char** argv) {
         probe_csv.flush();
     };
 
+    std::printf("batch=%d\n", B);
     std::printf("%5s %9s %9s %9s %9s\n", "step", "exact", "kimi", "srd",
                 "srd_f");
     for (int step = start_step + 1; step <= steps; ++step) {
-        auto seq = make_seq(T, batch_rng);
-        std::vector<int> x(seq.begin(), seq.end() - 1);
-        std::vector<int> y(seq.begin() + 1, seq.end());
+        std::vector<std::vector<int>> batch;
+        for (int b = 0; b < B; ++b) batch.push_back(make_seq(T, batch_rng));
 
         float losses[4];
         for (size_t li = 0; li < lanes.size(); ++li) {
             Lane& lane = lanes[li];
-            Var logits = lane.model.forward(x);
-            Var task = ops::cross_entropy(logits, y);
-            Var loss = lane.is_srd
-                           ? ops::add(task, ops::scale(lane.model.mean_gate(),
-                                                       lambda_gate))
-                           : task;
             lane.opt.zero_grad();
-            backward(loss);
+            double task_sum = 0;
+            for (const auto& seq : batch) {
+                std::vector<int> x(seq.begin(), seq.end() - 1);
+                std::vector<int> y(seq.begin() + 1, seq.end());
+                Var logits = lane.model.forward(x);
+                Var task = ops::cross_entropy(logits, y);
+                Var loss =
+                    lane.is_srd
+                        ? ops::add(task, ops::scale(lane.model.mean_gate(),
+                                                    lambda_gate))
+                        : task;
+                backward(ops::scale(loss, 1.0f / static_cast<float>(B)));
+                task_sum += task->data(0, 0);
+            }
             ops::clip_grad_norm(lane.model.parameters(), 1.0f);
             lane.opt.step();
-            losses[li] = task->data(0, 0);
+            losses[li] = static_cast<float>(task_sum / B);
         }
         train_csv << step << ',' << losses[0] << ',' << losses[1] << ','
                   << losses[2] << ',' << losses[3] << '\n';
