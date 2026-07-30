@@ -169,6 +169,28 @@ Nothing merges without:
 CI runs the full suite (plus cppcheck, clang-format, Valgrind) on every push —
 see [.github/workflows](.github/workflows).
 
+## The studio loop — spec in, chatting model out
+
+One JSON describes the lifecycle; `mtstudio` executes it:
+
+```bash
+./mtstudio run specs/tinystories-llama.json
+```
+
+That spec trains a Llama-family model (RMSNorm + RoPE + SwiGLU, tied
+embeddings) on TinyStories with early stopping and a live JSONL event stream,
+then exports safetensors **and** a GGUF with the vocabulary embedded. Feeding
+that GGUF straight into tinyllama.cpp (the printed serve command):
+
+> **prompt:** once upon a time
+> **model (300 training steps, d=128):** she was a little big he had very time
+> tree the girl and day a little big time they were so play to the man and said
+
+Locally plausible TinyStories fragments after five minutes of CPU training —
+and the whole chain (trainer, tape, exporter, inference engine) is this stack,
+readable end to end. `studio/index.html` renders the run's event stream live:
+loss curve, val points, and per-module gradient glow.
+
 ## The training → inference pipeline
 
 microtorch is the training half of a two-engine pipeline:
