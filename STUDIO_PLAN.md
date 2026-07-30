@@ -221,12 +221,15 @@ State after the 07-31 cleanup:
   expected, ~3x step cost); Adam betas + weight decay (A/B: knob changes
   diverge trajectories, 7.87 vs 6.87 step-30); GQA (2 KV heads trains at
   parity with dense, 7.82 vs 7.87); early stopping (07-30).
-- **Receipt PENDING**: sliding window -- masking code present
-  (attention.cpp:1306, -inf outside +/-half-window) and SWA lanes train,
-  but the w4-vs-w128 A/B was inconclusive at 30 steps (differences within
-  noise, tight window slightly BETTER). Needs the deterministic check:
-  same weights, one forward_batched, outputs must differ across window
-  sizes (also verify causal-mask combination -- the masking is symmetric).
+- **Sliding window: receipt EARNED via a real bug find (2026-07-31).**
+  The deterministic probe (swa_check.cpp) showed the window mask lived
+  only in the single-sequence forward; forward_batched (the training
+  path) was causal-only -- every SWA training run to date silently ran
+  full attention, which is why the loss A/B was inconclusive. Fixed
+  (window joins the pre-softmax mask, half-window semantics matching the
+  single-seq path; CUDA batched path fails loudly until its kernel gains
+  the term). Post-fix probe: far-outside 0.0, near-past 26.0,
+  future-in-window 0.0, control 0.31. swa_check is a permanent gate.
 - **Wiring queue remaining**: gradient-accumulation steps; label
   smoothing; per-component lr; dropout schedule.
 - **Post-training track** (per 07-31 directive): MoE fine-tuning
