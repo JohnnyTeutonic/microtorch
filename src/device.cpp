@@ -5,7 +5,12 @@
 #include <stdexcept>
 
 #ifdef MICROTORCH_CUDA
-#include "cuda_kernels.hpp"   // transformer_core: CudaMatrix
+// transformer_core's REAL CUDA surface is namespace cuda in include/cuda/
+// (cuda::matmul: host Matrix in/out, device round-trip inside). The
+// global-namespace CudaMatrix in include/cuda_kernels.hpp is a stale
+// declaration with no definitions in the archive -- linking against it
+// was the round-2 Colab failure (2026-07-30).
+#include "cuda/matrix_ops.cuh"
 #endif
 
 namespace microtorch {
@@ -46,8 +51,9 @@ Matrix matmul(const Matrix& a, const Matrix& b) {
     if (g_device == Device::CUDA) {
         // Phase A: host-resident tensors, per-call round trip. Correctness
         // is gradcheck-gated (the same suite runs under either device).
-        CudaMatrix da(a), db(b);
-        return CudaMatrix::matmul(da, db).to_host();
+        Matrix c(a.rows(), b.cols());
+        cuda::matmul(a, b, c);
+        return c;
     }
 #endif
     return matmul_optimized(a, b);

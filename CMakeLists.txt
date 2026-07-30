@@ -43,7 +43,10 @@ target_include_directories(microtorch PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include
 target_link_libraries(microtorch PUBLIC transformer_core
                                  PRIVATE nlohmann_json::nlohmann_json)
 if(MICROTORCH_CUDA)
-    target_compile_definitions(microtorch PUBLIC MICROTORCH_CUDA)
+    # USE_CUDA/CUDA_AVAILABLE mirror transformer_cpp's own compile defs
+    # (its add_compile_definitions is directory-scoped and does not reach
+    # microtorch's translation units).
+    target_compile_definitions(microtorch PUBLIC MICROTORCH_CUDA USE_CUDA CUDA_AVAILABLE)
 endif()
 
 enable_testing()
