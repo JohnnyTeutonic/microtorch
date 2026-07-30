@@ -230,8 +230,15 @@ State after the 07-31 cleanup:
   single-seq path; CUDA batched path fails loudly until its kernel gains
   the term). Post-fix probe: far-outside 0.0, near-past 26.0,
   future-in-window 0.0, control 0.31. swa_check is a permanent gate.
-- **Wiring queue remaining**: gradient-accumulation steps; label
-  smoothing; per-component lr; dropout schedule.
+- **Label smoothing: receipt earned 2026-07-31** (--label-smoothing;
+  closed-form smoothed CE on the CPU path, loud CUDA guard; A/B: eps=0.2
+  tracks ~0.10 above eps=0, the smoothed-CE floor signature).
+- **Gradient accumulation: RECLASSIFIED, not wired.** The trainer's
+  modules apply Adam during backward (fused design), so true accumulation
+  is a cross-module refactor; batch_size already provides the
+  effective-batch lever, and mtstudio carries true accumulation for the
+  microtorch stack. Revisit only if a concrete need appears.
+- **Wiring queue remaining**: per-component lr; dropout schedule.
 - **Post-training track** (per 07-31 directive): MoE fine-tuning
   (dense-to-MoE upcycling), distillation (teacher logits from a big GGUF
   via tinyllama.cpp), RLHF-lite (the repo carries untested ppo_gae.cpp /
