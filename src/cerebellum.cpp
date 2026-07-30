@@ -52,23 +52,22 @@ Var SelectiveGate::forward(const Var& x) const {
     // 4. Run expensive layer via function
     Var layer_out = layer_fn_(x);
 
-    // 5. Apply gating: output = gate_prob * layer_out + (1 - gate_prob) * x
-    // Expand gate probabilities to full matrix for element-wise multiply
-    Matrix gated_output(T, d);
+    // 5. Apply gating: output = gate * layer_out + (1 - gate) * x.
+    // mul_col keeps the blend ON THE TAPE, so gradients reach both the
+    // wrapped layer and the skip path (an earlier version built the blend
+    // as raw data, silently cutting gradient flow). The gate itself is a
+    // no-grad constant here; the fully differentiable router lives in
+    // SurpriseRoutedAttention (srd.hpp).
     Matrix gate_complement(T, 1);
     for (size_t t = 0; t < T; ++t) {
-        float gate = gate_probs(t, 0);
-        gate_complement(t, 0) = 1.0f - gate;
-        for (size_t j = 0; j < d; ++j) {
-            gated_output(t, j) = gate * layer_out->data(t, j) +
-                                gate_complement(t, 0) * x->data(t, j);
-        }
+        gate_complement(t, 0) = 1.0f - gate_probs(t, 0);
     }
 
     last_gate_ = gate_probs;
     last_residual_ = residual->data;
 
-    return make_var(gated_output);
+    return ops::add(ops::mul_col(layer_out, make_var(gate_probs)),
+                    ops::mul_col(x, make_var(gate_complement)));
 }
 
 // GatedBlock: Pre-LN block with selective gating on attention and MLP

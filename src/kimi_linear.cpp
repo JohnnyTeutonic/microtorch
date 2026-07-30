@@ -223,10 +223,20 @@ std::tuple<Matrix, Matrix, Matrix> KimiLinearAttention::backward(
         }
     }
 
-    // Backward through cumsum operations
-    // cumsum_backward: if y = cumsum(x), then grad_x[t] = sum(grad_y[t:])
+    // Backward through cumsum operations.
+    // cumsum_backward: if y = cumsum(x), then grad_x[t] = sum(grad_y[t:]),
+    // so the suffix from t+1 must fold into position t BEFORE position t's
+    // gradient is consumed. (The original ordering used the pre-suffix
+    // value -- correct only at the last position; the SRD module-level FD
+    // gradcheck caught the 30% composite error, 2026-07-30.)
     for (size_t t = seq_len - 1; t < seq_len; --t) {  // Reverse iteration
         for (size_t j = 0; j < head_dim_; ++j) {
+            // Fold in future positions first (suffix sum).
+            if (t + 1 < seq_len) {
+                grad_denominator(t, j) += grad_denominator(t + 1, j);
+                grad_numerator(t, j) += grad_numerator(t + 1, j);
+            }
+
             // grad_k contribution from denominator cumsum
             grad_k(t, j) +=
                 grad_denominator(t, j) * phi_k_grad(t, j);
@@ -237,12 +247,6 @@ std::tuple<Matrix, Matrix, Matrix> KimiLinearAttention::backward(
             // grad_k contribution from numerator (φ(k_t) * v_t term)
             grad_k(t, j) +=
                 grad_numerator(t, j) * phi_k_grad(t, j) * v(t, j);
-
-            // Accumulate gradients from future positions (cumsum backward)
-            if (t + 1 < seq_len) {
-                grad_denominator(t, j) += grad_denominator(t + 1, j);
-                grad_numerator(t, j) += grad_numerator(t + 1, j);
-            }
         }
     }
 

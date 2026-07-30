@@ -35,6 +35,7 @@ add_library(microtorch STATIC
     src/gguf.cpp
     src/quant.cpp
     src/kimi_linear.cpp
+    src/srd.cpp
     src/cerebellum.cpp
     src/mamba.cpp
 )
@@ -77,6 +78,10 @@ add_test(NAME gguf_export COMMAND test_gguf_export)
 add_executable(test_lora_quant tests/test_lora_quant.cpp)
 target_link_libraries(test_lora_quant PRIVATE microtorch)
 add_test(NAME lora_quant COMMAND test_lora_quant)
+
+add_executable(test_srd tests/test_srd.cpp)
+target_link_libraries(test_srd PRIVATE microtorch)
+add_test(NAME srd COMMAND test_srd)
 
 # Phase-1c success test; needs a checkpoint + reference on disk, so it is a
 # tool rather than a registered test (tools/make_gpt2_reference.py builds

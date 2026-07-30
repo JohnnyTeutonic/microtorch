@@ -57,6 +57,17 @@ Var apply_rope(const Var& qk, const std::vector<int>& pos, float theta_base,
                                              // returns [T, 3*d] with RoPE applied
                                              // to q and k head_dim subspaces
 
+// ---- sparse-attention research ops (SPARSE_ATTENTION.md V1) ----
+Var mul_col(const Var& x, const Var& c);     // x .* broadcast column c [rows, 1];
+                                             // dc = rowsum(dY .* x) -- the
+                                             // per-ROW twin of mul_row; the op
+                                             // that makes gated path-blending
+                                             // differentiable
+Var rms_row(const Var& x, float eps = 1e-8f);// per-row sqrt(mean(x^2)) -> [T, 1];
+                                             // the surprise magnitude
+Var sigmoid(const Var& x);                   // elementwise logistic
+Var add_scalar(const Var& x, float s);       // x + s (for affine gate logits)
+
 // ---- training utilities ----
 Var dropout(const Var& x, float p, unsigned long long seed);
                                              // inverted dropout: keep with prob

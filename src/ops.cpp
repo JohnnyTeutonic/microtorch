@@ -535,6 +535,86 @@ Var kimi_attention(const Var& q, const Var& k, const Var& v, bool causal) {
     });
 }
 
+Var mul_col(const Var& x, const Var& c) {
+    if (c->data.cols() != 1 || c->data.rows() != x->data.rows()) {
+        throw std::runtime_error("mul_col: c must be [rows(x), 1]");
+    }
+    Matrix out = x->data;
+    for (size_t i = 0; i < out.rows(); ++i)
+        for (size_t j = 0; j < out.cols(); ++j) out(i, j) *= c->data(i, 0);
+    return record(std::move(out), {x, c}, [](Variable* self) {
+        const Var& x = self->parents[0];
+        const Var& c = self->parents[1];
+        if (x->requires_grad) {
+            Matrix dx = self->grad;
+            for (size_t i = 0; i < dx.rows(); ++i)
+                for (size_t j = 0; j < dx.cols(); ++j) dx(i, j) *= c->data(i, 0);
+            x->accumulate(dx);
+        }
+        if (c->requires_grad) {
+            Matrix dc(c->data.rows(), 1);
+            for (size_t i = 0; i < dc.rows(); ++i) {
+                float s = 0;
+                for (size_t j = 0; j < x->data.cols(); ++j)
+                    s += self->grad(i, j) * x->data(i, j);
+                dc(i, 0) = s;
+            }
+            c->accumulate(dc);
+        }
+    });
+}
+
+Var rms_row(const Var& x, float eps) {
+    const size_t R = x->data.rows(), C = x->data.cols();
+    Matrix out(R, 1);
+    for (size_t i = 0; i < R; ++i) {
+        float ss = 0;
+        for (size_t j = 0; j < C; ++j) ss += x->data(i, j) * x->data(i, j);
+        out(i, 0) = std::sqrt(ss / static_cast<float>(C) + eps);
+    }
+    return record(std::move(out), {x}, [eps](Variable* self) {
+        const Var& x = self->parents[0];
+        if (!x->requires_grad) return;
+        const size_t R = x->data.rows(), C = x->data.cols();
+        // d rms/d x_ij = x_ij / (C * rms_i)
+        Matrix dx(R, C);
+        for (size_t i = 0; i < R; ++i) {
+            const float denom = static_cast<float>(C) * self->data(i, 0);
+            for (size_t j = 0; j < C; ++j)
+                dx(i, j) = self->grad(i, 0) * x->data(i, j) / denom;
+        }
+        x->accumulate(dx);
+    });
+}
+
+Var sigmoid(const Var& x) {
+    Matrix out = x->data;
+    for (size_t i = 0; i < out.rows(); ++i)
+        for (size_t j = 0; j < out.cols(); ++j)
+            out(i, j) = 1.0f / (1.0f + std::exp(-out(i, j)));
+    return record(std::move(out), {x}, [](Variable* self) {
+        const Var& x = self->parents[0];
+        if (!x->requires_grad) return;
+        Matrix dx = self->grad;
+        for (size_t i = 0; i < dx.rows(); ++i)
+            for (size_t j = 0; j < dx.cols(); ++j) {
+                const float s = self->data(i, j);
+                dx(i, j) *= s * (1.0f - s);
+            }
+        x->accumulate(dx);
+    });
+}
+
+Var add_scalar(const Var& x, float s) {
+    Matrix out = x->data;
+    for (size_t i = 0; i < out.rows(); ++i)
+        for (size_t j = 0; j < out.cols(); ++j) out(i, j) += s;
+    return record(std::move(out), {x}, [](Variable* self) {
+        if (self->parents[0]->requires_grad)
+            self->parents[0]->accumulate(self->grad);
+    });
+}
+
 Var dropout(const Var& x, float p, unsigned long long seed) {
     if (p < 0.0f || p >= 1.0f) {
         throw std::runtime_error("dropout: p must be in [0, 1)");
