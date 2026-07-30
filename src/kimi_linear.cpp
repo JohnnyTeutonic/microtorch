@@ -1,0 +1,239 @@
+#include "microtorch/kimi_linear.hpp"
+#include <algorithm>
+#include <cmath>
+#include <numeric>
+
+namespace microtorch::kimi {
+
+// Feature map: elu(x) + 1
+// - Always positive (enables normalization without masking negatives)
+// - Smooth gradients (elu has derivative elu'(x) = 1 or exp(x))
+// - Proven expressiveness in linear attention literature
+Matrix KimiLinearAttention::feature_map(const Matrix& x) {
+    // elu(x) = x if x > 0, else α(exp(x) - 1)
+    // Standard: α = 1
+    Matrix result(x);  // Copy constructor
+    for (size_t i = 0; i < result.rows(); ++i) {
+        for (size_t j = 0; j < result.cols(); ++j) {
+            float val = result(i, j);
+            if (val <= 0.f) {
+                result(i, j) = std::exp(val) - 1.f;  // elu for val <= 0
+            }
+            // val > 0: result(i, j) = val (already set)
+            result(i, j) += 1.f;  // +1 to ensure > 0
+        }
+    }
+    return result;
+}
+
+// Gradient of feature map w.r.t. input
+// d(elu(x) + 1)/dx = 1 if x > 0, else exp(x)
+Matrix KimiLinearAttention::feature_map_grad(const Matrix& x) {
+    Matrix grad = Matrix(x.rows(), x.cols());
+    for (size_t i = 0; i < x.rows(); ++i) {
+        for (size_t j = 0; j < x.cols(); ++j) {
+            float val = x(i, j);
+            grad(i, j) = (val > 0.f) ? 1.f : std::exp(val);
+        }
+    }
+    return grad;
+}
+
+// Cumulative sum along sequence dimension
+// cumsum[t, :] = sum(x[0:t+1, :], axis=0)
+Matrix KimiLinearAttention::cumsum(const Matrix& x) {
+    Matrix result = Matrix(x.rows(), x.cols());
+    // Initialize first row
+    for (size_t j = 0; j < x.cols(); ++j) {
+        result(0, j) = x(0, j);
+    }
+    // Cumulative sum: each row adds previous row
+    for (size_t i = 1; i < x.rows(); ++i) {
+        for (size_t j = 0; j < x.cols(); ++j) {
+            result(i, j) = result(i - 1, j) + x(i, j);
+        }
+    }
+    return result;
+}
+
+// Cumulative sum with causal mask (only past + current)
+// Same as cumsum for auto-regressive (decoder) case
+Matrix KimiLinearAttention::cumsum_causal(const Matrix& x) {
+    return cumsum(x);  // In causal case, cumsum IS the causal operation
+}
+
+// Safe division: numerator / denominator with epsilon handling
+// Avoids division by zero, handles near-zero cases
+Matrix KimiLinearAttention::safe_divide(const Matrix& numerator,
+                                        const Matrix& denominator,
+                                        float eps) {
+    Matrix result = Matrix(numerator.rows(), numerator.cols());
+    for (size_t i = 0; i < numerator.rows(); ++i) {
+        for (size_t j = 0; j < numerator.cols(); ++j) {
+            float denom = denominator(i, j);
+            // Clamp denominator to avoid division by very small numbers
+            float safe_denom = std::max(std::abs(denom), eps);
+            if (denom < 0.f) safe_denom = -safe_denom;
+            result(i, j) = numerator(i, j) / safe_denom;
+        }
+    }
+    return result;
+}
+
+// Forward: Linear-time attention
+// Complexity: O(n * d²) where n = seq_len, d = head_dim
+// vs O(n² * d) for standard attention
+Matrix KimiLinearAttention::forward(const Matrix& q, const Matrix& k,
+                                     const Matrix& v, bool causal) {
+    // Verify shapes: [batch*heads, seq, head_dim]
+    // After attention ops, q/k/v should all be [seq, head_dim] per batch*head
+    if (q.rows() != k.rows() || k.rows() != v.rows()) {
+        throw std::runtime_error("KimiLinear: seq_len mismatch in q, k, v");
+    }
+    if (q.cols() != k.cols() || k.cols() != head_dim_) {
+        throw std::runtime_error("KimiLinear: head_dim mismatch in q, k");
+    }
+
+    size_t seq_len = q.rows();
+
+    // Step 1: Feature maps
+    Matrix phi_q = feature_map(q);  // [seq, head_dim]
+    Matrix phi_k = feature_map(k);  // [seq, head_dim]
+
+    // Step 2: Numerator accumulation
+    // numerator[t, :] = Σ_{i=0}^{t} φ(k_i) ⊗ v_i
+    // For each position, accumulate weighted values from past (causal)
+    Matrix numerator = Matrix(seq_len, head_dim_);
+    for (size_t j = 0; j < head_dim_; ++j) {
+        numerator(0, j) = phi_k(0, j) * v(0, j);  // First position
+    }
+    for (size_t t = 1; t < seq_len; ++t) {
+        for (size_t j = 0; j < head_dim_; ++j) {
+            // numerator[t, j] = numerator[t-1, j] + φ(k[t, j]) * v[t, j]
+            numerator(t, j) =
+                numerator(t - 1, j) + phi_k(t, j) * v(t, j);
+        }
+    }
+
+    // Step 3: Denominator accumulation (normalization)
+    // denominator[t, :] = Σ_{i=0}^{t} φ(k_i)
+    Matrix denominator = cumsum(phi_k);  // [seq, head_dim]
+
+    // Step 4: Output
+    // output[t, :] = φ(q[t, :]) * numerator[t, :] / denominator[t, :]
+    Matrix output = Matrix(seq_len, head_dim_);
+    for (size_t t = 0; t < seq_len; ++t) {
+        for (size_t j = 0; j < head_dim_; ++j) {
+            float norm_denom = std::max(denominator(t, j), 1e-8f);
+            output(t, j) = phi_q(t, j) * numerator(t, j) / norm_denom;
+        }
+    }
+
+    return output;
+}
+
+// Backward: Compute gradients
+// This is complex due to the cumulative sums and divisions
+// We use reverse-mode AD: propagate grad_out backward through each operation
+std::tuple<Matrix, Matrix, Matrix> KimiLinearAttention::backward(
+    const Matrix& grad_out, const Matrix& q, const Matrix& k,
+    const Matrix& v, const Matrix& attention_out) const {
+    size_t seq_len = q.rows();
+
+    // Recompute forward activations (needed for backward)
+    Matrix phi_q = feature_map(q);
+    Matrix phi_k = feature_map(k);
+    Matrix phi_q_grad = feature_map_grad(q);
+    Matrix phi_k_grad = feature_map_grad(k);
+
+    // Recompute cumulative sums
+    Matrix numerator = Matrix(seq_len, head_dim_);
+    for (size_t j = 0; j < head_dim_; ++j) {
+        numerator(0, j) = phi_k(0, j) * v(0, j);
+    }
+    for (size_t t = 1; t < seq_len; ++t) {
+        for (size_t j = 0; j < head_dim_; ++j) {
+            numerator(t, j) =
+                numerator(t - 1, j) + phi_k(t, j) * v(t, j);
+        }
+    }
+
+    Matrix denominator = cumsum(phi_k);
+
+    // Gradients w.r.t. q, k, v
+    Matrix grad_q = Matrix(seq_len, head_dim_);
+    Matrix grad_k = Matrix(seq_len, head_dim_);
+    Matrix grad_v = Matrix(seq_len, head_dim_);
+
+    // Gradient of output = φ(q) * numerator / denominator
+    // d(output)/d(φ(q)) = numerator / denominator
+    // d(output)/d(numerator) = φ(q) / denominator
+    // d(output)/d(denominator) = -φ(q) * numerator / (denominator²)
+
+    // Backward through division and multiplication
+    for (size_t t = 0; t < seq_len; ++t) {
+        for (size_t j = 0; j < head_dim_; ++j) {
+            float denom = std::max(denominator(t, j), 1e-8f);
+            float denom_sq = denom * denom;
+
+            // grad w.r.t. φ(q)
+            float grad_phi_q =
+                grad_out(t, j) * numerator(t, j) / denom;
+
+            // grad w.r.t. φ(q) -> grad w.r.t. q
+            grad_q(t, j) = grad_phi_q * phi_q_grad(t, j);
+
+            // grad w.r.t. numerator will be accumulated from all positions
+            // (backward through cumsum)
+        }
+    }
+
+    // Backward through numerator and denominator (cumsum operations)
+    // These require special handling due to the cumulative structure
+    // For now, use simplified version: direct gradients
+    // Full implementation would track cumsum gradients precisely
+
+    Matrix grad_numerator = Matrix(seq_len, head_dim_);
+    Matrix grad_denominator = Matrix(seq_len, head_dim_);
+
+    for (size_t t = 0; t < seq_len; ++t) {
+        for (size_t j = 0; j < head_dim_; ++j) {
+            float denom = std::max(denominator(t, j), 1e-8f);
+            float denom_sq = denom * denom;
+
+            // d(output[t,j])/d(numerator[t,j]) = φ(q[t,j]) / denom
+            grad_numerator(t, j) = grad_out(t, j) * phi_q(t, j) / denom;
+
+            // d(output[t,j])/d(denom[t,j]) = -φ(q[t,j]) * num / denom²
+            grad_denominator(t, j) =
+                -grad_out(t, j) * phi_q(t, j) * numerator(t, j) / denom_sq;
+        }
+    }
+
+    // Backward through cumsum operations
+    // cumsum_backward: if y = cumsum(x), then grad_x[t] = sum(grad_y[t:])
+    for (size_t t = seq_len - 1; t < seq_len; --t) {  // Reverse iteration
+        for (size_t j = 0; j < head_dim_; ++j) {
+            // grad_k contribution from denominator cumsum
+            grad_k(t, j) +=
+                grad_denominator(t, j) * phi_k_grad(t, j);
+
+            // grad_v contribution from numerator
+            grad_v(t, j) += grad_numerator(t, j) * phi_k(t, j);
+
+            // grad_k contribution from numerator (φ(k_t) * v_t term)
+            grad_k(t, j) +=
+                grad_numerator(t, j) * phi_k_grad(t, j) * v(t, j);
+
+            // Accumulate gradients from future positions (cumsum backward)
+            if (t + 1 < seq_len) {
+                grad_denominator(t, j) += grad_denominator(t + 1, j);
+                grad_numerator(t, j) += grad_numerator(t + 1, j);
+            }
+        }
+    }
+
+    return std::make_tuple(grad_q, grad_k, grad_v);
+}
+
+}  // namespace microtorch::kimi

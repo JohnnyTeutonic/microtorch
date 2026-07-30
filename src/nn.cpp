@@ -1,0 +1,295 @@
+#include "microtorch/nn.hpp"
+
+#include <cmath>
+#include <random>
+#include <stdexcept>
+
+namespace microtorch {
+namespace nn {
+
+namespace {
+
+Matrix randn(size_t r, size_t c, unsigned seed, float std) {
+    std::mt19937 gen(seed);
+    std::normal_distribution<float> d(0.0f, std);
+    Matrix m(r, c);
+    for (size_t i = 0; i < r; ++i)
+        for (size_t j = 0; j < c; ++j) m(i, j) = d(gen);
+    return m;
+}
+
+}  // namespace
+
+// ---- Module ---------------------------------------------------------------
+
+Var Module::reg(const std::string& name, Matrix init) {
+    Var v = make_var(std::move(init), /*requires_grad=*/true);
+    params_.emplace_back(name, v);
+    return v;
+}
+
+void Module::collect(const std::string& prefix,
+                     std::vector<std::pair<std::string, Var>>& out) const {
+    for (const auto& [n, p] : params_) out.emplace_back(prefix + n, p);
+    // Recurse through the CHILD, not this. Calling collect() bare here
+    // self-recurses forever -- found as a stack overflow on the first run.
+    for (const auto& [n, c] : children_) c->collect(prefix + n + ".", out);
+}
+
+// A little indirection so collect() can recurse through the child pointer.
+std::vector<std::pair<std::string, Var>> Module::named_parameters() const {
+    std::vector<std::pair<std::string, Var>> out;
+    collect("", out);
+    return out;
+}
+
+std::vector<Var> Module::parameters() const {
+    std::vector<Var> out;
+    for (auto& [n, p] : named_parameters()) out.push_back(p);
+    return out;
+}
+
+std::map<std::string, Matrix> Module::state_dict() const {
+    std::map<std::string, Matrix> sd;
+    for (auto& [n, p] : named_parameters()) sd.emplace(n, p->data);
+    return sd;
+}
+
+void Module::load_state_dict(const std::map<std::string, Matrix>& sd,
+                             bool strict,
+                             const std::vector<std::string>& missing_ok) {
+    auto named = named_parameters();
+    std::map<std::string, Var> byname(named.begin(), named.end());
+    size_t hit = 0;
+    for (const auto& [name, m] : sd) {
+        auto it = byname.find(name);
+        if (it == byname.end()) {
+            if (strict) throw std::runtime_error("load_state_dict: unexpected key " + name);
+            continue;
+        }
+        if (m.rows() != it->second->data.rows() || m.cols() != it->second->data.cols()) {
+            throw std::runtime_error("load_state_dict: shape mismatch at " + name);
+        }
+        it->second->data = m;
+        ++hit;
+    }
+    if (strict) {
+        for (auto& [name, p] : named) {
+            bool ok = sd.count(name) > 0;
+            for (const auto& allow : missing_ok) ok = ok || name == allow;
+            if (!ok) throw std::runtime_error("load_state_dict: missing key " + name);
+        }
+        (void)hit;
+    }
+}
+
+void Module::set_training(bool t) {
+    training_ = t;
+    for (auto& [n, c] : children_) c->set_training(t);
+}
+
+// ---- layers ---------------------------------------------------------------
+
+Linear::Linear(size_t in, size_t out, bool bias, unsigned seed) {
+    // 0.02 init, the GPT-2 convention; overwritten anyway when loading.
+    W = reg("weight", randn(in, out, seed * 7919u + 1u, 0.02f));
+    if (bias) b = reg("bias", Matrix(1, out));
+}
+
+Var Linear::forward(const Var& x) const {
+    Var y = ops::matmul(x, W);
+    return b ? ops::add_bias(y, b) : y;
+}
+
+LayerNorm::LayerNorm(size_t d, float e) : eps(e) {
+    weight = reg("weight", Matrix(1, d, 1.0f));
+    bias = reg("bias", Matrix(1, d));
+}
+
+Var LayerNorm::forward(const Var& x) const {
+    return ops::layernorm(x, weight, bias, eps);
+}
+
+Embedding::Embedding(size_t vocab, size_t d, unsigned seed) {
+    weight = reg("weight", randn(vocab, d, seed * 104729u + 3u, 0.02f));
+}
+
+Var Embedding::forward(const std::vector<int>& ids) const {
+    return ops::embedding(weight, ids);
+}
+
+CausalSelfAttention::CausalSelfAttention(size_t d, size_t n_heads, unsigned seed,
+                                         bool causal_)
+    : H(n_heads), dk(d / n_heads), causal(causal_) {
+    if (d % n_heads != 0) {
+        throw std::runtime_error("attention: d must divide by n_heads");
+    }
+    c_attn = mod<Linear>("c_attn", d, 3 * d, true, seed + 11);
+    c_proj = mod<Linear>("c_proj", d, d, true, seed + 13);
+}
+
+Var CausalSelfAttention::forward(const Var& x) const {
+    const size_t T = x->data.rows(), d = H * dk;
+    Var qkv = c_attn->forward(x);                       // [T, 3d]
+    // Additive causal mask, no-grad constant: 0 on/below the diagonal,
+    // -1e9 above. exp(-1e9 - max) underflows to exactly 0 in float32, so
+    // this equals a hard mask. Bidirectional callers (DiT) skip it.
+    Var mask;
+    if (causal) {
+        Matrix maskm(T, T);
+        for (size_t i = 0; i < T; ++i)
+            for (size_t j = i + 1; j < T; ++j) maskm(i, j) = -1e9f;
+        mask = make_var(std::move(maskm));
+    }
+
+    std::vector<Var> heads;
+    for (size_t h = 0; h < H; ++h) {
+        Var q = ops::slice_cols(qkv, h * dk, (h + 1) * dk);
+        Var k = ops::slice_cols(qkv, d + h * dk, d + (h + 1) * dk);
+        Var v = ops::slice_cols(qkv, 2 * d + h * dk, 2 * d + (h + 1) * dk);
+        Var s = ops::scale(ops::matmul(q, ops::transpose(k)),
+                           1.0f / std::sqrt(static_cast<float>(dk)));
+        Var a = ops::softmax_row(mask ? ops::add(s, mask) : s);
+        heads.push_back(ops::matmul(a, v));
+    }
+    return c_proj->forward(ops::concat_cols(heads));
+}
+
+// Phase 3a: Kimi Linear Attention (O(n*d²) vs O(n²*d) standard attention)
+KimiLinearAttention::KimiLinearAttention(size_t d, size_t n_heads, unsigned seed,
+                                         bool causal_)
+    : H(n_heads), dk(d / n_heads), causal(causal_) {
+    if (d % n_heads != 0) {
+        throw std::runtime_error("attention: d must divide by n_heads");
+    }
+    // Identical to CausalSelfAttention: same q,k,v projection + output projection
+    c_attn = mod<Linear>("c_attn", d, 3 * d, true, seed + 11);
+    c_proj = mod<Linear>("c_proj", d, d, true, seed + 13);
+}
+
+Var KimiLinearAttention::forward(const Var& x) const {
+    const size_t T = x->data.rows(), d = H * dk;
+    Var qkv = c_attn->forward(x);  // [T, 3d]
+
+    std::vector<Var> heads;
+    for (size_t h = 0; h < H; ++h) {
+        Var q = ops::slice_cols(qkv, h * dk, (h + 1) * dk);
+        Var k = ops::slice_cols(qkv, d + h * dk, d + (h + 1) * dk);
+        Var v = ops::slice_cols(qkv, 2 * d + h * dk, 2 * d + (h + 1) * dk);
+        // Only difference from CausalSelfAttention: use kimi_attention instead of
+        // scaled-dot-product (matmul -> softmax -> matmul)
+        // Kimi Linear: Feature map (elu+1) -> cumsum numerator/denominator
+        heads.push_back(ops::kimi_attention(q, k, v, causal));
+    }
+    return c_proj->forward(ops::concat_cols(heads));
+}
+
+MLP::MLP(size_t d, size_t hidden, unsigned seed) {
+    c_fc = mod<Linear>("c_fc", d, hidden, true, seed + 17);
+    c_proj = mod<Linear>("c_proj", hidden, d, true, seed + 19);
+}
+
+Var MLP::forward(const Var& x) const {
+    return c_proj->forward(ops::gelu(c_fc->forward(x)));
+}
+
+Block::Block(size_t d, size_t n_heads, unsigned seed) {
+    ln_1 = mod<LayerNorm>("ln_1", d);
+    attn = mod<CausalSelfAttention>("attn", d, n_heads, seed + 23);
+    ln_2 = mod<LayerNorm>("ln_2", d);
+    mlp = mod<MLP>("mlp", d, 4 * d, seed + 29);
+}
+
+Var Block::forward(const Var& x) const {
+    Var y = ops::add(x, attn->forward(ln_1->forward(x)));
+    return ops::add(y, mlp->forward(ln_2->forward(y)));
+}
+
+GPT2::GPT2(const GPT2Config& c, unsigned seed) : cfg(c) {
+    wte = mod<Embedding>("wte", cfg.vocab, cfg.d, seed + 31);
+    wpe = mod<Embedding>("wpe", cfg.n_ctx, cfg.d, seed + 37);
+    for (size_t l = 0; l < cfg.n_layers; ++l) {
+        h.push_back(mod<Block>("h." + std::to_string(l), cfg.d, cfg.n_heads,
+                               seed + 41 + static_cast<unsigned>(l)));
+    }
+    ln_f = mod<LayerNorm>("ln_f", cfg.d);
+}
+
+Var GPT2::forward(const std::vector<int>& ids) const {
+    if (ids.size() > cfg.n_ctx) throw std::runtime_error("sequence too long");
+    std::vector<int> pos(ids.size());
+    for (size_t i = 0; i < pos.size(); ++i) pos[i] = static_cast<int>(i);
+    Var x = ops::add(wte->forward(ids), wpe->forward(pos));
+    for (const auto& blk : h) x = blk->forward(x);
+    x = ln_f->forward(x);
+    // Weight-tied head: logits = h wte^T (GPT-2 has no separate lm_head).
+    return ops::matmul(x, ops::transpose(wte->weight));
+}
+
+// ---- optimizers -----------------------------------------------------------
+
+SGD::SGD(std::vector<Var> params, float lr_, float momentum)
+    : lr(lr_), params_(std::move(params)), mu_(momentum) {
+    // Velocity only when momentum asks for it: plain SGD on GPT-2-sized
+    // models must not carry 500 MB of zeros.
+    if (mu_ != 0.0f) {
+        for (const auto& p : params_) {
+            vel_.emplace_back(p->data.rows(), p->data.cols());
+        }
+    }
+}
+
+void SGD::step() {
+    for (size_t k = 0; k < params_.size(); ++k) {
+        Var& p = params_[k];
+        if (p->grad.rows() == 0) continue;
+        for (size_t i = 0; i < p->data.rows(); ++i)
+            for (size_t j = 0; j < p->data.cols(); ++j) {
+                float g = p->grad(i, j);
+                if (mu_ != 0.0f) {
+                    float& v = vel_[k](i, j);
+                    v = mu_ * v + g;
+                    g = v;
+                }
+                p->data(i, j) -= lr * g;
+            }
+    }
+}
+
+void SGD::zero_grad() { microtorch::zero_grad(params_); }
+
+AdamW::AdamW(std::vector<Var> params, float lr_, float b1, float b2, float eps,
+             float wd)
+    : lr(lr_), params_(std::move(params)), b1_(b1), b2_(b2), eps_(eps), wd_(wd) {
+    for (const auto& p : params_) {
+        m_.emplace_back(p->data.rows(), p->data.cols());
+        v_.emplace_back(p->data.rows(), p->data.cols());
+    }
+}
+
+void AdamW::step() {
+    // Same math as the audited lmhead_adam_update_kernel, plus decoupled
+    // weight decay.
+    ++t_;
+    const float c1 = 1.0f - std::pow(b1_, static_cast<float>(t_));
+    const float c2 = 1.0f - std::pow(b2_, static_cast<float>(t_));
+    for (size_t k = 0; k < params_.size(); ++k) {
+        Var& p = params_[k];
+        if (p->grad.rows() == 0) continue;
+        for (size_t i = 0; i < p->data.rows(); ++i)
+            for (size_t j = 0; j < p->data.cols(); ++j) {
+                const float g = p->grad(i, j);
+                float& m = m_[k](i, j);
+                float& v = v_[k](i, j);
+                m = b1_ * m + (1.0f - b1_) * g;
+                v = b2_ * v + (1.0f - b2_) * g * g;
+                const float update = (m / c1) / (std::sqrt(v / c2) + eps_);
+                p->data(i, j) -= lr * (update + wd_ * p->data(i, j));
+            }
+    }
+}
+
+void AdamW::zero_grad() { microtorch::zero_grad(params_); }
+
+}  // namespace nn
+}  // namespace microtorch
