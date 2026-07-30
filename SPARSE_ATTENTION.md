@@ -142,6 +142,33 @@ and gate mass concentrating on retrieval-critical tokens. Caveats to
 carry: single seed, 14.9% unk, optimizer moments reset at chunk
 boundaries (identical across lanes).
 
+### T=256 Colab run (2026-07-30, results_srd_parity_T256.csv)
+
+One T4, ~20 min, ~1 unit; vocab capped to 4096 (frequency-ordered), 300
+steps, otherwise the T=64 protocol. Final-100 paired stats:
+
+    kimi  - exact = -0.149 (t = -34)     srd - exact = -0.025 (t = -5.2)
+    srd_f - srd   = +0.027 (t = +5.3)    gates: srd 0.611, srd_f 0.618
+
+**Falsifier REPLICATES at T=256** (second independent 5-sigma result):
+aligned surprise routing beats shuffled routing at the same density
+budget, at both scales tested. The router mechanism is solid.
+
+**Regime prediction FAILED (recorded as a negative):** exact does NOT
+overtake kimi at T=256 -- the linear lane wins LM loss even more decisively
+than at T=64. Diagnosis: TinyStories stories are only a few hundred words,
+so a 256-token window spans ~1-2 stories and plain next-word loss never
+rewards precise long-range retrieval; the linear path's compression is
+simply the better bias for this task at any T we can reach with it.
+Implication: the quality case for density routing will not come from
+TinyStories LM loss at any T. It requires evals with genuine retrieval
+structure:
+  (a) synthetic needle-in-haystack (insert key-value pairs early, query
+      late; measure recall loss per lane), and/or
+  (b) a long-dependency corpus (code, wikitext-103 at T>=1024).
+That is the next run. Two 5-sigma replications of the mechanism plus a
+clean regime negative is the right foundation for it.
+
 ## 3. Protocol
 
 - **Scale ladder**: (1) op-level gradchecks → (2) 2-layer model, TinyStories
