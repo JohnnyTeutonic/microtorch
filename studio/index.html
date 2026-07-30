@@ -44,6 +44,19 @@
   .stat .k { color: var(--dim); font-size: .78rem; }
   .stat .v { font-size: 1.25rem; }
   .legend { color: var(--dim); font-size: .78rem; margin-top: .4rem; }
+  .form { display: flex; flex-wrap: wrap; gap: .6rem 1.2rem;
+          margin-bottom: .8rem; }
+  .form label { color: var(--dim); font-size: .82rem; display: flex;
+                align-items: center; gap: .4rem; }
+  .form input, .form select {
+    background: #0a0d12; color: var(--text); border: 1px solid var(--border);
+    border-radius: 4px; padding: .25rem .45rem; font: inherit; }
+  #b-json { background: #0a0d12; border: 1px solid var(--border);
+            border-radius: 6px; padding: .7rem; font-size: .78rem;
+            overflow-x: auto; margin-bottom: .6rem; }
+  button { background: var(--accent); color: #0d1117; border: 0;
+           border-radius: 6px; padding: .4rem .9rem; font: inherit;
+           cursor: pointer; }
   .legend .sw { display: inline-block; width: .7em; height: .7em;
                 border-radius: 2px; margin: 0 .3em 0 .9em; }
 </style>
@@ -55,6 +68,37 @@
 <div class="drop" id="drop">
   drop <b>events.jsonl</b> here &nbsp;·&nbsp; or click to pick a file
   <input type="file" id="file" accept=".jsonl,.json,.txt" hidden>
+</div>
+
+<div class="panel">
+  <h2>build a run <span style="text-transform:none">(writes spec.json — the
+    same file `mtstudio run` executes)</span></h2>
+  <div class="form">
+    <label>name <input id="b-name" value="my-run"></label>
+    <label>arch
+      <select id="b-preset">
+        <option value="llama-tiny">llama-tiny (RMSNorm/RoPE/SwiGLU)</option>
+        <option value="gpt2-nano">gpt2-nano</option>
+        <option value="gpt2-small">gpt2-small</option>
+        <option value="kimi-tiny">kimi-tiny (linear attention)</option>
+        <option value="srd-tiny">srd-tiny (surprise-routed density)</option>
+      </select></label>
+    <label>corpus <input id="b-corpus" size="38"
+      value="/path/to/corpus.txt"></label>
+    <label>vocab gguf <input id="b-vocab" size="38"
+      value="/path/to/vocab.gguf"></label>
+    <label>vocab cap <input id="b-cap" type="number" value="4096"></label>
+    <label>T <input id="b-T" type="number" value="256"></label>
+    <label>steps <input id="b-steps" type="number" value="3000"></label>
+    <label>lr <input id="b-lr" value="3e-3"></label>
+    <label>accum <input id="b-accum" type="number" value="2"></label>
+    <label>early-stop patience <input id="b-pat" type="number" value="8"></label>
+    <label><input id="b-gguf" type="checkbox" checked> export GGUF</label>
+    <label>out dir <input id="b-out" size="24" value="/tmp/mtstudio_run"></label>
+  </div>
+  <pre id="b-json"></pre>
+  <button id="b-dl">download spec.json</button>
+  <span id="b-cmd" class="legend"></span>
 </div>
 
 <div class="panel">
@@ -223,6 +267,40 @@ function drawGrads() {
   cap.textContent = "latest grads event @ step " + lastGrads.step;
   host.appendChild(cap);
 }
+
+// ---- spec builder: form -> spec.json (mtstudio's input format) ----
+function buildSpec() {
+  const v = id => document.getElementById(id).value;
+  const spec = {
+    name: v("b-name"),
+    arch: { preset: v("b-preset") },
+    data: { corpus: v("b-corpus"), vocab: v("b-vocab"),
+            vocab_cap: +v("b-cap"), T: +v("b-T") },
+    train: { steps: +v("b-steps"), lr: +v("b-lr"), accum: +v("b-accum"),
+             eval_every: 100, checkpoint_every: 100, gradmap_every: 10,
+             early_stopping: { patience: +v("b-pat"), min_delta: 0.003 } },
+    export: { formats: document.getElementById("b-gguf").checked
+              ? ["safetensors", "gguf"] : ["safetensors"] },
+    serve: { on_finish: true },
+    out_dir: v("b-out")
+  };
+  const txt = JSON.stringify(spec, null, 2);
+  document.getElementById("b-json").textContent = txt;
+  document.getElementById("b-cmd").textContent =
+    "then:  ./mtstudio run spec.json   ·   watch live:  ./mtstudio serve " +
+    spec.out_dir;
+  return txt;
+}
+document.querySelectorAll(".form input, .form select")
+  .forEach(el => el.addEventListener("input", buildSpec));
+document.getElementById("b-dl").addEventListener("click", () => {
+  const blob = new Blob([buildSpec()], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "spec.json";
+  a.click();
+});
+buildSpec();
 
 // ---- input plumbing: drag-drop + picker ----
 const drop = $("drop"), file = $("file");
