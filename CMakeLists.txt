@@ -14,6 +14,15 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
 endif()
 
+# CUDA support (DESIGN.md section 8.2). OFF by default: the local machine
+# never builds or runs CUDA (validated on Colab). ON: transformer_cpp's
+# CUDA_ENABLED kernel tree is compiled and device::matmul can dispatch to
+# CudaMatrix::matmul after device::set(Device::CUDA).
+option(MICROTORCH_CUDA "Route device::matmul through transformer_core CUDA kernels" OFF)
+if(MICROTORCH_CUDA)
+    set(CUDA_ENABLED ON CACHE BOOL "transformer_cpp CUDA kernels" FORCE)
+endif()
+
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../transformer_cpp
                  ${CMAKE_BINARY_DIR}/transformer_cpp EXCLUDE_FROM_ALL)
 
@@ -21,8 +30,10 @@ add_library(microtorch STATIC
     src/autograd.cpp
     src/ops.cpp
     src/nn.cpp
+    src/device.cpp
     src/safetensors.cpp
     src/gguf.cpp
+    src/quant.cpp
     src/kimi_linear.cpp
     src/cerebellum.cpp
     src/mamba.cpp
@@ -30,6 +41,9 @@ add_library(microtorch STATIC
 target_include_directories(microtorch PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_link_libraries(microtorch PUBLIC transformer_core
                                  PRIVATE nlohmann_json::nlohmann_json)
+if(MICROTORCH_CUDA)
+    target_compile_definitions(microtorch PUBLIC MICROTORCH_CUDA)
+endif()
 
 enable_testing()
 add_executable(test_gradcheck tests/test_gradcheck.cpp)
@@ -59,6 +73,10 @@ add_test(NAME train_utils COMMAND test_train_utils)
 add_executable(test_gguf_export tests/test_gguf_export.cpp)
 target_link_libraries(test_gguf_export PRIVATE microtorch)
 add_test(NAME gguf_export COMMAND test_gguf_export)
+
+add_executable(test_lora_quant tests/test_lora_quant.cpp)
+target_link_libraries(test_lora_quant PRIVATE microtorch)
+add_test(NAME lora_quant COMMAND test_lora_quant)
 
 # Phase-1c success test; needs a checkpoint + reference on disk, so it is a
 # tool rather than a registered test (tools/make_gpt2_reference.py builds

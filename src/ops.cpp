@@ -1,4 +1,5 @@
 #include "microtorch/ops.hpp"
+#include "microtorch/device.hpp"
 #include "microtorch/kimi_linear.hpp"
 
 #include <cmath>
@@ -34,15 +35,15 @@ Var matmul(const Var& a, const Var& b) {
     if (a->data.cols() != b->data.rows()) {
         throw std::runtime_error("matmul: inner dimensions disagree");
     }
-    Matrix c = matmul_optimized(a->data, b->data);
+    Matrix c = device::matmul(a->data, b->data);
     return record(std::move(c), {a, b}, [](Variable* self) {
         const Var& a = self->parents[0];
         const Var& b = self->parents[1];
         if (a->requires_grad) {
-            a->accumulate(matmul_optimized(self->grad, b->data.transpose()));
+            a->accumulate(device::matmul(self->grad, b->data.transpose()));
         }
         if (b->requires_grad) {
-            b->accumulate(matmul_optimized(a->data.transpose(), self->grad));
+            b->accumulate(device::matmul(a->data.transpose(), self->grad));
         }
     });
 }

@@ -38,6 +38,10 @@ That makes it three things at once:
 | GGUF export | ✅ | `export_gguf_llama`: state_dict → .gguf for [tinyllama.cpp](#the-training--inference-pipeline) |
 | Cross-entropy loss | ✅ | Fused softmax backward |
 | Python bindings | ✅ | pybind11, numpy interop (`-DMICROTORCH_BUILD_PYTHON=ON`) |
+| LoRA | ✅ | `LoRALinear`: frozen base + rank-r adapters, adapter-only state_dict, `merged_weight()` |
+| Quantization | ✅ | int8 blockwise (absmax/block), `QLinear` ~3.7x smaller weights |
+| QLoRA | ✅ | `QLoRALinear`: quantized frozen base + trainable adapters |
+| CUDA dispatch seam | 🧪 | `device::matmul` routes to transformer_core CUDA kernels (`-DMICROTORCH_CUDA=ON`, Colab-validated) |
 | **Kimi linear attention** | ✅ | O(n·d²) vs O(n²·d); drop-in `KimiLinearAttention` |
 | **Cerebellum selective gating** | ✅ | Prediction-residual gating; skips compute on routine tokens |
 | **Mamba / S4 state-space** | 🧪 | Working recurrence; parallel scan on the roadmap |
@@ -192,15 +196,44 @@ The GGUF writer is the alignment-audited implementation from `transformer_core`
 that once turned a working model into word salad, now regression-tested in
 `test_gguf_export`).
 
+## Fine-tuning on a budget: LoRA / QLoRA
+
+```cpp
+#include "microtorch/quant.hpp"
+
+// Frozen base + rank-8 adapters; only A and B train.
+nn::LoRALinear lora(W_pretrained, /*rank=*/8, /*alpha=*/16.0f);
+nn::AdamW opt(lora.parameters(), 1e-3f);      // 2 tensors, not the base
+// ... train ...
+Matrix W_final = lora.merged_weight();        // fold in for zero-cost inference
+
+// QLoRA: the base lives as int8 blocks (~3.7x smaller), adapters in fp32.
+nn::QLoRALinear qlora(W_pretrained, bias, /*rank=*/8, /*alpha=*/16.0f);
+```
+
+Properties enforced by `test_lora_quant`: adapter output is *exactly* the base at
+init (B=0), gradients touch only A/B, `merged_weight()` matches the adapter forward
+to 1e-4, int8 round-trip error is bounded by half a quantization step.
+
+## CUDA
+
+The dispatch seam is live: every matmul routes through `device::matmul`
+([device.hpp](include/microtorch/device.hpp)). Default builds are CPU-only and
+bit-identical to before. `-DMICROTORCH_CUDA=ON` compiles transformer_core's kernel
+tree and `device::set(Device::CUDA)` (or `MICROTORCH_DEVICE=cuda`) dispatches to
+`CudaMatrix::matmul`. Validation runs the same gradcheck suite on GPU —
+[tools/colab_cuda_validate.sh](tools/colab_cuda_validate.sh). Phase B (resident
+device memory instead of per-call round trips) is the next CUDA milestone.
+
 ## Roadmap
 
-- **CUDA support** (committed): the compute seam is already isolated — `primitives.hpp`
-  routes every matmul through one entry point, and the `Matrix` type carries
-  `CUDA_AVAILABLE` scaffolding from transformer_core. The plan is a CUDA path behind
-  the same seam, CPU-first semantics unchanged.
+- CUDA phase B: resident device tensors (params uploaded once, activations on-device)
+- int4/NF4 quantization (QLoRA paper's datatype; int8 is the current base)
 - Parallel scan for Mamba (training-speed parity with attention)
 - Paper-to-architecture pipeline: pull a paper's LaTeX source from arXiv, extract the
   architecture config (dims, heads, norm type, activation), instantiate the model
+- **Sparse attention research phase**: survey the current literature and attempt
+  original variants — the long-horizon flagship goal
 
 ## License
 

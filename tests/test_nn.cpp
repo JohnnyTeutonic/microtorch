@@ -9,6 +9,7 @@
 #include <random>
 
 #include "microtorch/nn.hpp"
+#include "microtorch/device.hpp"
 
 using microtorch::Var;
 using microtorch::make_var;
@@ -58,6 +59,7 @@ double fd_vs_analytic(const std::function<float()>& forward, Var leaf,
 }  // namespace
 
 int main() {
+    microtorch::device::set_from_env();
     std::printf("microtorch phase-1b nn gate\n\n");
     const double TOL = 5e-3;
 
