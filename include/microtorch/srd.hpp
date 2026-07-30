@@ -43,8 +43,15 @@ public:
     std::shared_ptr<cerebellum::RoutinePredictor> predictor;
     size_t H, dk;
 
+    // FALSIFIER (SPARSE_ATTENTION.md protocol): when set, the predictor
+    // sees a row-permuted copy of x, so the gate keeps its distribution
+    // but carries no information aligned to the query. If training
+    // quality holds under this, the gate was not using surprise.
+    bool shuffle_predictor = false;
+
 private:
     mutable Var last_gate_;
+    mutable unsigned long long shuffle_ctr_ = 0;
 };
 
 }  // namespace nn

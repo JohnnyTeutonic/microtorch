@@ -111,6 +111,11 @@ target_link_libraries(phase3_integration PRIVATE microtorch)
 add_executable(gguf_roundtrip tools/gguf_roundtrip.cpp)
 target_link_libraries(gguf_roundtrip PRIVATE microtorch)
 
+# SRD graduation gate: TinyStories training parity, 4 lanes
+# (exact / kimi / srd / srd-falsifier) on identical batches.
+add_executable(srd_parity tools/srd_parity.cpp)
+target_link_libraries(srd_parity PRIVATE microtorch)
+
 # Python bindings (optional; requires Python dev headers). pybind11 is
 # fetched at configure time so no vendored copy lives in-tree.
 option(MICROTORCH_BUILD_PYTHON "Build the pybind11 Python module" OFF)

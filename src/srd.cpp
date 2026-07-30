@@ -1,6 +1,8 @@
 #include "microtorch/srd.hpp"
 
+#include <algorithm>
 #include <cmath>
+#include <random>
 #include <stdexcept>
 
 namespace microtorch {
@@ -23,8 +25,22 @@ Var SurpriseRoutedAttention::forward(const Var& x) const {
     const size_t T = x->data.rows(), d = H * dk;
 
     // ---- the router: surprise -> gate in (0, 1), fully on the tape ----
-    Var predicted = predictor->forward(x);
-    Var residual = ops::sub(x, predicted);
+    // Falsifier mode decouples the gate from the query by permuting rows
+    // (no-grad copy: the gate becomes an unaligned signal of the same
+    // distribution; both attention paths still train normally).
+    Var pred_in = x;
+    if (shuffle_predictor) {
+        std::mt19937 rng(static_cast<unsigned>(1234 + shuffle_ctr_++));
+        std::vector<size_t> perm(T);
+        for (size_t i = 0; i < T; ++i) perm[i] = i;
+        std::shuffle(perm.begin(), perm.end(), rng);
+        Matrix pm(T, d);
+        for (size_t i = 0; i < T; ++i)
+            for (size_t j = 0; j < d; ++j) pm(i, j) = x->data(perm[i], j);
+        pred_in = make_var(std::move(pm));
+    }
+    Var predicted = predictor->forward(pred_in);
+    Var residual = ops::sub(pred_in, predicted);
     Var g = ops::sigmoid(ops::add_scalar(
         ops::scale(ops::rms_row(residual), GATE_SCALE), GATE_BIAS));  // [T,1]
     last_gate_ = g;
