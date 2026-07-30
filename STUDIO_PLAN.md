@@ -138,6 +138,79 @@ Next (more time arriving after the offer lands):
 Parallel research track (unchanged, SPARSE_ATTENTION.md): needle amendment
 rerun (T=128, longer budget), multi-seed, then the paper-spine conversation.
 
+## 9. Performance roadmap (triaged external review, 2026-07-30)
+
+An external spit-ball (Gemini) was triaged against the actual codebase.
+Items marked ALREADY-TRUE validate existing design; the rest are ordered
+by leverage. Deliberately rejected framings are recorded too.
+
+**Already true (no action, worth advertising):**
+- LoRA graph detachment: LoRALinear registers ONLY A/B as parameters; the
+  frozen base is a no-grad data node, off the tape entirely, and forward is
+  the parallel track h = Wx + B(Ax). Exactly the recommended design.
+- mmap-able unified serialization: GGUF already is this; tinyllama.cpp
+  mmaps it. AdamW: have it.
+
+**Real gaps, high leverage (ordered):**
+1. Mini-batching. Trainers step on one sequence at a time; batching is the
+   single biggest CPU-throughput lever and unblocks honest benchmarks.
+2. Gradient checkpointing (activation rematerialization) in the tape:
+   store activations at block boundaries, recompute inside blocks on the
+   backward. Not currently implemented ANYWHERE (audited 2026-07-30; the
+   in-repo README makes no claim). Prereq for the Fit-to-VRAM feature.
+3. Fused operators: attention proj->scale->mask->softmax as one routine
+   (cache behavior on CPU; kernel count on CUDA phase B).
+4. Safe in-place elementwise ops (relu/silu/gelu variants that reuse the
+   buffer when the tape can recompute rather than store).
+5. Mixed precision: fp16/bf16 tape mode (transformer_cpp's CUDA path
+   already runs fp16; microtorch is fp32-only).
+
+**Studio features unlocked by the above:**
+- Fit-to-VRAM budgeter: profile the parsed architecture, auto-place
+  checkpointing boundaries to fit a chosen memory cap (needs gap 2).
+- Low-rank prototyping slider: load a checkpoint, strip projection ranks,
+  preview memory/throughput vs quality trade-off (SVD or power-iteration
+  needed; pairs with the existing LoRA/QLoRA stack).
+
+## 10. M2 amendments (visual mechanics that earn the README GIF)
+
+- **Live node-graph with gradient glow**: the JSONL event stream gains
+  per-layer gradient-norm events (cheap: clip_grad_norm already computes
+  the global norm; emit per-module norms too). UI renders the architecture
+  as a node graph; nodes glow with grad magnitude, fade on vanishing,
+  flash on explosion. This is the 5-second-GIF feature.
+- **Diff-to-paper split view**: papers/fetch.py already emits an evidence
+  snippet per extracted field; render paper text left, live graph right,
+  with extraction highlights. The data for this exists TODAY.
+- Launch framing (M3): not "another NN framework" but "the compiler that
+  turns arXiv papers into trainable models and lightweight C++ inference."
+
+## 11. Research lane R2 (survey-gated): backprop-free training
+
+Status: PARKED behind a survey, per the sparse-attention discipline.
+The literature is real (DFA: Nokland 2016, Launay 2020 scaling study;
+Hinton's Forward-Forward 2022; GrAPE, OpenReview 2025; Split Forward
+Gradients, arXiv 2607.16612; a dedicated LLM-focused survey exists), but
+the honest state of the art is that these methods DEGRADE on transformers
+at scale, and FF is classification-shaped. Treat exactly like sparse
+attention: (1) arXiv survey with a bibliography and taxonomy, (2) pick the
+strongest transformer-compatible variant (likely DFA-family), (3)
+falsifier-first prototype -- our tape makes DFA nearly trivial (fixed
+random feedback matrices, layer-local updates; no backward graph), and the
+srd_parity harness pattern gives the 4-lane comparison for free.
+Kill criterion up front: if the variant cannot match backprop within X%
+on the TinyStories parity task, it is a negative result, documented, done.
+
+## 12. Answering the parser question (asked externally)
+
+papers/fetch.py is a DETERMINISTIC rule-based scraper: regex families
+over detexed LaTeX plus a model-size table parser, every extraction
+carrying a verbatim evidence snippet, unresolved fields reported rather
+than guessed. No LLM in the loop -- by design: reproducible, offline,
+CI-testable (papers/test_fetch.py runs without network). An optional
+LLM-assist pass for gnarly papers is a possible v2 layer on top; the
+deterministic core stays the default and the fallback.
+
 ## 8. Open decisions (deliberately deferred)
 
 - BPE tokenizer training in-box vs word-level default (start word-level).
