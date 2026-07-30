@@ -41,12 +41,12 @@ That makes it three things at once:
 | LoRA | ✅ | `LoRALinear`: frozen base + rank-r adapters, adapter-only state_dict, `merged_weight()` |
 | Quantization | ✅ | int8 blockwise (absmax/block), `QLinear` ~3.7x smaller weights |
 | QLoRA | ✅ | `QLoRALinear`: quantized frozen base + trainable adapters |
-| CUDA dispatch seam | 🧪 | `device::matmul` routes to transformer_core CUDA kernels (`-DMICROTORCH_CUDA=ON`, Colab-validated) |
+| CUDA dispatch seam | ✅ | `device::matmul` → `cuda::matmul` (`-DMICROTORCH_CUDA=ON`); gradcheck/nn/LoRA suites **pass on a T4** (2026-07-30) |
 | **Kimi linear attention** | ✅ | O(n·d²) vs O(n²·d); drop-in `KimiLinearAttention` |
 | **Cerebellum selective gating** | ✅ | Prediction-residual gating; skips compute on routine tokens |
 | **Mamba / S4 state-space** | ✅ | Trainable through time: `ssm_scan` tape op, BPTT FD-gradchecked on all five inputs (hardware-parallel scan still roadmap) |
 | **Surprise-routed density (SRD)** | 🧪 | Novel research: per-query exact/linear routing by prediction residual — falsifier passed at 5-6σ twice, gate concentrates on retrieval sites ([SPARSE_ATTENTION.md](SPARSE_ATTENTION.md)) |
-| GPU kernels | ❌ | CPU-first by design (AVX2 matmul); CUDA is roadmap |
+| GPU kernels | 🧪 | matmul dispatches to transformer_core CUDA (T4-validated); phase B = resident device tensors + more ops |
 
 ## Quick start
 
