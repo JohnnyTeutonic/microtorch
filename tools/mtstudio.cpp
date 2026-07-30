@@ -26,6 +26,7 @@
 #include <nlohmann/json.hpp>
 
 #include "microtorch/gguf.hpp"
+#include "microtorch/llama.hpp"
 #include "microtorch/safetensors.hpp"
 #include "parity_model.hpp"
 
@@ -37,7 +38,8 @@ namespace {
 struct Spec {
     std::string name = "run";
     // arch
-    std::string attention = "exact";     // exact | kimi | srd
+    std::string family = "gpt2";         // gpt2 | llama
+    std::string attention = "exact";     // exact | kimi | srd (gpt2 family)
     size_t d = 128, layers = 2, heads = 4, T = 128;
     // data
     std::string corpus, vocab_gguf;
@@ -60,6 +62,7 @@ struct Spec {
 const std::map<std::string, std::array<size_t, 4>> PRESETS = {
     // name -> {d, layers, heads, T}
     {"gpt2-nano", {128, 2, 4, 128}},
+    {"llama-tiny", {128, 2, 4, 128}},
     {"gpt2-small", {256, 4, 8, 256}},
     {"kimi-tiny", {128, 2, 4, 128}},
     {"srd-tiny", {128, 2, 4, 128}},
@@ -81,6 +84,7 @@ Spec parse_spec(const std::string& path) {
         s.heads = it->second[2]; s.T = it->second[3];
         if (p.rfind("kimi", 0) == 0) s.attention = "kimi";
         if (p.rfind("srd", 0) == 0) s.attention = "srd";
+        if (p.rfind("llama", 0) == 0) s.family = "llama";
     }
     if (arch.contains("custom")) {
         const json c = arch["custom"];
@@ -180,8 +184,8 @@ int run(const Spec& s, bool plan_only) {
     if (plan_only) return 0;
     if (s.corpus.empty() || s.vocab_gguf.empty())
         throw std::runtime_error("spec needs data.corpus and data.vocab");
-    if (s.layers != 2)
-        throw std::runtime_error("v0 driver: layers must be 2 (parity model)");
+    if (s.family != "llama" && s.layers != 2)
+        throw std::runtime_error("gpt2 family: layers must be 2 (parity model)");
 
     std::system(("mkdir -p " + s.out_dir).c_str());
     Events ev(s.out_dir + "/events.jsonl");
@@ -203,18 +207,34 @@ int run(const Spec& s, bool plan_only) {
     ev.emit({{"event", "data"}, {"tokens", ids.size()},
              {"vocab", tokens.size()}, {"val_tokens", ids.size() - val_start}});
 
-    // Model + optimizer (+ resume).
-    parity::ParityLM model(attn_kind(s.attention), tokens.size(), s.d, s.heads,
-                           s.T, /*seed=*/7);
-    model.train();
-    nn::AdamW opt(model.parameters(), s.lr);
+    // Model + optimizer (+ resume). Two families behind one seam: the
+    // gpt2 parity model (exact/kimi/srd attention) or nn::Llama (RMSNorm/
+    // RoPE/SwiGLU, HF names -> GGUF-exportable).
+    std::shared_ptr<parity::ParityLM> gpt;
+    std::shared_ptr<nn::Llama> llama;
+    if (s.family == "llama") {
+        nn::LlamaConfig lc;
+        lc.vocab = tokens.size(); lc.d = s.d; lc.n_layers = s.layers;
+        lc.n_heads = s.heads; lc.d_ff = 3 * s.d; lc.n_ctx = s.T;
+        llama = std::make_shared<nn::Llama>(lc, 7);
+    } else {
+        gpt = std::make_shared<parity::ParityLM>(
+            attn_kind(s.attention), tokens.size(), s.d, s.heads, s.T, 7);
+    }
+    nn::Module& model_ref = llama ? static_cast<nn::Module&>(*llama)
+                                  : static_cast<nn::Module&>(*gpt);
+    auto fwd = [&](const std::vector<int>& ids) {
+        return llama ? llama->forward(ids) : gpt->forward(ids);
+    };
+    model_ref.train();
+    nn::AdamW opt(model_ref.parameters(), s.lr);
     const std::string ckpt = s.out_dir + "/model.safetensors";
     const std::string state_path = s.out_dir + "/state.txt";
     int start_step = 0;
     {
         std::ifstream st(state_path);
         if (st >> start_step && start_step > 0) {
-            model.load_state_dict(load_safetensors(ckpt));
+            model_ref.load_state_dict(load_safetensors(ckpt));
             ev.emit({{"event", "resume"}, {"step", start_step}});
         } else start_step = 0;
     }
@@ -222,7 +242,7 @@ int run(const Spec& s, bool plan_only) {
     std::mt19937 rng(123);
     for (int i = 0; i < start_step * s.accum; ++i) rng();
     auto save = [&](int step) {
-        save_safetensors(ckpt, model.state_dict());
+        save_safetensors(ckpt, model_ref.state_dict());
         std::ofstream st(state_path);
         st << step << "\n";
     };
@@ -244,25 +264,25 @@ int run(const Spec& s, bool plan_only) {
             std::vector<int> x(ids.begin() + at, ids.begin() + at + s.T);
             std::vector<int> y(ids.begin() + at + 1,
                                ids.begin() + at + s.T + 1);
-            Var logits = model.forward(x);
+            Var logits = fwd(x);
             Var task = ops::cross_entropy(logits, y);
             Var loss = task;
             if (is_srd)
-                loss = ops::add(task, ops::scale(model.mean_gate(),
+                loss = ops::add(task, ops::scale(gpt->mean_gate(),
                                                  s.lambda_gate));
             backward(ops::scale(loss, 1.0f / static_cast<float>(s.accum)));
             task_mean += task->data(0, 0) / static_cast<float>(s.accum);
             if (is_srd)
-                gate_mean += model.mean_gate()->data(0, 0) /
+                gate_mean += gpt->mean_gate()->data(0, 0) /
                              static_cast<float>(s.accum);
         }
         // Per-module grad norms BEFORE clipping: this is the true signal
         // the glow UI wants (clipping would mask explosions).
         json gm;
         if (s.gradmap_every > 0 && step % s.gradmap_every == 0)
-            gm = grad_map(model);
+            gm = grad_map(model_ref);
         const float total_norm =
-            ops::clip_grad_norm(model.parameters(), s.clip);
+            ops::clip_grad_norm(model_ref.parameters(), s.clip);
         opt.step();
 
         json e = {{"event", "step"}, {"step", step}, {"loss", task_mean},
@@ -273,7 +293,7 @@ int run(const Spec& s, bool plan_only) {
 
         if (step % s.eval_every == 0) {
             NoGrad ng;
-            model.eval();
+            model_ref.eval();
             double vl = 0;
             const int NV = 8;
             std::mt19937 vrng(999);
@@ -283,10 +303,10 @@ int run(const Spec& s, bool plan_only) {
                 std::vector<int> vx(ids.begin() + va, ids.begin() + va + s.T);
                 std::vector<int> vy(ids.begin() + va + 1,
                                     ids.begin() + va + s.T + 1);
-                vl += ops::cross_entropy(model.forward(vx), vy)->data(0, 0);
+                vl += ops::cross_entropy(fwd(vx), vy)->data(0, 0);
             }
             vl /= NV;
-            model.train();
+            model_ref.train();
             ev.emit({{"event", "eval"}, {"step", step}, {"val_loss", vl}});
             if (s.es_patience > 0) {
                 if (vl < best_val - s.es_min_delta) {
@@ -308,24 +328,57 @@ int run(const Spec& s, bool plan_only) {
     // Export.
     if (s.exp_safetensors) {
         save_safetensors(s.out_dir + "/" + s.name + ".safetensors",
-                         model.state_dict());
+                         model_ref.state_dict());
         ev.emit({{"event", "export"}, {"format", "safetensors"}});
     }
     if (s.exp_gguf) {
-        // v0: GPT-2-family blocks are not llama-shaped; GGUF export applies
-        // to llama-family runs (rmsnorm/rope) once that model lands in the
-        // driver. Emit the honest event rather than a wrong file.
-        ev.emit({{"event", "export_skipped"}, {"format", "gguf"},
-                 {"reason", "v0 parity model is not llama-family"}});
+        if (llama) {
+            auto sd2 = model_ref.state_dict();
+            // Tied head: inject lm_head = E^T in microtorch [in, out]
+            // layout; the exporter transposes it back into llama
+            // [vocab, hidden] byte order under weights_in_out.
+            if (!sd2.count("lm_head.weight")) {
+                const Matrix& E = llama->embed_tokens->weight->data;
+                Matrix ET(E.cols(), E.rows());
+                for (size_t i = 0; i < E.rows(); ++i)
+                    for (size_t j = 0; j < E.cols(); ++j) ET(j, i) = E(i, j);
+                sd2.emplace("lm_head.weight", std::move(ET));
+            }
+            gguf::LlamaExportConfig gc;
+            gc.name = s.name;
+            gc.embedding_length = (uint32_t)s.d;
+            gc.block_count = (uint32_t)s.layers;
+            gc.head_count = (uint32_t)s.heads;
+            gc.feed_forward_length = (uint32_t)(3 * s.d);
+            gc.vocab_size = (uint32_t)tokens.size();
+            gc.context_length = (uint32_t)s.T;
+            gc.rms_eps = 1e-6f;
+            gc.weights_in_out = true;   // microtorch Linear is [in, out]
+            gc.tokens = tokens;
+            const std::string gpath = s.out_dir + "/" + s.name + ".gguf";
+            gguf::export_gguf_llama(gpath, sd2, gc);
+            ev.emit({{"event", "export"}, {"format", "gguf"},
+                     {"path", gpath}});
+        } else {
+            ev.emit({{"event", "export_skipped"}, {"format", "gguf"},
+                     {"reason", "gpt2-family blocks are not llama-shaped"}});
+        }
     }
     ev.emit({{"event", "done"}, {"best_val", best_val},
              {"early_stopped", stopped_early}});
 
     if (s.serve) {
-        std::printf("serve: model exported to %s/%s.safetensors\n",
-                    s.out_dir.c_str(), s.name.c_str());
-        std::printf("serve: llama-family GGUF serving lands with the llama "
-                    "driver model; for now inspect via the safetensors.\n");
+        if (llama && s.exp_gguf) {
+            std::printf("serve: tinyllama %s/%s.gguf %s/%s.gguf 4 prompt "
+                        "\"once upon a time\" --max-tokens 40 -ngl 0 "
+                        "--top-k 1 --raw-prompt\n",
+                        s.out_dir.c_str(), s.name.c_str(), s.out_dir.c_str(),
+                        s.name.c_str());
+        } else {
+            std::printf("serve: exported to %s/%s.safetensors (gguf serving "
+                        "needs family=llama + gguf export)\n",
+                        s.out_dir.c_str(), s.name.c_str());
+        }
     }
     return 0;
 }
