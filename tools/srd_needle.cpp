@@ -5,7 +5,7 @@
 // positions.
 //
 //   srd_needle [steps=600] [T=256] [d=128] [csv_prefix=/tmp/srd_needle]
-//              [batch=1] [npairs=8] [nkeys=64]
+//              [batch=1] [npairs=8] [nkeys=64] [seed=7]
 //
 // Task (synthetic vocab of 256 symbols):
 //   [filler | 8 x (key value) pairs | random filler ... | QUERY key_j]
@@ -96,14 +96,17 @@ int main(int argc, char** argv) {
     const int B = argc > 5 ? std::max(1, std::atoi(argv[5])) : 1;
     if (argc > 6) g_npairs = std::max(1, std::min(8, std::atoi(argv[6])));
     if (argc > 7) g_nkeys = std::max(g_npairs, std::min(64, std::atoi(argv[7])));
+    // Model-init seed (shared by all four lanes, as always). CLI-exposed
+    // for the rung-1 breakthrough replication; 7 reproduces every prior run.
+    const unsigned seed = argc > 8 ? static_cast<unsigned>(std::atoi(argv[8])) : 7;
     const float lr = 3e-3f, lambda_gate = 0.05f;
     const int PROBE_EVERY = 25, NPROBE = 32;
 
     std::vector<Lane> lanes;
-    lanes.emplace_back("exact", AttnKind::EXACT, T, d, 7, lr);
-    lanes.emplace_back("kimi", AttnKind::KIMI, T, d, 7, lr);
-    lanes.emplace_back("srd", AttnKind::SRD, T, d, 7, lr);
-    lanes.emplace_back("srd_f", AttnKind::SRD, T, d, 7, lr);
+    lanes.emplace_back("exact", AttnKind::EXACT, T, d, seed, lr);
+    lanes.emplace_back("kimi", AttnKind::KIMI, T, d, seed, lr);
+    lanes.emplace_back("srd", AttnKind::SRD, T, d, seed, lr);
+    lanes.emplace_back("srd_f", AttnKind::SRD, T, d, seed, lr);
     lanes[3].model.set_falsifier(true);
     for (auto& l : lanes) l.model.train();
 
@@ -196,8 +199,9 @@ int main(int argc, char** argv) {
         probe_csv.flush();
     };
 
-    std::printf("batch=%d npairs=%d nkeys=%d (uniform-CE floor %.4f)\n", B,
-                g_npairs, g_nkeys, std::log(static_cast<double>(g_nkeys)));
+    std::printf("batch=%d npairs=%d nkeys=%d seed=%u (uniform-CE floor %.4f)\n",
+                B, g_npairs, g_nkeys, seed,
+                std::log(static_cast<double>(g_nkeys)));
     std::printf("%5s %9s %9s %9s %9s\n", "step", "exact", "kimi", "srd",
                 "srd_f");
     for (int step = start_step + 1; step <= steps; ++step) {

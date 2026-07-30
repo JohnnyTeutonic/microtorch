@@ -261,6 +261,44 @@ the original task): the calibration ladder starts at 2 pairs / 8 keys /
 T=64 / B=4 and raises difficulty until exact stops forming the circuit --
 the lane comparison then runs at the hardest rung the control passes.
 
+### Calibration ladder + rung-1 breakthrough (2026-07-31, results_needle_ladder1_{train,probe}.csv)
+
+Ladder rungs (600 steps, B=4): 2p/8k/T64, 4p/16k/T64, 8p/32k/T128 -- all
+four lanes floor-bound at every rung, accuracy oscillating with no trend.
+Consistent with the induction-head literature: recall circuits form as an
+abrupt phase change, and 600 steps is pre-jump. So rung 1 was extended to
+3000 steps via checkpoint resume, and the phase change arrived -- with an
+ordering nobody pre-registered:
+
+    step   exact_ce  srd_ce  srd_f_ce   (floor = log 8 = 2.079)
+    1800    2.201     2.143    2.357     all hovering
+    2000    2.080     1.828    2.080     srd breaks
+    2400    2.067     1.714    1.949     srd_f following
+    3000    2.066     1.539    1.662     exact still floor-bound
+
+    breakthrough (3 consecutive probes < floor-0.15):
+      srd @ 2000, srd_f @ 2575, exact NONE, kimi NONE (through 3000)
+    last-8 probes: srd ce 1.56 / acc 0.34;  srd_f 1.76 / 0.28;
+                   exact 2.11 / 0.14;  kimi 2.11 / 0.15
+
+**SRD formed the recall circuit first; exact attention has not formed it
+at all within the budget.** The falsifier pair decomposes the effect:
+gating AT ALL helps (srd_f eventually breaks while exact never does --
+plausibly multiplicative gating suppresses the filler gradient that
+drowns the rare answer-position signal in the exact lane), and
+surprise-COUPLED gating helps beyond that (srd leads srd_f by ~575 steps
+and ~0.2 nats). If this holds up it inverts the V1 framing: the gate is
+not a tax on recall paid for efficiency -- it is an accelerant for
+forming the recall circuit.
+
+**Status: single seed (7), single config -- NOT yet a claim.**
+Pre-registered replication (in flight): seeds 1,2,3 at rung 1, 3000
+steps; criteria are (i) srd breakthrough strictly before exact per seed,
+(ii) last-8 CE ordering srd < srd_f < exact. Also in flight: seed-7
+extension to 6000 steps -- if exact catches up the claim is
+"acceleration", if it stays floor-bound the claim is "enablement at this
+capacity". Only after both: ladder the difficulty back up.
+
 ## 3. Protocol
 
 - **Scale ladder**: (1) op-level gradchecks → (2) 2-layer model, TinyStories
