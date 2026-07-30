@@ -33,6 +33,7 @@
 #include <vector>
 
 #include "microtorch/nn.hpp"
+#include "microtorch/safetensors.hpp"
 #include "microtorch/srd.hpp"
 
 using namespace microtorch;
@@ -249,13 +250,47 @@ int main(int argc, char** argv) {
     lanes[3].model.set_falsifier(true);
     for (auto& l : lanes) l.model.train();
 
-    std::ofstream csv(csv_path);
-    csv << "step,exact,kimi,srd,srd_f,srd_gate,srdf_gate\n";
+    // Chunked execution with resume: WSL kills detached jobs, so long runs
+    // go as N foreground chunks. Model weights checkpoint per lane;
+    // optimizer moments deliberately restart each chunk (identical
+    // treatment for every lane, so the comparison stays fair -- noted in
+    // the results). The batch RNG fast-forwards so windows continue the
+    // same stream.
+    const std::string ckpt_dir = "/tmp/srd_ckpt";
+    int start_step = 0;
+    {
+        std::ifstream st(ckpt_dir + "/state.txt");
+        if (st >> start_step && start_step > 0) {
+            std::printf("resuming from step %d\n", start_step);
+            for (auto& lane : lanes) {
+                lane.model.load_state_dict(
+                    load_safetensors(ckpt_dir + "/" + lane.name +
+                                     ".safetensors"));
+            }
+        } else {
+            start_step = 0;
+        }
+    }
+
+    std::ofstream csv(csv_path, start_step > 0 ? std::ios::app : std::ios::out);
+    if (start_step == 0) csv << "step,exact,kimi,srd,srd_f,srd_gate,srdf_gate\n";
 
     std::mt19937 batch_rng(123);   // ONE stream: identical windows per lane
+    for (int s = 0; s < start_step; ++s) batch_rng();   // fast-forward
+
+    auto save_ckpt = [&](int step_done) {
+        std::system(("mkdir -p " + ckpt_dir).c_str());
+        for (auto& lane : lanes) {
+            save_safetensors(ckpt_dir + "/" + lane.name + ".safetensors",
+                             lane.model.state_dict());
+        }
+        std::ofstream st(ckpt_dir + "/state.txt");
+        st << step_done << "\n";
+    };
+
     std::printf("%5s %9s %9s %9s %9s %7s %7s\n", "step", "exact", "kimi",
                 "srd", "srd_f", "gate", "gate_f");
-    for (int step = 1; step <= steps; ++step) {
+    for (int step = start_step + 1; step <= steps; ++step) {
         const size_t start = batch_rng() % (ids.size() - T - 1);
         std::vector<int> x(ids.begin() + start, ids.begin() + start + T);
         std::vector<int> y(ids.begin() + start + 1, ids.begin() + start + T + 1);
@@ -288,6 +323,7 @@ int main(int argc, char** argv) {
         }
     }
     csv.close();
-    std::printf("wrote %s\n", csv_path.c_str());
+    save_ckpt(steps);
+    std::printf("wrote %s (through step %d)\n", csv_path.c_str(), steps);
     return 0;
 }

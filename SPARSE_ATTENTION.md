@@ -109,6 +109,39 @@ vs antidiagonal sums vs leverage-score sampling as the block router. Least novel
 we pick this), but fastest to a publishable ablation and it builds the block
 harness V1's hardened-inference mode needs anyway.
 
+## 2b. V1 graduation run — RESULTS (2026-07-30)
+
+Setup: tools/srd_parity.cpp, four parameter-matched 2-layer LMs on identical
+TinyStories batches (chat7b's 20000-word vocab, unk 14.9%, T=64, d=128,
+4 heads, AdamW 3e-3 + clip 1.0, SRD density price lambda=0.05, 300 steps,
+one seed). Task loss (aux excluded) averaged per 100-step segment; paired
+stats over the final 100 (identical windows make lanes directly pairable).
+
+    steps 201-300 means:  exact 5.586 | kimi 5.397 | srd 5.515 | srd_f 5.584
+    paired srd_f - srd  = +0.069  (SE 0.011, t = 6.3)
+    paired srd  - exact = -0.071  (SE 0.011, t = -6.5)
+    mean gate: srd 0.599 vs falsified 0.602  (same density budget)
+
+**Falsifier verdict: PASSED.** With the same gate budget, the shuffled-
+predictor lane is worse by ~0.07 nats at 6 sigma. The surprise gate is
+doing real, query-aligned routing work -- not just acting as a stochastic
+path mixer.
+
+**Regime finding (honest):** at this scale the ordering is
+kimi < srd < exact ~ srd_f -- pure linear attention WINS short-context
+small-data TinyStories, and exact attention is the weak lane. SRD lands
+between, tracking its gate (~0.6 toward linear). So V1's mechanism is
+validated, but this regime cannot show the quality case for density
+routing: the battleground is longer context, where linear attention's
+state bottleneck bites and surprising tokens should need exact recall.
+
+Next experiment (Colab, T=256-1024): same four lanes plus a
+needle-in-haystack probe; expected signature if V1 is right: exact > kimi
+at long T, with srd matching exact at a fraction of the exact-path budget,
+and gate mass concentrating on retrieval-critical tokens. Caveats to
+carry: single seed, 14.9% unk, optimizer moments reset at chunk
+boundaries (identical across lanes).
+
 ## 3. Protocol
 
 - **Scale ladder**: (1) op-level gradchecks → (2) 2-layer model, TinyStories
