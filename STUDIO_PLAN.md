@@ -201,7 +201,36 @@ srd_parity harness pattern gives the 4-lane comparison for free.
 Kill criterion up front: if the variant cannot match backprop within X%
 on the TinyStories parity task, it is a negative result, documented, done.
 
-## 12. Answering the parser question (asked externally)
+## 12. transformer_cpp: the tunable-surface directive (2026-07-31)
+
+Jonathan's directive: transformer_cpp should expose as many viable
+hyperparameters and tunable components as a modern transformer needs.
+State after the 07-31 cleanup:
+
+- **Dead code removed**: main.cpp/main.hpp (the trainer that consumed the
+  legacy config), the cuda_kernels ghost pair. `train` (ex train_wikitext)
+  is THE central trainer; scripts updated.
+- **Live tunables today** (CLI + --config JSON overlay): dims/heads/layers,
+  seq len, epochs/steps, batch size, lr + warmup + cosine decay, family
+  presets (llama|vanilla) incl. RMSNorm/RoPE/bias-freezing, fp16 (CUDA),
+  LoRA (rank/alpha), quantization mode, doc-aligned + assistant-only-loss,
+  export gguf/safetensors/HF, early stopping (patience/min-delta, wired
+  07-30), **MoE (experts/top_k/aux coefficient, wired 07-31)**.
+- **Wiring queue** (config exists or module exists, trainer path doesn't):
+  weight decay + Adam betas as CLI/JSON knobs on the live trainer;
+  gradient-accumulation steps; label smoothing; per-component lr;
+  dropout schedule; attention flavors (sliding window + GQA are
+  constructor-plumbed -- verify end-to-end trainability the MoE way:
+  smoke + loss-falls check per flag).
+- **Post-training track** (per 07-31 directive): MoE fine-tuning
+  (dense-to-MoE upcycling), distillation (teacher logits from a big GGUF
+  via tinyllama.cpp), RLHF-lite (the repo carries untested ppo_gae.cpp /
+  distributed_rlhf infrastructure -- audit before promising anything),
+  post-training quantization sweeps via the existing quant stack.
+  Not enterprise -- but each item lands with the same discipline:
+  wire, smoke, loss-falls-or-it-is-not-done.
+
+## 13. Answering the parser question (asked externally)
 
 papers/fetch.py is a DETERMINISTIC rule-based scraper: regex families
 over detexed LaTeX plus a model-size table parser, every extraction
