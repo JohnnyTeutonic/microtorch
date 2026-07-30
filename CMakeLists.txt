@@ -83,6 +83,11 @@ target_link_libraries(benchmark_mamba PRIVATE microtorch)
 add_executable(phase3_integration tools/phase3_integration_test.cpp)
 target_link_libraries(phase3_integration PRIVATE microtorch)
 
+# Semantic E2E: trained GGUF -> state_dict -> re-export (gguf + safetensors);
+# tinyllama.cpp generation parity between original and re-export is the gate.
+add_executable(gguf_roundtrip tools/gguf_roundtrip.cpp)
+target_link_libraries(gguf_roundtrip PRIVATE microtorch)
+
 # Python bindings (optional; requires Python dev headers). pybind11 is
 # fetched at configure time so no vendored copy lives in-tree.
 option(MICROTORCH_BUILD_PYTHON "Build the pybind11 Python module" OFF)
