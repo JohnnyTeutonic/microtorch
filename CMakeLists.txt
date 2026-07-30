@@ -116,6 +116,11 @@ target_link_libraries(gguf_roundtrip PRIVATE microtorch)
 add_executable(srd_parity tools/srd_parity.cpp)
 target_link_libraries(srd_parity PRIVATE microtorch)
 
+# SRD needle-in-haystack: synthetic associative recall, the retrieval-
+# structured eval the T=256 regime negative pointed to.
+add_executable(srd_needle tools/srd_needle.cpp)
+target_link_libraries(srd_needle PRIVATE microtorch)
+
 # Python bindings (optional; requires Python dev headers). pybind11 is
 # fetched at configure time so no vendored copy lives in-tree.
 option(MICROTORCH_BUILD_PYTHON "Build the pybind11 Python module" OFF)
