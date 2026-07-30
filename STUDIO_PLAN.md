@@ -216,12 +216,19 @@ State after the 07-31 cleanup:
   LoRA (rank/alpha), quantization mode, doc-aligned + assistant-only-loss,
   export gguf/safetensors/HF, early stopping (patience/min-delta, wired
   07-30), **MoE (experts/top_k/aux coefficient, wired 07-31)**.
-- **Wiring queue** (config exists or module exists, trainer path doesn't):
-  weight decay + Adam betas as CLI/JSON knobs on the live trainer;
-  gradient-accumulation steps; label smoothing; per-component lr;
-  dropout schedule; attention flavors (sliding window + GQA are
-  constructor-plumbed -- verify end-to-end trainability the MoE way:
-  smoke + loss-falls check per flag).
+- **Receipts earned 2026-07-31** (wire-smoke-loss-falls, tiny/30-60 steps):
+  MoE (4 experts top-2: loss 9.66->8.60; lags dense at toy scale as
+  expected, ~3x step cost); Adam betas + weight decay (A/B: knob changes
+  diverge trajectories, 7.87 vs 6.87 step-30); GQA (2 KV heads trains at
+  parity with dense, 7.82 vs 7.87); early stopping (07-30).
+- **Receipt PENDING**: sliding window -- masking code present
+  (attention.cpp:1306, -inf outside +/-half-window) and SWA lanes train,
+  but the w4-vs-w128 A/B was inconclusive at 30 steps (differences within
+  noise, tight window slightly BETTER). Needs the deterministic check:
+  same weights, one forward_batched, outputs must differ across window
+  sizes (also verify causal-mask combination -- the masking is symmetric).
+- **Wiring queue remaining**: gradient-accumulation steps; label
+  smoothing; per-component lr; dropout schedule.
 - **Post-training track** (per 07-31 directive): MoE fine-tuning
   (dense-to-MoE upcycling), distillation (teacher logits from a big GGUF
   via tinyllama.cpp), RLHF-lite (the repo carries untested ppo_gae.cpp /
