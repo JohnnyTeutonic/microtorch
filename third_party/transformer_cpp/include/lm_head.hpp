@@ -1,0 +1,416 @@
+#pragma once
+
+#ifdef USE_CUDA
+// CRITICAL: Include math fix FIRST
+#include "cuda/cuda_math_fix.hpp"
+#endif
+
+#include "components.hpp"
+#include "layer_norm.hpp"
+#include "tiktoken_tokenizer.hpp"
+#include <functional>
+#include <iostream>
+#include <memory>
+#include <string>
+#include <vector>
+#include <deque>
+
+// Only include CUDA headers if CUDA is available
+#ifdef USE_CUDA
+#include <cublas_v2.h>
+#include <cuda_fp16.h>
+#endif
+
+/**
+ * @brief Language model head for token prediction in transformer models.
+ * 
+ * The LanguageModelHead class transforms hidden states into logits over the vocabulary,
+ * enabling token prediction for language modeling tasks. Features include:
+ * - Linear projection to vocabulary size
+ * - Bias terms for each token
+ * - Adaptive token frequency tracking
+ * - Adam optimizer integration
+ * - Dropout regularization
+ */
+class LanguageModelHead {
+  private:
+    Matrix projection;                    ///< Projection matrix to vocabulary space
+    Vector bias;                         ///< Bias terms for each token
+    float dropout_prob;                  ///< Dropout probability during training
+    size_t vocab_size_;                  ///< Size of the vocabulary
+    size_t hidden_size_;                 ///< Size of input hidden states
+    Matrix hidden_states;                ///< Cached hidden states for backward pass
+    Matrix hidden_states_;               ///< Cached hidden states for forward pass
+    std::vector<float> token_frequencies; ///< Tracked frequencies of token usage
+    float pruning_threshold;
+    std::vector<unsigned char> active_tokens;  // Changed from vector<bool> to vector<unsigned char>
+    std::vector<int> active_token_indices;     // List of indices of active tokens
+    size_t training_steps;
+    bool is_training_;  // Add training state member variable
+    
+    // Adam optimizer state
+    Matrix m_proj;  // Momentum for projection
+    Matrix v_proj;  // RMSprop for projection
+    Vector m_bias;  // Momentum for bias
+    Vector v_bias;  // RMSprop for bias
+    size_t t;      // Time step
+    float beta1;   // Momentum parameter
+    float beta2;   // RMSprop parameter
+    float eps;     // Small constant for numerical stability
+    
+    // Learning rate adaptation
+    float current_lr;  // Current learning rate
+    float min_lr;      // Minimum learning rate
+    float max_lr;      // Maximum learning rate
+    float lr_decay;    // Learning rate decay factor
+    float lr_growth;   // Learning rate growth factor
+    std::deque<float> loss_history;
+    static constexpr size_t LOSS_HISTORY_SIZE = 100;
+    float prev_loss = std::numeric_limits<float>::infinity();
+    
+    // Add the update_learning_rate function declaration
+    void update_learning_rate(float current_loss);
+    
+    // Pinned memory for efficient GPU transfers
+    float* h_projection = nullptr;
+    float* h_bias = nullptr;
+
+    // Device memory buffers (declare when USE_CUDA, not just when compiling with nvcc)
+    float* d_projection = nullptr;  // Device copy of projection matrix
+    float* d_bias = nullptr;       // Device copy of bias
+#ifdef USE_CUDA
+    half* d_projection_fp16 = nullptr;  // FP16 version of projection
+    half* d_hidden_states_fp16 = nullptr;  // FP16 version of input
+    half* d_output_fp16 = nullptr;  // FP16 intermediate output
+#endif
+    float* d_output = nullptr;      // Final FP32 output
+
+    // Add new member variables
+    std::unique_ptr<LayerNorm> layer_norm;  ///< Layer normalization
+    std::shared_ptr<TiktokenTokenizer> tokenizer;  ///< Tokenizer instance
+
+    // Add vocabulary cache
+    std::vector<std::string> vocabulary_cache;
+    bool vocabulary_initialized = false;
+
+    // Add method to initialize vocabulary
+    void ensure_vocabulary_initialized();
+
+    // Add method to get token text
+    std::string get_token_text(size_t token_id) const {
+        if (vocabulary_initialized && token_id < vocabulary_cache.size()) {
+            return vocabulary_cache[token_id];
+        } else if (tokenizer) {
+            return tokenizer->decode({static_cast<int>(token_id)});
+        }
+        return "";
+    }
+
+    /**
+     * @brief Computes gradients for the linear projection.
+     * @param grad_output Gradient of the loss with respect to the output
+     */
+    void backward_linear(const Matrix& grad_output);
+
+    /**
+     * @brief Implementation of the forward pass computation.
+     * @param hidden_states Input hidden states
+     * @return Output logits over vocabulary
+     */
+    Matrix forward_impl(const Matrix& hidden_states);
+
+    void update_active_tokens();
+
+#ifdef USE_CUDA
+    // CUDA streams and synchronization
+    cudaStream_t compute_stream;
+
+    // Device memory for active tokens and indices
+    unsigned char* d_active_tokens = nullptr;
+    int* d_active_token_indices = nullptr;
+
+    // Maximum batch size for memory allocation
+    static constexpr size_t max_batch_size = 4096;  // Adjust based on your needs
+
+    // CUDA kernel launchers
+    __host__ void launch_convert_to_fp16(half* output, const float* input, size_t size);
+    __host__ void launch_convert_and_expand_vocab(
+        float* output, const half* input, size_t batch_size, size_t vocab_size, size_t active_vocab_size);
+
+    cublasHandle_t cublas_handle;
+#endif
+
+    // Helper methods
+    void bias_completion_format(Matrix& logits);
+
+    // Add new member variables for caching
+    Matrix last_logits_;                 ///< Cache of last computed logits
+    Matrix last_hidden_state_;           ///< Cache of last hidden state
+
+  public:
+    /**
+     * @brief Constructs a language model head.
+     * @param hidden_size Size of input hidden states
+     * @param vocab_size Size of the vocabulary
+     */
+    LanguageModelHead(size_t hidden_size, size_t vocab_size);
+
+    ~LanguageModelHead();  // Just declare it here
+
+    /**
+     * @brief Performs the forward pass, computing logits from hidden states.
+     * @param hidden_states Input hidden states
+     * @return Matrix of logits over vocabulary
+     */
+    Matrix forward(const Matrix& hidden_states, bool training = false);
+
+    /**
+     * @brief Performs the backward pass with Adam optimization.
+     * @param grad_output Gradient of the loss with respect to the output
+     * @param hidden_states Original input hidden states
+     * @return Gradient with respect to the input
+     */
+    Matrix backward_pass(const Matrix& grad_output, const Matrix& hidden_states);
+
+#if defined(USE_CUDA) && defined(CUDA_AVAILABLE)
+    /**
+     * @brief Device-resident backward pass + Adam weight update.
+     * Consumes the gradient already on the GPU (avoids the 655MB D2H copy),
+     * updates the resident projection weights on the device, and returns
+     * grad_hidden for the remainder of the backward pass.
+     * @param d_grad_logits Device pointer to gradient [num_positions x vocab_size]
+     * @param num_positions Number of positions (batch_size * seq_len)
+     * @param grad_hidden_out OUTPUT host matrix [num_positions x hidden_size]
+     */
+    void backward_pass_cuda(float* d_grad_logits, int num_positions, Matrix& grad_hidden_out);
+#endif
+
+    /**
+     * @brief Copies the device-resident weights back to the host matrices.
+     * No-op on CPU builds or if the device weights are not initialized. Call
+     * before eval/inference or checkpoint saving so the host weights are current.
+     */
+    void sync_weights_from_device();
+
+    /**
+     * @brief Marks the device-resident weights stale so the next training step
+     * re-uploads the host weights. Call after loading host weights (e.g.
+     * checkpoint restore). No-op on CPU builds.
+     */
+    void invalidate_device_weights();
+
+    /**
+     * @brief Saves the model head to a stream.
+     * @param os Output stream to save to
+     */
+    void save(std::ostream& os) const {
+        projection.save(os);
+        bias.save(os);
+        os.write(reinterpret_cast<const char*>(&dropout_prob), sizeof(dropout_prob));
+    }
+
+    /**
+     * @brief Loads a model head from a stream.
+     * @param is Input stream to load from
+     * @return Unique pointer to loaded model head
+     */
+    static std::unique_ptr<LanguageModelHead> load(std::istream& is) {
+        auto lm_head = std::make_unique<LanguageModelHead>(0, 0); // Temporary sizes
+        lm_head->projection = Matrix::load(is);
+        lm_head->bias = Vector::load(is);
+        is.read(reinterpret_cast<char*>(&lm_head->dropout_prob), sizeof(lm_head->dropout_prob));
+        return lm_head;
+    }
+
+    /**
+     * @brief Gets references to trainable parameters.
+     * @return Vector of parameter references
+     */
+    std::vector<std::reference_wrapper<Matrix>> get_parameters() {
+        std::vector<std::reference_wrapper<Matrix>> params;
+        params.push_back(std::ref(projection));
+        // Note: We'll need to handle bias separately since it's a Vector
+        return params;
+    }
+
+    /**
+     * @brief Gets the projection weights matrix.
+     * @return Reference to the projection weights matrix
+     */
+    Matrix& get_weights() { return projection; }
+
+    /**
+     * @brief Gets the projection weights matrix (const version).
+     * @return Const reference to the projection weights matrix
+     */
+    const Matrix& get_weights() const { return projection; }
+
+    // GGUF export alias
+    const Matrix& getWeights() const { return projection; }
+
+    /**
+     * @brief Gets the bias vector.
+     * @return Reference to the bias vector
+     */
+    Vector& get_bias() { return bias; }
+
+    /**
+     * @brief Gets the bias vector (const version).
+     * @return Const reference to the bias vector
+     */
+    const Vector& get_bias() const { return bias; }
+
+    /**
+     * @brief Projects hidden states to vocabulary space.
+     * @param hidden_states Input hidden states
+     * @return Matrix of logits over vocabulary
+     */
+    Matrix project_to_vocab(const Matrix& hidden_states);
+
+    /**
+     * @brief Performs backward pass with optional target distribution.
+     * @param grad_output Gradient of the loss with respect to the output
+     * @param target_distribution Optional target distribution for distillation
+     * @return Gradient with respect to the input
+     */
+    Matrix backward(const Matrix& grad_output, const Matrix& target_distribution = Matrix());
+
+    /**
+     * @brief Updates token frequencies based on observed tokens.
+     * @param tokens Vector of token indices observed in the current batch
+     */
+    void update_token_frequencies(const std::vector<int>& tokens);
+
+    /**
+     * @brief Prunes vocabulary by removing infrequently used tokens.
+     * @param min_frequency_threshold Minimum frequency threshold for keeping tokens
+     */
+    void prune_vocabulary(float min_frequency_threshold = 1e-5);
+
+    void set_training(bool training_mode);  // Add setter for training mode
+
+    // Add tokenizer setter
+    void set_tokenizer(std::shared_ptr<TiktokenTokenizer> tok);
+
+    // Add getter for token frequencies
+    const std::vector<float>& get_token_frequencies() const {
+        return token_frequencies;
+    }
+
+    // Add copy constructor
+    LanguageModelHead(const LanguageModelHead& other) 
+        : projection(other.projection),
+          bias(other.bias),
+          dropout_prob(other.dropout_prob),
+          vocab_size_(other.vocab_size_),
+          hidden_size_(other.hidden_size_),
+          hidden_states(other.hidden_states),
+          hidden_states_(other.hidden_states_),
+          token_frequencies(other.token_frequencies),
+          pruning_threshold(other.pruning_threshold),
+          active_tokens(other.active_tokens),
+          active_token_indices(other.active_token_indices),
+          training_steps(other.training_steps),
+          is_training_(other.is_training_),
+          // Adam optimizer state
+          m_proj(other.m_proj),
+          v_proj(other.v_proj),
+          m_bias(other.m_bias),
+          v_bias(other.v_bias),
+          t(other.t),
+          beta1(other.beta1),
+          beta2(other.beta2),
+          eps(other.eps),
+          // Learning rate adaptation
+          current_lr(other.current_lr),
+          min_lr(other.min_lr),
+          max_lr(other.max_lr),
+          lr_decay(other.lr_decay),
+          lr_growth(other.lr_growth),
+          loss_history(other.loss_history),
+          prev_loss(other.prev_loss) {
+        
+        // Deep copy layer_norm if it exists
+        if (other.layer_norm) {
+            layer_norm = std::make_unique<LayerNorm>(*other.layer_norm);
+        }
+        
+        // Copy tokenizer reference
+        tokenizer = other.tokenizer;
+        
+        // Initialize device memory to nullptr since it will be allocated on demand
+        h_projection = nullptr;
+        h_bias = nullptr;
+        d_projection = nullptr;
+        d_bias = nullptr;
+#ifdef __CUDACC__
+        d_projection_fp16 = nullptr;
+        d_hidden_states_fp16 = nullptr;
+        d_output_fp16 = nullptr;
+#endif
+        d_output = nullptr;
+        
+    #ifdef USE_CUDA
+        d_active_tokens = nullptr;
+        d_active_token_indices = nullptr;
+    #endif
+    }
+
+    // Add softmax helper function
+    Vector softmax(const Vector& input) const {
+        Vector output(input.size());
+        float max_val = *std::max_element(input.begin(), input.end());
+        float sum = 0.0f;
+        
+        // Compute exp and sum with numerical stability
+        for (size_t i = 0; i < input.size(); i++) {
+            output[i] = std::exp(input[i] - max_val);
+            sum += output[i];
+        }
+        
+        // Normalize
+        if (sum > 0.0f) {  // Guard against division by zero
+            for (size_t i = 0; i < output.size(); i++) {
+                output[i] /= sum;
+            }
+        } else {
+            // If sum is zero, return uniform distribution
+            float uniform_val = 1.0f / output.size();
+            std::fill(output.begin(), output.end(), uniform_val);
+        }
+        
+        return output;
+    }
+
+    /**
+     * @brief Sample next token using input-dependent randomness
+     * @param logits Raw logits from the model
+     * @param input_str Input string used for seeding
+     * @param temperature Sampling temperature
+     * @return One-hot vector representing the sampled token
+     */
+    Vector sample_next_token(const Matrix& logits, const std::string& input_str, float temperature = 1.0f);
+
+    /**
+     * @brief Resets any stateful information in the language model head
+     */
+    void reset_state() {
+        // Reset cached matrices to empty matrices
+        last_logits_ = Matrix();
+        last_hidden_state_ = Matrix();
+        hidden_states = Matrix();
+        hidden_states_ = Matrix();
+        
+        // Reset vectors
+        token_frequencies.clear();
+        active_tokens.clear();
+        active_token_indices.clear();
+        
+        // Reset counters
+        training_steps = 0;
+        
+        // Reset vocabulary cache
+        vocabulary_initialized = false;
+        vocabulary_cache.clear();
+    }
+};

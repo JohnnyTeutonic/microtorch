@@ -23,7 +23,21 @@ if(MICROTORCH_CUDA)
     set(CUDA_ENABLED ON CACHE BOOL "transformer_cpp CUDA kernels" FORCE)
 endif()
 
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../transformer_cpp
+# transformer_core source resolution: the development layout keeps
+# transformer_cpp as a SIBLING (Jonathan's machine, richest history);
+# clones from GitHub use the VENDORED copy in third_party/ (synced via
+# tools/sync_vendor.sh). CI discovered the sibling-only assumption made
+# the pushed repo unbuildable by anyone else (workflow run #13).
+if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/../transformer_cpp/CMakeLists.txt)
+    set(MICROTORCH_TCPP_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../transformer_cpp)
+elseif(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/third_party/transformer_cpp/CMakeLists.txt)
+    set(MICROTORCH_TCPP_DIR ${CMAKE_CURRENT_SOURCE_DIR}/third_party/transformer_cpp)
+else()
+    message(FATAL_ERROR "transformer_cpp sources not found (sibling dir or "
+                        "third_party/transformer_cpp)")
+endif()
+message(STATUS "transformer_core from: ${MICROTORCH_TCPP_DIR}")
+add_subdirectory(${MICROTORCH_TCPP_DIR}
                  ${CMAKE_BINARY_DIR}/transformer_cpp EXCLUDE_FROM_ALL)
 
 add_library(microtorch STATIC
