@@ -69,7 +69,6 @@ jobs:
             build-essential \
             nlohmann-json3-dev \
             libgtest-dev \
-            gcov \
             lcov
 
       - name: Configure with coverage
@@ -89,12 +88,15 @@ jobs:
       - name: Generate coverage report
         run: |
           cd build
-          lcov --directory . --capture --output-file coverage.info
-          lcov --remove coverage.info '/usr/*' '*/tests/*' --output-file coverage.info
+          lcov --directory . --capture --output-file coverage.info \
+            --ignore-errors mismatch,inconsistent,unused
+          lcov --remove coverage.info '/usr/*' '*/tests/*' '*/third_party/*' \
+            --output-file coverage.info \
+            --ignore-errors mismatch,inconsistent,unused
           lcov --list coverage.info
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v5
         with:
           files: ./build/coverage.info
           flags: unittests
@@ -124,7 +126,7 @@ jobs:
       - name: Run clang-tidy
         run: |
           mkdir build && cd build
-          cmake .. -DCMAKE_CXX_COMPILER=clang++
+          cmake .. -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
           clang-tidy -p=. ../src/*.cpp ../tests/*.cpp || true
 
   valgrind:
@@ -162,7 +164,7 @@ jobs:
         continue-on-error: true
 
       - name: Upload Valgrind report
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: valgrind-report
           path: build/valgrind.log

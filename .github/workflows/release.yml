@@ -40,7 +40,7 @@ jobs:
         run: cd build && ctest --output-on-failure -V
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: build-artifacts
           path: build/
@@ -56,7 +56,7 @@ jobs:
           fetch-depth: 0
 
       - name: Download artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: build-artifacts
           path: build/
@@ -187,7 +187,7 @@ jobs:
           ./benchmark_mamba 2>&1 | tee -a ../benchmarks.md
 
       - name: Upload benchmark results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: release-benchmarks
           path: benchmarks.md
