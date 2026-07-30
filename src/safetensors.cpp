@@ -59,4 +59,41 @@ std::map<std::string, Matrix> load_safetensors(
     return out;
 }
 
+void save_safetensors(const std::string& path,
+                      const std::map<std::string, Matrix>& tensors) {
+    // Build the JSON header first; offsets are relative to the byte
+    // region after the header, per the format spec.
+    nlohmann::json header;
+    std::uint64_t offset = 0;
+    for (const auto& [name, m] : tensors) {
+        const std::uint64_t nbytes =
+            static_cast<std::uint64_t>(m.rows()) * m.cols() * sizeof(float);
+        header[name] = {
+            {"dtype", "F32"},
+            {"shape", {m.rows(), m.cols()}},
+            {"data_offsets", {offset, offset + nbytes}},
+        };
+        offset += nbytes;
+    }
+    std::string htext = header.dump();
+    // Pad header to 8-byte alignment with spaces -- the reference
+    // implementation does this, and tinyllama.cpp's GGUF-adjacent readers
+    // assume aligned tensor data (the repair_gguf.py lesson).
+    while (htext.size() % 8 != 0) htext.push_back(' ');
+
+    std::ofstream f(path, std::ios::binary);
+    if (!f) throw std::runtime_error("safetensors: cannot write " + path);
+    const std::uint64_t hlen = htext.size();
+    f.write(reinterpret_cast<const char*>(&hlen), 8);
+    f.write(htext.data(), static_cast<std::streamsize>(hlen));
+    for (const auto& [name, m] : tensors) {
+        for (size_t i = 0; i < m.rows(); ++i)
+            for (size_t j = 0; j < m.cols(); ++j) {
+                const float v = m(i, j);
+                f.write(reinterpret_cast<const char*>(&v), sizeof(float));
+            }
+    }
+    if (!f) throw std::runtime_error("safetensors: write failed " + path);
+}
+
 }  // namespace microtorch

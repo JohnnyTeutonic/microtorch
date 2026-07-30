@@ -7,6 +7,7 @@
 // Naming follows the torch convention (dotted paths, "weight"/"bias") so
 // that 1c's safetensors loader maps HF checkpoints onto modules by name
 // with no translation table beyond an optional prefix strip.
+#include <cmath>
 #include <map>
 #include <memory>
 #include <string>
@@ -163,6 +164,75 @@ private:
     std::vector<Matrix> m_, v_;
     float b1_, b2_, eps_, wd_;
     long t_ = 0;
+};
+
+// Dropout as a module so `training()` decides train/eval behavior the way
+// torch.nn.Dropout does; eval mode is the identity. Each forward draws a
+// fresh op seed from the module's own counter, so two calls in one step
+// get independent masks but a fixed module seed keeps runs reproducible.
+class Dropout : public Module {
+public:
+    explicit Dropout(float p, unsigned long long seed = 0)
+        : p_(p), next_seed_(seed) {}
+    Var forward(const Var& x) const;
+
+private:
+    float p_;
+    mutable unsigned long long next_seed_;
+};
+
+// ---- LR schedulers (mirror torch.optim.lr_scheduler; templated on the
+// optimizer because SGD/AdamW share only a public `lr` field, not a base) --
+
+// Linear warmup for `warmup` steps then cosine decay to min_lr over
+// `total` steps -- the schedule every GPT-family training recipe uses.
+template <typename Opt>
+class CosineWarmupLR {
+public:
+    CosineWarmupLR(Opt& opt, size_t warmup, size_t total, float min_lr = 0.0f)
+        : opt_(opt), base_lr_(opt.lr), warmup_(warmup), total_(total),
+          min_lr_(min_lr) {}
+    void step() {
+        ++t_;
+        if (warmup_ > 0 && t_ <= warmup_) {
+            opt_.lr = base_lr_ * static_cast<float>(t_) / warmup_;
+            return;
+        }
+        const float progress =
+            total_ > warmup_
+                ? static_cast<float>(t_ - warmup_) / (total_ - warmup_)
+                : 1.0f;
+        const float clamped = progress > 1.0f ? 1.0f : progress;
+        opt_.lr = min_lr_ + 0.5f * (base_lr_ - min_lr_) *
+                                (1.0f + std::cos(3.14159265358979f * clamped));
+    }
+    size_t current_step() const { return t_; }
+
+private:
+    Opt& opt_;
+    float base_lr_;
+    size_t warmup_, total_, t_ = 0;
+    float min_lr_;
+};
+
+// Multiply lr by gamma every step_size steps (torch's StepLR).
+template <typename Opt>
+class StepLR {
+public:
+    StepLR(Opt& opt, size_t step_size, float gamma = 0.1f)
+        : opt_(opt), base_lr_(opt.lr), step_size_(step_size), gamma_(gamma) {}
+    void step() {
+        ++t_;
+        float lr = base_lr_;
+        for (size_t k = 0; k < t_ / step_size_; ++k) lr *= gamma_;
+        opt_.lr = lr;
+    }
+
+private:
+    Opt& opt_;
+    float base_lr_;
+    size_t step_size_, t_ = 0;
+    float gamma_;
 };
 
 }  // namespace nn

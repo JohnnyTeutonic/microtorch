@@ -1,0 +1,13 @@
+# microtorch style: Google base, 4-space indent, 100-col limit.
+# Matches the existing codebase so `clang-format -i` produces minimal diffs.
+BasedOnStyle: Google
+IndentWidth: 4
+ColumnLimit: 100
+AccessModifierOffset: -4
+DerivePointerAlignment: false
+PointerAlignment: Left
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortIfStatementsOnASingleLine: WithoutElse
+AllowShortLoopsOnASingleLine: true
+SortIncludes: CaseSensitive
+IncludeBlocks: Preserve

@@ -51,6 +51,10 @@ add_executable(test_mamba tests/test_mamba.cpp)
 target_link_libraries(test_mamba PRIVATE microtorch)
 add_test(NAME mamba COMMAND test_mamba)
 
+add_executable(test_train_utils tests/test_train_utils.cpp)
+target_link_libraries(test_train_utils PRIVATE microtorch)
+add_test(NAME train_utils COMMAND test_train_utils)
+
 # Phase-1c success test; needs a checkpoint + reference on disk, so it is a
 # tool rather than a registered test (tools/make_gpt2_reference.py builds
 # the reference).
@@ -73,3 +77,16 @@ target_link_libraries(benchmark_mamba PRIVATE microtorch)
 # Phase 3 Integration: Unified test of all three mechanisms
 add_executable(phase3_integration tools/phase3_integration_test.cpp)
 target_link_libraries(phase3_integration PRIVATE microtorch)
+
+# Python bindings (optional; requires Python dev headers). pybind11 is
+# fetched at configure time so no vendored copy lives in-tree.
+option(MICROTORCH_BUILD_PYTHON "Build the pybind11 Python module" OFF)
+if(MICROTORCH_BUILD_PYTHON)
+    include(FetchContent)
+    FetchContent_Declare(pybind11
+        GIT_REPOSITORY https://github.com/pybind/pybind11.git
+        GIT_TAG        v2.13.6)
+    FetchContent_MakeAvailable(pybind11)
+    pybind11_add_module(_microtorch python/bindings.cpp)
+    target_link_libraries(_microtorch PRIVATE microtorch)
+endif()

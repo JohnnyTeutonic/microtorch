@@ -57,6 +57,20 @@ Var apply_rope(const Var& qk, const std::vector<int>& pos, float theta_base,
                                              // returns [T, 3*d] with RoPE applied
                                              // to q and k head_dim subspaces
 
+// ---- training utilities ----
+Var dropout(const Var& x, float p, unsigned long long seed);
+                                             // inverted dropout: keep with prob
+                                             // 1-p, scale kept by 1/(1-p) so
+                                             // eval needs no rescaling. The mask
+                                             // is regenerated from `seed` in
+                                             // backward, so nothing is stored.
+                                             // p==0 returns x unchanged.
+
+// Global grad-norm clip over a parameter list (PyTorch's
+// clip_grad_norm_). Returns the pre-clip norm. Not a tape op: it mutates
+// .grad in place between backward() and step().
+float clip_grad_norm(const std::vector<Var>& params, float max_norm);
+
 // ---- phase 3a additions (Novel architectures: Kimi Linear) ----
 Var kimi_attention(const Var& q, const Var& k, const Var& v, bool causal);  // O(n*d²) linear-time attention
                                              // Feature map: φ(x)=elu(x)+1

@@ -2,6 +2,7 @@
 #include "microtorch/kimi_linear.hpp"
 
 #include <cmath>
+#include <random>
 #include <stdexcept>
 
 namespace microtorch {
@@ -521,6 +522,56 @@ Var kimi_attention(const Var& q, const Var& k, const Var& v, bool causal) {
         if (k_var->requires_grad) k_var->accumulate(grad_k);
         if (v_var->requires_grad) v_var->accumulate(grad_v);
     });
+}
+
+Var dropout(const Var& x, float p, unsigned long long seed) {
+    if (p < 0.0f || p >= 1.0f) {
+        throw std::runtime_error("dropout: p must be in [0, 1)");
+    }
+    if (p == 0.0f) return x;
+    const float keep = 1.0f - p, inv_keep = 1.0f / keep;
+    // The mask is a pure function of (seed, element index); backward
+    // replays the same generator instead of storing a mask matrix.
+    std::mt19937_64 rng(seed);
+    std::uniform_real_distribution<float> u(0.0f, 1.0f);
+    Matrix out = x->data;
+    for (size_t i = 0; i < out.rows(); ++i)
+        for (size_t j = 0; j < out.cols(); ++j)
+            out(i, j) = (u(rng) < keep) ? out(i, j) * inv_keep : 0.0f;
+    return record(std::move(out), {x}, [p, seed](Variable* self) {
+        const Var& x = self->parents[0];
+        if (!x->requires_grad) return;
+        const float keep = 1.0f - p, inv_keep = 1.0f / keep;
+        std::mt19937_64 rng(seed);
+        std::uniform_real_distribution<float> u(0.0f, 1.0f);
+        Matrix dx = self->grad;
+        for (size_t i = 0; i < dx.rows(); ++i)
+            for (size_t j = 0; j < dx.cols(); ++j)
+                dx(i, j) = (u(rng) < keep) ? dx(i, j) * inv_keep : 0.0f;
+        x->accumulate(dx);
+    });
+}
+
+float clip_grad_norm(const std::vector<Var>& params, float max_norm) {
+    double sq = 0.0;
+    for (const auto& p : params) {
+        const Matrix& g = p->grad;
+        if (g.rows() == 0) continue;   // never accumulated
+        for (size_t i = 0; i < g.rows(); ++i)
+            for (size_t j = 0; j < g.cols(); ++j)
+                sq += static_cast<double>(g(i, j)) * g(i, j);
+    }
+    const float total = static_cast<float>(std::sqrt(sq));
+    if (total > max_norm && total > 0.0f) {
+        const float scale = max_norm / total;
+        for (const auto& p : params) {
+            Matrix& g = p->grad;
+            for (size_t i = 0; i < g.rows(); ++i)
+                for (size_t j = 0; j < g.cols(); ++j)
+                    g(i, j) *= scale;
+        }
+    }
+    return total;
 }
 
 }  // namespace ops

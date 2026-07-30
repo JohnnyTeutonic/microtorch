@@ -1,1 +1,40 @@
+# Secrets — never commit
+.env
+*.pem
+*.key
+
+# Build trees
 build*/
+cmake-build-*/
+*.o
+*.a
+*.so
+*.pyd
+*.dll
+*.exe
+
+# Model checkpoints (large binaries live on HF Hub, not in git)
+models/
+*.safetensors
+*.bin
+*.gguf
+*.pt
+*.pth
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+.venv/
+
+# Generated docs
+docs/html/
+docs/latex/
+docs/xml/
+
+# IDE / OS noise
+.vscode/
+.idea/
+*.swp
+.DS_Store

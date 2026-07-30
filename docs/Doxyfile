@@ -1,0 +1,36 @@
+# Doxygen configuration for microtorch.
+# Run from repo root:  doxygen docs/Doxyfile
+# Output lands in docs/html/ (gitignored; published by the docs workflow).
+
+PROJECT_NAME           = "microtorch"
+PROJECT_BRIEF          = "Research-grade autograd + novel attention mechanisms"
+PROJECT_NUMBER         = 0.3.0
+OUTPUT_DIRECTORY       = docs
+INPUT                  = include src README.md
+USE_MDFILE_AS_MAINPAGE = README.md
+FILE_PATTERNS          = *.hpp *.cpp *.md
+RECURSIVE              = YES
+EXCLUDE_PATTERNS       = */build*/* */models/*
+
+# The codebase documents itself with // prose comments rather than
+# /** */ blocks; JAVADOC_BANNER + EXTRACT_ALL pulls those in so existing
+# comments become documentation without a rewrite.
+EXTRACT_ALL            = YES
+EXTRACT_PRIVATE        = NO
+EXTRACT_STATIC         = YES
+JAVADOC_AUTOBRIEF      = YES
+QT_AUTOBRIEF           = YES
+
+GENERATE_HTML          = YES
+HTML_OUTPUT            = html
+GENERATE_LATEX         = NO
+GENERATE_TREEVIEW      = YES
+HAVE_DOT               = NO
+
+SOURCE_BROWSER         = YES
+INLINE_SOURCES         = NO
+REFERENCED_BY_RELATION = YES
+REFERENCES_RELATION    = YES
+
+WARN_IF_UNDOCUMENTED   = NO
+QUIET                  = YES

@@ -20,4 +20,11 @@ namespace microtorch {
 std::map<std::string, Matrix> load_safetensors(
     const std::string& path, std::map<std::string, std::string>* skipped = nullptr);
 
+// Writes a state_dict as F32 safetensors, the inverse of load_safetensors:
+// round-trips through HF tooling (safetensors.torch.load_file reads it).
+// Every Matrix is written [rows, cols]; the map's sorted order fixes the
+// tensor layout so identical dicts produce byte-identical files.
+void save_safetensors(const std::string& path,
+                      const std::map<std::string, Matrix>& tensors);
+
 }  // namespace microtorch

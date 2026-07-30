@@ -291,5 +291,10 @@ void AdamW::step() {
 
 void AdamW::zero_grad() { microtorch::zero_grad(params_); }
 
+Var Dropout::forward(const Var& x) const {
+    if (!training() || p_ == 0.0f) return x;   // eval mode: identity
+    return ops::dropout(x, p_, next_seed_++);
+}
+
 }  // namespace nn
 }  // namespace microtorch
