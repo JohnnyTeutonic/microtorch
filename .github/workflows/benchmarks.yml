@@ -1,0 +1,185 @@
+name: Performance Benchmarks
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+  schedule:
+    - cron: '0 2 * * *'  # Daily at 2 AM UTC
+
+env:
+  CMAKE_BUILD_TYPE: Release
+
+jobs:
+  benchmark:
+    name: Run Benchmarks
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake \
+            build-essential \
+            nlohmann-json3-dev
+
+      - name: Build benchmarks
+        run: |
+          mkdir build && cd build
+          cmake .. -DCMAKE_BUILD_TYPE=${{ env.CMAKE_BUILD_TYPE }}
+          make benchmark_attention benchmark_mamba phase3_integration -j$(nproc)
+
+      - name: Run attention benchmark
+        id: attention_bench
+        run: |
+          cd build
+          ./benchmark_attention > attention_benchmark.txt 2>&1
+          cat attention_benchmark.txt
+
+      - name: Run mamba benchmark
+        id: mamba_bench
+        run: |
+          cd build
+          ./benchmark_mamba > mamba_benchmark.txt 2>&1
+          cat mamba_benchmark.txt
+
+      - name: Run integration benchmark
+        id: integration_bench
+        run: |
+          cd build
+          ./phase3_integration > integration_benchmark.txt 2>&1
+          cat integration_benchmark.txt
+
+      - name: Parse benchmark results
+        id: parse_results
+        run: |
+          python3 << 'EOF'
+          import re
+
+          results = {}
+
+          # Parse attention benchmark
+          with open('build/attention_benchmark.txt', 'r') as f:
+              content = f.read()
+              speedups = re.findall(r'Speedup[:\s]+([0-9.]+)x', content)
+              if speedups:
+                  results['attention_speedup'] = float(speedups[0])
+
+          # Parse mamba benchmark
+          with open('build/mamba_benchmark.txt', 'r') as f:
+              content = f.read()
+              if 'Total:' in content:
+                  results['mamba_tested'] = True
+
+          print(f"RESULTS={results}")
+          EOF
+
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@v3
+        with:
+          name: benchmark-results
+          path: |
+            build/attention_benchmark.txt
+            build/mamba_benchmark.txt
+            build/integration_benchmark.txt
+
+      - name: Store benchmark results
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          tool: 'customSmallerIsBetter'
+          output-file-path: build/attention_benchmark.txt
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          auto-push: true
+        continue-on-error: true
+
+      - name: Comment on PR with results
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const attention = fs.readFileSync('build/attention_benchmark.txt', 'utf8');
+            const mamba = fs.readFileSync('build/mamba_benchmark.txt', 'utf8');
+
+            const comment = `## 📊 Performance Benchmarks
+
+            ### Attention Benchmark
+            \`\`\`
+            ${attention.slice(0, 1000)}
+            \`\`\`
+
+            ### Mamba Benchmark
+            \`\`\`
+            ${mamba.slice(0, 1000)}
+            \`\`\`
+
+            Full results available in [artifacts](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})`;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+  regression-detection:
+    name: Performance Regression Detection
+    needs: benchmark
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download current benchmark
+        uses: actions/download-artifact@v3
+        with:
+          name: benchmark-results
+
+      - name: Compare with baseline
+        run: |
+          python3 << 'EOF'
+          import re
+          import sys
+
+          # Parse current benchmarks
+          with open('attention_benchmark.txt', 'r') as f:
+              current = f.read()
+
+          # Extract speedups
+          speedups = re.findall(r'Speedup[:\s]+([0-9.]+)x', current)
+
+          if speedups:
+              speedup = float(speedups[0])
+              print(f"Current Kimi speedup: {speedup}x")
+
+              # Threshold: warn if <20% regression
+              if speedup < 7.0:  # 8.88x baseline, allow down to ~7x
+                  print("⚠️  WARNING: Possible performance regression detected!")
+                  print(f"Expected >8x speedup, got {speedup}x")
+                  sys.exit(1)
+              else:
+                  print("✅ Performance within acceptable range")
+          EOF
+
+      - name: Report findings
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '⚠️ **Performance Regression Detected**: Benchmark results show possible performance degradation. Please review benchmark artifacts and optimize if needed.'
+            });

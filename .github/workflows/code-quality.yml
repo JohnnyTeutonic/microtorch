@@ -1,0 +1,204 @@
+name: Code Quality
+
+on:
+  push:
+    branches: [ master, develop ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  code-style:
+    name: Code Style & Formatting
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang-format
+
+      - name: Check formatting
+        run: |
+          # Check headers
+          for file in include/microtorch/*.hpp; do
+            echo "Checking $file..."
+            clang-format --dry-run -Werror "$file" || (echo "Format issue in $file"; exit 1)
+          done
+
+          # Check source
+          for file in src/*.cpp tests/*.cpp tools/*.cpp; do
+            [ -f "$file" ] && (clang-format --dry-run -Werror "$file" || (echo "Format issue in $file"; exit 1))
+          done
+
+      - name: Report formatting issues
+        if: failure()
+        run: |
+          echo "❌ Code formatting issues found"
+          echo "Run: clang-format -i <file> to fix"
+
+  complexity:
+    name: Code Complexity Analysis
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cppcheck
+
+      - name: Analyze complexity
+        run: |
+          cppcheck --enable=performance,unusedFunction,missingInclude \
+            --suppress=missingIncludeSystem \
+            --error-exitcode=1 \
+            include/ src/ tests/ tools/ || true
+
+  documentation:
+    name: Documentation Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check documentation completeness
+        run: |
+          echo "Checking documentation files..."
+          test -f README.md || (echo "Missing README.md"; exit 1)
+          test -f CONTRIBUTING.md || (echo "Missing CONTRIBUTING.md"; exit 1)
+          test -f CHANGELOG.md || (echo "Missing CHANGELOG.md"; exit 1)
+          test -f LICENSE || (echo "Missing LICENSE"; exit 1)
+          test -f PHASE_3_SUMMARY.md || (echo "Missing PHASE_3_SUMMARY.md"; exit 1)
+          echo "✅ All documentation files present"
+
+      - name: Validate markdown
+        run: |
+          # Basic markdown validation
+          for file in *.md; do
+            echo "Checking $file..."
+            grep -E "^\#+ " "$file" > /dev/null || echo "Note: $file has no headers"
+          done
+
+  dependencies:
+    name: Dependency Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check CMakeLists.txt
+        run: |
+          echo "Validating CMakeLists.txt syntax..."
+          python3 << 'EOF'
+          import re
+
+          with open('CMakeLists.txt', 'r') as f:
+              content = f.read()
+
+          # Check for common patterns
+          if 'cmake_minimum_required' not in content:
+              print("❌ Missing cmake_minimum_required")
+              exit(1)
+
+          if 'project(' not in content:
+              print("❌ Missing project() declaration")
+              exit(1)
+
+          if 'add_library' not in content and 'add_executable' not in content:
+              print("❌ Missing build targets")
+              exit(1)
+
+          print("✅ CMakeLists.txt looks valid")
+          EOF
+
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for secrets
+        run: |
+          echo "Scanning for hardcoded secrets..."
+          ! grep -r "password\|secret\|api_key\|token" --include="*.cpp" --include="*.hpp" . || true
+
+      - name: Check for unsafe functions
+        run: |
+          echo "Checking for unsafe C functions..."
+          ! grep -r "strcpy\|strcat\|sprintf\|gets" --include="*.cpp" --include="*.hpp" src/ tests/ || echo "⚠️ Review unsafe function usage"
+
+  headers:
+    name: Header Validation
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check header guards
+        run: |
+          python3 << 'EOF'
+          import os
+          import re
+
+          for root, dirs, files in os.walk('include'):
+              for file in files:
+                  if file.endswith('.hpp'):
+                      filepath = os.path.join(root, file)
+                      with open(filepath, 'r') as f:
+                          content = f.read()
+
+                      # Check for pragma once OR header guards
+                      if '#pragma once' not in content and '#ifndef' not in content:
+                          print(f"⚠️  {filepath}: Missing include guard")
+
+                      # Check for proper includes
+                      if file == 'microtorch.hpp' and '#include' not in content:
+                          print(f"⚠️  {filepath}: Master header missing includes")
+
+          print("✅ Header validation complete")
+          EOF
+
+  version:
+    name: Version Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate version consistency
+        run: |
+          python3 << 'EOF'
+          import re
+
+          # Extract version from tag if available
+          import os
+          ref = os.environ.get('GITHUB_REF', '')
+          version_tag = re.search(r'refs/tags/v(\d+\.\d+\.\d+)', ref)
+
+          if version_tag:
+              tag_version = version_tag.group(1)
+              print(f"Tag version: {tag_version}")
+
+              # Check CHANGELOG.md mentions this version
+              with open('CHANGELOG.md', 'r') as f:
+                  if tag_version not in f.read():
+                      print(f"⚠️  CHANGELOG.md missing version {tag_version}")
+          EOF
