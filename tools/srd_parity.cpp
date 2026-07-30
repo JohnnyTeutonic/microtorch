@@ -25,6 +25,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <fstream>
 #include <map>
@@ -221,11 +222,17 @@ int main(int argc, char** argv) {
     const size_t T = argc > 4 ? static_cast<size_t>(std::atoi(argv[4])) : 64;
     const size_t d = argc > 5 ? static_cast<size_t>(std::atoi(argv[5])) : 128;
     const std::string csv_path = argc > 6 ? argv[6] : "/tmp/srd_parity.csv";
+    // vocab_cap: keep only the first N vocab ids (word-level GGUF vocabs are
+    // frequency-ordered); the rest map to <unk>. The softmax head is the
+    // dominant FLOP at long T, so capping makes T=256+ runs tractable while
+    // every lane still sees identical data.
+    const size_t vocab_cap = argc > 7 ? static_cast<size_t>(std::atoi(argv[7])) : 0;
     const size_t heads = 4;
     const float lr = 3e-3f, lambda_gate = 0.05f;
 
     // Vocabulary + corpus.
     auto tokens = read_gguf_vocab(gguf_path);
+    if (vocab_cap > 0 && vocab_cap < tokens.size()) tokens.resize(vocab_cap);
     std::map<std::string, int> vocab;
     for (size_t i = 0; i < tokens.size(); ++i)
         vocab.emplace(tokens[i], static_cast<int>(i));
@@ -256,7 +263,8 @@ int main(int argc, char** argv) {
     // treatment for every lane, so the comparison stays fair -- noted in
     // the results). The batch RNG fast-forwards so windows continue the
     // same stream.
-    const std::string ckpt_dir = "/tmp/srd_ckpt";
+    const char* ckpt_env = std::getenv("SRD_CKPT_DIR");
+    const std::string ckpt_dir = ckpt_env ? ckpt_env : "/tmp/srd_ckpt";
     int start_step = 0;
     {
         std::ifstream st(ckpt_dir + "/state.txt");
