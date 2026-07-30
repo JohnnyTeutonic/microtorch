@@ -233,6 +233,34 @@ regime, and its "stable to step 600" split would also erode by 2000.
 A 2000-step T=256 run separates them; queued behind the batch>1 recall
 escalation.
 
+### Batch escalation run (B=4, 2026-07-31, results_needleB4_{train,probe}.csv)
+
+B=4 x 1500 steps x T=128: 6,000 sequences (3x the previous run) at 4x
+per-step gradient SNR on the answer position.
+
+**Recall: INCONCLUSIVE, third consecutive.** Every lane finished at the
+plateau (exact final CE 4.162 vs floor log 64 = 4.159; best transient dip
+4.10; accuracy at noise). With {1,4} seq/step and T in {128,256} all
+tried, gradient noise and retrieval distance are excluded as the binding
+constraint; what remains is model capacity (d=128, 2 layers) vs task
+difficulty (8 pairs / 64 keys).
+
+**Gate: fifth specificity confirmation, and the decay readings tighten.**
+srd sep > 0.1 at 37/60 probes (peak +0.59 at step 250); srd_f 0/60.
+Both T=128 runs ended at train CE ~4.67-4.68 with tail gates 0.28-0.35
+despite different step/batch routes there -- gate closure tracks the
+surprise LEVEL, not the step count. That is evidence for reading (a):
+the density budget contracts as data stops being surprising, which is
+the designed behavior.
+
+**Instrument verdict: control-first calibration.** Three runs where the
+control never passes means the comparison cannot activate at this
+difficulty/capacity point; tuning lanes against a task the control fails
+would be noise-mining. npairs/nkeys are now CLI knobs (defaults preserve
+the original task): the calibration ladder starts at 2 pairs / 8 keys /
+T=64 / B=4 and raises difficulty until exact stops forming the circuit --
+the lane comparison then runs at the hardest rung the control passes.
+
 ## 3. Protocol
 
 - **Scale ladder**: (1) op-level gradchecks → (2) 2-layer model, TinyStories

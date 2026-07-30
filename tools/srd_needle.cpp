@@ -5,7 +5,7 @@
 // positions.
 //
 //   srd_needle [steps=600] [T=256] [d=128] [csv_prefix=/tmp/srd_needle]
-//              [batch=1]
+//              [batch=1] [npairs=8] [nkeys=64]
 //
 // Task (synthetic vocab of 256 symbols):
 //   [filler | 8 x (key value) pairs | random filler ... | QUERY key_j]
@@ -43,25 +43,30 @@ constexpr int VOCAB = 256, QUERY = 1;
 constexpr int KEY0 = 2, NKEYS = 64;      // keys  [2, 66)
 constexpr int VAL0 = 66;                 // vals  [66, 130)
 constexpr int FILL0 = 130, NFILL = 120;  // fill  [130, 250)
-constexpr int NPAIRS = 8;
+
+// Difficulty knobs (control-first calibration: three runs where exact
+// never left the log-nkeys plateau mean the comparison needs a config
+// the control can pass first). Defaults reproduce the original task.
+// Vocab layout is unchanged; smaller nkeys/npairs just restrict draws.
+int g_npairs = 8, g_nkeys = 64;
 
 // One sequence of length T+1; x = seq[0..T-1], y = seq[1..T].
 std::vector<int> make_seq(size_t T, std::mt19937& rng) {
     std::uniform_int_distribution<int> fill(FILL0, FILL0 + NFILL - 1);
-    std::vector<int> keys(NKEYS);
-    for (int i = 0; i < NKEYS; ++i) keys[i] = i;
+    std::vector<int> keys(g_nkeys);
+    for (int i = 0; i < g_nkeys; ++i) keys[i] = i;
     std::shuffle(keys.begin(), keys.end(), rng);   // distinct keys per seq
 
     std::vector<int> seq(T + 1);
     seq[0] = fill(rng);
-    int val_of[NPAIRS];
-    for (int p = 0; p < NPAIRS; ++p) {
-        val_of[p] = VAL0 + (rng() % NKEYS);
+    std::vector<int> val_of(g_npairs);
+    for (int p = 0; p < g_npairs; ++p) {
+        val_of[p] = VAL0 + (rng() % g_nkeys);
         seq[1 + 2 * p] = KEY0 + keys[p];
         seq[2 + 2 * p] = val_of[p];
     }
-    for (size_t i = 1 + 2 * NPAIRS; i + 2 < T; ++i) seq[i] = fill(rng);
-    const int j = rng() % NPAIRS;
+    for (size_t i = 1 + 2 * g_npairs; i + 2 < T; ++i) seq[i] = fill(rng);
+    const int j = rng() % g_npairs;
     seq[T - 2] = QUERY;
     seq[T - 1] = KEY0 + keys[j];
     seq[T] = val_of[j];                     // the answer
@@ -89,6 +94,8 @@ int main(int argc, char** argv) {
     // (incl. exact) escaped the log-64 plateau at 1 seq/step: B sequences
     // per optimizer step, gradients accumulated, identical batch per lane.
     const int B = argc > 5 ? std::max(1, std::atoi(argv[5])) : 1;
+    if (argc > 6) g_npairs = std::max(1, std::min(8, std::atoi(argv[6])));
+    if (argc > 7) g_nkeys = std::max(g_npairs, std::min(64, std::atoi(argv[7])));
     const float lr = 3e-3f, lambda_gate = 0.05f;
     const int PROBE_EVERY = 25, NPROBE = 32;
 
@@ -189,7 +196,8 @@ int main(int argc, char** argv) {
         probe_csv.flush();
     };
 
-    std::printf("batch=%d\n", B);
+    std::printf("batch=%d npairs=%d nkeys=%d (uniform-CE floor %.4f)\n", B,
+                g_npairs, g_nkeys, std::log(static_cast<double>(g_nkeys)));
     std::printf("%5s %9s %9s %9s %9s\n", "step", "exact", "kimi", "srd",
                 "srd_f");
     for (int step = start_step + 1; step <= steps; ++step) {
