@@ -138,6 +138,59 @@ void test_ss_recurrence() {
     printf("✓ Recurrence mechanism active (outputs differ for different inputs)\n");
 }
 
+// Test 5: ssm_scan BPTT gradcheck — every input (u, A, B, C, D) against
+// central finite differences. THE gate for "Mamba trains through time".
+void test_ssm_scan_gradcheck() {
+    printf("\n=== Test 5: ssm_scan FD gradcheck (BPTT) ===\n");
+    const size_t T = 7, n = 5;
+    std::mt19937 rng(77);
+    std::uniform_real_distribution<float> dist(-0.4f, 0.4f);
+    auto rmat = [&](size_t r, size_t c) {
+        Matrix m(r, c);
+        for (size_t i = 0; i < r; ++i)
+            for (size_t j = 0; j < c; ++j) m(i, j) = dist(rng);
+        return m;
+    };
+    Matrix u0 = rmat(T, n), A0 = rmat(n, n), B0 = rmat(n, 1),
+           C0 = rmat(1, n), D0 = rmat(1, 1);
+
+    Var u = make_var(u0, true), A = make_var(A0, true), B = make_var(B0, true),
+        C = make_var(C0, true), D = make_var(D0, true);
+    backward(ops::mean(ops::ssm_scan(u, A, B, C, D)));
+
+    struct Probe { const char* name; Matrix* m0; Var v; };
+    Probe probes[] = {{"u", &u0, u}, {"A", &A0, A}, {"B", &B0, B},
+                      {"C", &C0, C}, {"D", &D0, D}};
+    const float eps = 1e-3f;
+    for (auto& p : probes) {
+        float worst = 0;
+        for (int k = 0; k < 8; ++k) {
+            const size_t i = rng() % p.m0->rows(), j = rng() % p.m0->cols();
+            auto eval = [&](float delta) {
+                Matrix mm = *p.m0;
+                mm(i, j) += delta;
+                Var uu = (p.m0 == &u0) ? make_var(mm) : make_var(u0);
+                Var AA = (p.m0 == &A0) ? make_var(mm) : make_var(A0);
+                Var BB = (p.m0 == &B0) ? make_var(mm) : make_var(B0);
+                Var CC = (p.m0 == &C0) ? make_var(mm) : make_var(C0);
+                Var DD = (p.m0 == &D0) ? make_var(mm) : make_var(D0);
+                return ops::mean(ops::ssm_scan(uu, AA, BB, CC, DD))->data(0, 0);
+            };
+            float fd, an;
+            {
+                microtorch::NoGrad ng;
+                fd = (eval(eps) - eval(-eps)) / (2 * eps);
+            }
+            an = p.v->grad(i, j);
+            worst = std::max(worst, std::fabs(fd - an) /
+                                        std::max({std::fabs(fd),
+                                                  std::fabs(an), 1e-4f}));
+        }
+        printf("  d/d%s rel err %.2e\n", p.name, worst);
+        CHECK(worst < 5e-3f);
+    }
+}
+
 }  // namespace
 
 int main() {
@@ -148,6 +201,7 @@ int main() {
         test_mamba_block();
         test_mamba_model();
         test_ss_recurrence();
+        test_ssm_scan_gradcheck();
 
         printf("\n[PASS] All Mamba tests passed!\n");
         return 0;

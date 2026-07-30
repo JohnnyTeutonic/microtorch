@@ -49,44 +49,21 @@ S4Layer::S4Layer(size_t d_model, size_t d_state, unsigned seed)
 }
 
 Var S4Layer::forward(const Var& x) const {
-    const size_t T = x->data.rows(), d = x->data.cols();
-
     // Project input to state dimension
     Var u = proj_in->forward(x);  // [T, d_state]
 
-    // State-space forward pass (sequential scan; parallel scan is the
-    // roadmap item). Per-channel formulation -- an earlier version averaged
-    // u over channels into one scalar per step, which collapsed the output
-    // to ~0 for every input (2026-07-30 Debug-suite audit):
-    //   state = A @ state + B[i] * u[t, i]     (A mixes channels)
-    //   y[t, i] = C[i] * state[i] + D * u[t, i]  (per-channel readout)
-    Matrix y_out(T, d_state_);
-    Vector state(d_state_, 0.0f);
-
-    for (size_t t = 0; t < T; ++t) {
-        Vector new_state(d_state_, 0.0f);
-        for (size_t i = 0; i < d_state_; ++i) {
-            float val = 0;
-            for (size_t j = 0; j < d_state_; ++j) {
-                val += A->data(i, j) * state[j];
-            }
-            val += B->data(i, 0) * u->data(t, i);
-            new_state[i] = val;
-        }
-        state = new_state;
-
-        for (size_t i = 0; i < d_state_; ++i) {
-            y_out(t, i) = C->data(0, i) * state[i] +
-                          D->data(0, 0) * u->data(t, i);
-        }
-    }
-
-    Var y_var = make_var(y_out);
+    // State-space scan ON THE TAPE (ops::ssm_scan): gradients flow through
+    // the recurrence into A, B, C, D and back into u -- the layer trains
+    // through time. (Two earlier defects are documented history: channel
+    // averaging collapsed outputs to ~0, and the pre-op version built
+    // states as raw data, silently cutting BPTT.) Sequential executor;
+    // hardware-parallel scan slots in behind the same op signature.
+    Var y = ops::ssm_scan(u, A, B, C, D);
 
     // Project back to model dimension
-    Var y_projected = proj_out->forward(y_var);
+    Var y_projected = proj_out->forward(y);
 
-    // Apply output gating: y_gated = y * sigmoid(gate(x))
+    // Apply output gating: y_gated = y * gelu(gate(x))
     Var gate = ops::gelu(gate_proj->forward(x));
     return ops::mul(y_projected, gate);
 }

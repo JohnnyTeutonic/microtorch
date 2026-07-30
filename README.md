@@ -44,7 +44,8 @@ That makes it three things at once:
 | CUDA dispatch seam | 🧪 | `device::matmul` routes to transformer_core CUDA kernels (`-DMICROTORCH_CUDA=ON`, Colab-validated) |
 | **Kimi linear attention** | ✅ | O(n·d²) vs O(n²·d); drop-in `KimiLinearAttention` |
 | **Cerebellum selective gating** | ✅ | Prediction-residual gating; skips compute on routine tokens |
-| **Mamba / S4 state-space** | 🧪 | Working recurrence; parallel scan on the roadmap |
+| **Mamba / S4 state-space** | ✅ | Trainable through time: `ssm_scan` tape op, BPTT FD-gradchecked on all five inputs (hardware-parallel scan still roadmap) |
+| **Surprise-routed density (SRD)** | 🧪 | Novel research: per-query exact/linear routing by prediction residual — falsifier passed at 5-6σ twice, gate concentrates on retrieval sites ([SPARSE_ATTENTION.md](SPARSE_ATTENTION.md)) |
 | GPU kernels | ❌ | CPU-first by design (AVX2 matmul); CUDA is roadmap |
 
 ## Quick start

@@ -169,6 +169,36 @@ structure:
 That is the next run. Two 5-sigma replications of the mechanism plus a
 clean regime negative is the right foundation for it.
 
+### Needle-in-haystack run (2026-07-30, results_needle_{train,probe}.csv)
+
+tools/srd_needle.cpp, 600 steps, T=256, 8 KV pairs / 64 keys / 240-token
+gap, fresh sequences, fixed 32-probe eval every 25 steps.
+
+**Recall: INCONCLUSIVE at this config.** No lane -- including exact
+attention -- formed the recall circuit in 600 steps (answer CE converged
+to ~log 64 = "right token class, uniform over values"; accuracy at noise).
+The pre-registered exact>0.8 criterion failed for every lane, so the
+discriminative comparison never activated. Plausible causes: 1 sequence/
+step, 240-token retrieval distance, d=128 2-layer capacity, 600-step
+budget. AMENDMENT (pre-registered before the rerun): T=128 with a 100-token
+gap and/or 2000+ steps via checkpoint resume; batch >1 if needed.
+
+**Gate profile: STRONG POSITIVE, replicated at all 24 probes.** SRD's
+router separated retrieval-critical positions from filler WITHOUT recall
+supervision ever succeeding:
+
+    srd    tail_gate 0.91-0.95  vs  fill_gate 0.30-0.40  (open split
+           from probe 2 onward, stable to step 600)
+    srd_f  flat at every probe (0.76-0.92 both) -- the decoupled gate
+           shows zero positional structure, as it must
+
+The surprise signal identifies WHERE density belongs from the token
+statistics alone (rare keys/query vs abundant filler), before and
+independent of task success. That is the third independent confirmation
+of the router mechanism, and the first evidence it concentrates density
+at retrieval sites specifically -- the hardened-inference story's
+prerequisite.
+
 ## 3. Protocol
 
 - **Scale ladder**: (1) op-level gradchecks → (2) 2-layer model, TinyStories

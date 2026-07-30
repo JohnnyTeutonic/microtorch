@@ -57,6 +57,21 @@ Var apply_rope(const Var& qk, const std::vector<int>& pos, float theta_base,
                                              // returns [T, 3*d] with RoPE applied
                                              // to q and k head_dim subspaces
 
+// ---- state-space scan (Mamba/S4, phase 3c completion) ----
+Var ssm_scan(const Var& u, const Var& A, const Var& B, const Var& C,
+             const Var& D);
+                                             // u [T,n], A [n,n], B [n,1],
+                                             // C [1,n], D [1,1]:
+                                             //   s_t = A s_{t-1} + B .* u_t
+                                             //   y_t = C .* s_t + D * u_t
+                                             // Full BPTT backward (reverse
+                                             // recurrence dS_t = C.*dY_t +
+                                             // A^T dS_{t+1}), FD-gradchecked.
+                                             // Sequential scan; the op API is
+                                             // associative-scan-shaped so a
+                                             // parallel executor can slot in
+                                             // behind the same signature.
+
 // ---- sparse-attention research ops (SPARSE_ATTENTION.md V1) ----
 Var mul_col(const Var& x, const Var& c);     // x .* broadcast column c [rows, 1];
                                              // dc = rowsum(dY .* x) -- the

@@ -535,6 +535,75 @@ Var kimi_attention(const Var& q, const Var& k, const Var& v, bool causal) {
     });
 }
 
+Var ssm_scan(const Var& u, const Var& A, const Var& B, const Var& C,
+             const Var& D) {
+    const size_t T = u->data.rows(), n = u->data.cols();
+    if (A->data.rows() != n || A->data.cols() != n ||
+        B->data.rows() != n || B->data.cols() != 1 ||
+        C->data.rows() != 1 || C->data.cols() != n ||
+        D->data.rows() != 1 || D->data.cols() != 1) {
+        throw std::runtime_error("ssm_scan: shape mismatch");
+    }
+
+    // Forward scan; states are kept for the backward pass (O(T n) memory,
+    // the standard BPTT trade).
+    auto states = std::make_shared<Matrix>(T, n);
+    Matrix y(T, n);
+    std::vector<float> s(n, 0.0f), s_new(n);
+    for (size_t t = 0; t < T; ++t) {
+        for (size_t i = 0; i < n; ++i) {
+            float v = 0;
+            for (size_t j = 0; j < n; ++j) v += A->data(i, j) * s[j];
+            v += B->data(i, 0) * u->data(t, i);
+            s_new[i] = v;
+        }
+        s = s_new;
+        for (size_t i = 0; i < n; ++i) {
+            (*states)(t, i) = s[i];
+            y(t, i) = C->data(0, i) * s[i] + D->data(0, 0) * u->data(t, i);
+        }
+    }
+
+    return record(std::move(y), {u, A, B, C, D}, [states](Variable* self) {
+        const Var& u = self->parents[0];
+        const Var& A = self->parents[1];
+        const Var& B = self->parents[2];
+        const Var& C = self->parents[3];
+        const Var& D = self->parents[4];
+        const size_t T = u->data.rows(), n = u->data.cols();
+        const Matrix& S = *states;
+        const Matrix& dY = self->grad;
+
+        Matrix du(T, n), dA(n, n), dB(n, 1), dC(1, n), dD(1, 1);
+        // Reverse recurrence: dS_t = C .* dY_t + A^T dS_{t+1}.
+        std::vector<float> ds_next(n, 0.0f), ds(n);
+        for (size_t t = T; t-- > 0;) {
+            for (size_t i = 0; i < n; ++i) {
+                float v = C->data(0, i) * dY(t, i);
+                for (size_t j = 0; j < n; ++j)
+                    v += A->data(j, i) * ds_next[j];   // A^T
+                ds[i] = v;
+            }
+            for (size_t i = 0; i < n; ++i) {
+                if (t > 0) {
+                    for (size_t j = 0; j < n; ++j)
+                        dA(i, j) += ds[i] * S(t - 1, j);
+                }
+                dB(i, 0) += ds[i] * u->data(t, i);
+                dC(0, i) += dY(t, i) * S(t, i);
+                dD(0, 0) += dY(t, i) * u->data(t, i);
+                du(t, i) = B->data(i, 0) * ds[i] + D->data(0, 0) * dY(t, i);
+            }
+            ds_next = ds;
+        }
+        if (u->requires_grad) u->accumulate(du);
+        if (A->requires_grad) A->accumulate(dA);
+        if (B->requires_grad) B->accumulate(dB);
+        if (C->requires_grad) C->accumulate(dC);
+        if (D->requires_grad) D->accumulate(dD);
+    });
+}
+
 Var mul_col(const Var& x, const Var& c) {
     if (c->data.cols() != 1 || c->data.rows() != x->data.rows()) {
         throw std::runtime_error("mul_col: c must be [rows(x), 1]");
