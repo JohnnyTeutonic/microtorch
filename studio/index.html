@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>microtorch studio</title>
+<style>
+  :root {
+    --bg: #0d1117; --panel: #161b22; --border: #30363d;
+    --text: #c9d1d9; --dim: #8b949e; --accent: #58a6ff;
+    --loss: #58a6ff; --val: #f0883e; --gate: #a371f7;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font: 14px/1.5 ui-monospace, "Cascadia Code", Consolas, monospace;
+    padding: 1.2rem; max-width: 1100px; margin: 0 auto;
+  }
+  h1 { font-size: 1.15rem; margin-bottom: .2rem; }
+  h1 .accent { color: var(--accent); }
+  #status { color: var(--dim); margin-bottom: 1rem; }
+  .drop {
+    border: 2px dashed var(--border); border-radius: 8px;
+    padding: 2rem; text-align: center; color: var(--dim);
+    margin-bottom: 1rem; cursor: pointer; transition: border-color .15s;
+  }
+  .drop.armed { border-color: var(--accent); color: var(--accent); }
+  .panel {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 8px; padding: 1rem; margin-bottom: 1rem;
+  }
+  .panel h2 { font-size: .95rem; color: var(--dim); margin-bottom: .6rem;
+              text-transform: uppercase; letter-spacing: .06em; }
+  canvas { width: 100%; height: 220px; display: block; }
+  #gradbars .row { display: flex; align-items: center; gap: .6rem;
+                   margin-bottom: .35rem; }
+  #gradbars .name { width: 7.5rem; color: var(--dim); text-align: right;
+                    overflow: hidden; text-overflow: ellipsis; }
+  #gradbars .track { flex: 1; height: 14px; background: #0a0d12;
+                     border-radius: 4px; overflow: hidden; }
+  #gradbars .fill { height: 100%; border-radius: 4px;
+                    transition: width .2s, background .2s; }
+  #gradbars .num { width: 6.5rem; color: var(--dim); font-size: .8rem; }
+  .stats { display: flex; gap: 1.6rem; flex-wrap: wrap; }
+  .stat .k { color: var(--dim); font-size: .78rem; }
+  .stat .v { font-size: 1.25rem; }
+  .legend { color: var(--dim); font-size: .78rem; margin-top: .4rem; }
+  .legend .sw { display: inline-block; width: .7em; height: .7em;
+                border-radius: 2px; margin: 0 .3em 0 .9em; }
+</style>
+</head>
+<body>
+<h1>microtorch <span class="accent">studio</span></h1>
+<div id="status">no run loaded</div>
+
+<div class="drop" id="drop">
+  drop <b>events.jsonl</b> here &nbsp;·&nbsp; or click to pick a file
+  <input type="file" id="file" accept=".jsonl,.json,.txt" hidden>
+</div>
+
+<div class="panel">
+  <h2>run</h2>
+  <div class="stats">
+    <div class="stat"><div class="k">step</div><div class="v" id="s-step">–</div></div>
+    <div class="stat"><div class="k">train loss</div><div class="v" id="s-loss">–</div></div>
+    <div class="stat"><div class="k">best val</div><div class="v" id="s-val">–</div></div>
+    <div class="stat"><div class="k">grad norm</div><div class="v" id="s-gnorm">–</div></div>
+    <div class="stat" id="s-gate-wrap" style="display:none">
+      <div class="k">mean gate (SRD)</div><div class="v" id="s-gate">–</div></div>
+    <div class="stat" id="s-es-wrap" style="display:none">
+      <div class="k">early stop</div><div class="v" id="s-es">–</div></div>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>loss</h2>
+  <canvas id="chart" width="1040" height="220"></canvas>
+  <div class="legend">
+    <span class="sw" style="background:var(--loss)"></span>train
+    <span class="sw" style="background:var(--val)"></span>val
+    <span class="sw" style="background:var(--gate)"></span>gate (SRD)
+  </div>
+</div>
+
+<div class="panel">
+  <h2>gradient glow — per-module L2 norms (pre-clip)</h2>
+  <div id="gradbars"><span style="color:var(--dim)">no grads events yet
+    (train.gradmap_every controls cadence)</span></div>
+  <div class="legend">dim&nbsp;=&nbsp;vanishing · red&nbsp;=&nbsp;exploding,
+    scaled per-module against its own run median</div>
+</div>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+let steps = [], evals = [], gates = [], lastGrads = null, gradHist = {};
+
+function parse(text) {
+  steps = []; evals = []; gates = []; lastGrads = null; gradHist = {};
+  let name = "run", done = null;
+  for (const line of text.split("\n")) {
+    const t = line.trim();
+    if (!t) continue;
+    let e; try { e = JSON.parse(t); } catch { continue; }
+    if (e.event === "start") name = e.name || name;
+    else if (e.event === "step") {
+      steps.push({ s: e.step, loss: e.loss, gnorm: e.grad_norm });
+      if (typeof e.gate === "number") gates.push({ s: e.step, g: e.gate });
+      if (e.grads) {
+        lastGrads = { step: e.step, grads: e.grads };
+        for (const [k, v] of Object.entries(e.grads))
+          (gradHist[k] = gradHist[k] || []).push(v);
+      }
+    }
+    else if (e.event === "eval") evals.push({ s: e.step, v: e.val_loss });
+    else if (e.event === "early_stop") done = "early stop @ " + e.step;
+    else if (e.event === "done") done = done ||
+      ("done · best val " + (+e.best_val).toFixed(4));
+  }
+  render(name, done);
+}
+
+function render(name, done) {
+  $("status").textContent = name + " · " + steps.length + " steps logged" +
+    (done ? " · " + done : "");
+  if (!steps.length) return;
+  const last = steps[steps.length - 1];
+  $("s-step").textContent = last.s;
+  $("s-loss").textContent = last.loss.toFixed(4);
+  $("s-gnorm").textContent = last.gnorm != null ? last.gnorm.toFixed(3) : "–";
+  const bv = evals.length ? Math.min(...evals.map(e => e.v)) : null;
+  $("s-val").textContent = bv != null ? bv.toFixed(4) : "–";
+  if (gates.length) {
+    $("s-gate-wrap").style.display = "";
+    $("s-gate").textContent = gates[gates.length - 1].g.toFixed(3);
+  }
+  if (done && done.startsWith("early")) {
+    $("s-es-wrap").style.display = "";
+    $("s-es").textContent = done.split("@")[1].trim();
+  }
+  drawChart();
+  drawGrads();
+}
+
+function drawChart() {
+  const cv = $("chart"), ctx = cv.getContext("2d");
+  const W = cv.width, H = cv.height, padL = 46, padB = 22, padT = 8;
+  ctx.clearRect(0, 0, W, H);
+  const xs = steps.map(p => p.s);
+  const ysAll = steps.map(p => p.loss).concat(evals.map(e => e.v));
+  const x0 = Math.min(...xs), x1 = Math.max(...xs);
+  const y0 = Math.min(...ysAll), y1 = Math.max(...ysAll);
+  const X = s => padL + (W - padL - 8) * (x1 === x0 ? 0 : (s - x0) / (x1 - x0));
+  const Y = v => padT + (H - padT - padB) *
+                 (1 - (y1 === y0 ? .5 : (v - y0) / (y1 - y0)));
+  ctx.strokeStyle = "#21262d";
+  ctx.fillStyle = "#8b949e"; ctx.font = "11px monospace";
+  for (let i = 0; i <= 4; i++) {
+    const v = y0 + (y1 - y0) * i / 4, y = Y(v);
+    ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(W - 8, y); ctx.stroke();
+    ctx.fillText(v.toFixed(2), 4, y + 4);
+  }
+  const line = (pts, gx, gy, color) => {
+    if (!pts.length) return;
+    ctx.strokeStyle = color; ctx.lineWidth = 1.6; ctx.beginPath();
+    pts.forEach((p, i) => { const x = X(gx(p)), y = Y(gy(p));
+      i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
+    ctx.stroke();
+  };
+  line(steps, p => p.s, p => p.loss,
+       getComputedStyle(document.body).getPropertyValue("--loss"));
+  ctx.fillStyle = getComputedStyle(document.body).getPropertyValue("--val");
+  evals.forEach(e => { ctx.beginPath();
+    ctx.arc(X(e.s), Y(e.v), 3, 0, 7); ctx.fill(); });
+  if (gates.length) {   // gate on its own 0..1 scale, right side
+    const Yg = g => padT + (H - padT - padB) * (1 - g);
+    line(gates, p => p.s, p => 0, "transparent");
+    ctx.strokeStyle = getComputedStyle(document.body)
+                        .getPropertyValue("--gate");
+    ctx.lineWidth = 1.2; ctx.setLineDash([4, 3]); ctx.beginPath();
+    gates.forEach((p, i) => { const x = X(p.s), y = Yg(p.g);
+      i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
+    ctx.stroke(); ctx.setLineDash([]);
+  }
+  ctx.fillStyle = "#8b949e";
+  ctx.fillText(String(x0), padL, H - 6);
+  ctx.fillText(String(x1), W - 40, H - 6);
+}
+
+function median(a) {
+  const s = [...a].sort((x, y) => x - y);
+  return s.length ? s[Math.floor(s.length / 2)] : 1;
+}
+
+function drawGrads() {
+  const host = $("gradbars");
+  if (!lastGrads) return;
+  host.innerHTML = "";
+  const entries = Object.entries(lastGrads.grads)
+                        .sort((a, b) => b[1] - a[1]);
+  const maxN = Math.max(...entries.map(e => e[1]), 1e-12);
+  for (const [name, norm] of entries) {
+    const med = median(gradHist[name] || [norm]);
+    // log-ratio vs this module's own run median: 0 = normal,
+    // negative = fading (vanishing), positive = hot (exploding)
+    const r = Math.log10((norm + 1e-12) / (med + 1e-12));
+    let color;
+    if (r > 0.8) color = "#f85149";                    // exploding
+    else if (r > 0.3) color = "#f0883e";               // warm
+    else if (r < -1.2) color = "#1f3a5f";              // vanishing
+    else color = "#58a6ff";                            // normal
+    const width = Math.max(2, 100 * Math.sqrt(norm / maxN));
+    const row = document.createElement("div");
+    row.className = "row";
+    row.innerHTML =
+      `<div class="name">${name}</div>` +
+      `<div class="track"><div class="fill" style="width:${width}%;` +
+      `background:${color}"></div></div>` +
+      `<div class="num">${norm.toExponential(2)}</div>`;
+    host.appendChild(row);
+  }
+  const cap = document.createElement("div");
+  cap.className = "legend";
+  cap.textContent = "latest grads event @ step " + lastGrads.step;
+  host.appendChild(cap);
+}
+
+// ---- input plumbing: drag-drop + picker ----
+const drop = $("drop"), file = $("file");
+drop.addEventListener("click", () => file.click());
+file.addEventListener("change", () => load(file.files[0]));
+["dragenter", "dragover"].forEach(ev =>
+  drop.addEventListener(ev, e => { e.preventDefault();
+    drop.classList.add("armed"); }));
+["dragleave", "drop"].forEach(ev =>
+  drop.addEventListener(ev, e => { e.preventDefault();
+    drop.classList.remove("armed"); }));
+drop.addEventListener("drop", e => {
+  const f = e.dataTransfer.files[0];
+  if (f) load(f);
+});
+function load(f) {
+  const r = new FileReader();
+  r.onload = () => parse(r.result);
+  r.readAsText(f);
+}
+// If served next to a run dir (future mtstudio --serve-ui), auto-fetch.
+fetch("events.jsonl").then(r => r.ok ? r.text() : null)
+  .then(t => { if (t) parse(t); }).catch(() => {});
+</script>
+</body>
+</html>
