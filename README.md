@@ -211,10 +211,16 @@ that GGUF straight into tinyllama.cpp (the printed serve command):
 > **prompt:** once upon a time
 > **model (300 training steps, d=128):** she was a little big he had very time
 > tree the girl and day a little big time they were so play to the man and said
+>
+> **same architecture, 3,000 steps (val loss 4.64 → 3.68):** there was a little
+> girl named timmy he had a big hug and said goodbye to the park with her mom
+> and she started to play outside in the sky but it was too late that they were
+> playing together all day
 
-Locally plausible TinyStories fragments after five minutes of CPU training —
-and the whole chain (trainer, tape, exporter, inference engine) is this stack,
-readable end to end. `studio/index.html` renders the run's event stream live:
+Three hundred steps buys the word distribution; three thousand buys syntax —
+clause chains, narrative connectives, attempted coreference (pronoun drift and
+all). Both runs are CPU-only, and the whole chain (trainer, tape, exporter,
+inference engine) is this stack, readable end to end. `studio/index.html` renders the run's event stream live:
 loss curve, val points, and per-module gradient glow.
 
 ## The training → inference pipeline
