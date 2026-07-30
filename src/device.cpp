@@ -47,7 +47,7 @@ Matrix matmul(const Matrix& a, const Matrix& b) {
         // Phase A: host-resident tensors, per-call round trip. Correctness
         // is gradcheck-gated (the same suite runs under either device).
         CudaMatrix da(a), db(b);
-        return CudaMatrix::matmul(da, db).to_matrix();
+        return CudaMatrix::matmul(da, db).to_host();
     }
 #endif
     return matmul_optimized(a, b);

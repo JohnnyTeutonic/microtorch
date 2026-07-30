@@ -121,6 +121,11 @@ target_link_libraries(srd_parity PRIVATE microtorch)
 add_executable(srd_needle tools/srd_needle.cpp)
 target_link_libraries(srd_needle PRIVATE microtorch)
 
+# M1 (STUDIO_PLAN.md): the run-spec driver. One JSON describes the
+# lifecycle; the driver executes it and emits the JSONL event stream.
+add_executable(mtstudio tools/mtstudio.cpp)
+target_link_libraries(mtstudio PRIVATE microtorch nlohmann_json::nlohmann_json)
+
 # Python bindings (optional; requires Python dev headers). pybind11 is
 # fetched at configure time so no vendored copy lives in-tree.
 option(MICROTORCH_BUILD_PYTHON "Build the pybind11 Python module" OFF)

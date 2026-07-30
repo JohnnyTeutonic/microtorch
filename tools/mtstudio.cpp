@@ -1,0 +1,382 @@
+// mtstudio — the run-spec driver (STUDIO_PLAN.md M1).
+//
+//   mtstudio run spec.json          execute the spec
+//   mtstudio plan spec.json         print the resolved plan and exit
+//
+// One JSON describes the lifecycle; this driver executes it stage by
+// stage and emits a JSONL event stream (stdout + <out>/events.jsonl) that
+// the M2 UI will consume. v0 scope: arch presets + custom dims, corpus +
+// GGUF vocab, train with early stopping + checkpoint/resume, safetensors
+// export, GGUF export for llama-family models, serve-command print.
+// (arXiv arch population and the finetune stage are the documented next
+// increments; papers/fetch.py already emits the config this schema takes.)
+#include <algorithm>
+#include <array>
+#include <cctype>
+#include <cmath>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <fstream>
+#include <map>
+#include <random>
+#include <string>
+#include <vector>
+
+#include <nlohmann/json.hpp>
+
+#include "microtorch/gguf.hpp"
+#include "microtorch/safetensors.hpp"
+#include "parity_model.hpp"
+
+using namespace microtorch;
+using nlohmann::json;
+
+namespace {
+
+struct Spec {
+    std::string name = "run";
+    // arch
+    std::string attention = "exact";     // exact | kimi | srd
+    size_t d = 128, layers = 2, heads = 4, T = 128;
+    // data
+    std::string corpus, vocab_gguf;
+    size_t vocab_cap = 4096;
+    // train
+    int steps = 500;
+    float lr = 3e-3f, clip = 1.0f, lambda_gate = 0.05f;
+    int eval_every = 50, ckpt_every = 100;
+    size_t es_patience = 0;              // early stopping (0 = off)
+    float es_min_delta = 0.0f;
+    // export/serve
+    bool exp_safetensors = true, exp_gguf = false;
+    bool serve = false;
+    std::string out_dir = "mtstudio_out";
+};
+
+// Known presets; "custom" reads arch.custom.* instead.
+const std::map<std::string, std::array<size_t, 4>> PRESETS = {
+    // name -> {d, layers, heads, T}
+    {"gpt2-nano", {128, 2, 4, 128}},
+    {"gpt2-small", {256, 4, 8, 256}},
+    {"kimi-tiny", {128, 2, 4, 128}},
+    {"srd-tiny", {128, 2, 4, 128}},
+};
+
+Spec parse_spec(const std::string& path) {
+    std::ifstream f(path);
+    if (!f) throw std::runtime_error("cannot open spec " + path);
+    json j = json::parse(f, nullptr, true, /*ignore_comments=*/true);
+    Spec s;
+    s.name = j.value("name", s.name);
+
+    const json arch = j.value("arch", json::object());
+    if (arch.contains("preset")) {
+        const std::string p = arch["preset"];
+        auto it = PRESETS.find(p);
+        if (it == PRESETS.end()) throw std::runtime_error("unknown preset " + p);
+        s.d = it->second[0]; s.layers = it->second[1];
+        s.heads = it->second[2]; s.T = it->second[3];
+        if (p.rfind("kimi", 0) == 0) s.attention = "kimi";
+        if (p.rfind("srd", 0) == 0) s.attention = "srd";
+    }
+    if (arch.contains("custom")) {
+        const json c = arch["custom"];
+        s.d = c.value("d", s.d);
+        s.layers = c.value("layers", s.layers);
+        s.heads = c.value("heads", s.heads);
+        s.attention = c.value("attention", s.attention);
+    }
+
+    const json data = j.value("data", json::object());
+    s.corpus = data.value("corpus", "");
+    s.vocab_gguf = data.value("vocab", "");
+    s.vocab_cap = data.value("vocab_cap", s.vocab_cap);
+    s.T = data.value("T", s.T);
+
+    const json tr = j.value("train", json::object());
+    s.steps = tr.value("steps", s.steps);
+    s.lr = tr.value("lr", s.lr);
+    s.clip = tr.value("clip", s.clip);
+    s.eval_every = tr.value("eval_every", s.eval_every);
+    s.ckpt_every = tr.value("checkpoint_every", s.ckpt_every);
+    if (tr.contains("early_stopping")) {
+        s.es_patience = tr["early_stopping"].value("patience", size_t(0));
+        s.es_min_delta = tr["early_stopping"].value("min_delta", 0.0f);
+    }
+
+    const json ex = j.value("export", json::object());
+    for (const auto& fmt : ex.value("formats", std::vector<std::string>{"safetensors"})) {
+        if (fmt == "gguf") s.exp_gguf = true;
+        if (fmt == "safetensors") s.exp_safetensors = true;
+    }
+    s.serve = j.value("serve", json::object()).value("on_finish", false);
+    s.out_dir = j.value("out_dir", s.out_dir);
+    return s;
+}
+
+// ---- events: JSONL to stdout + file (the M2 UI's feed) ----
+struct Events {
+    std::ofstream file;
+    explicit Events(const std::string& path) : file(path, std::ios::app) {}
+    void emit(const json& j) {
+        const std::string line = j.dump();
+        std::printf("%s\n", line.c_str());
+        std::fflush(stdout);
+        file << line << "\n";
+        file.flush();
+    }
+};
+
+// GGUF vocab reader + word tokenizer (the srd_parity path).
+std::vector<std::string> read_gguf_vocab(const std::string& path);
+std::vector<int> tokenize(const std::string& text,
+                          const std::map<std::string, int>& vocab,
+                          size_t max_tokens);
+
+parity::AttnKind attn_kind(const std::string& s) {
+    if (s == "kimi") return parity::AttnKind::KIMI;
+    if (s == "srd") return parity::AttnKind::SRD;
+    return parity::AttnKind::EXACT;
+}
+
+int run(const Spec& s, bool plan_only) {
+    std::printf("== mtstudio: %s ==\n", s.name.c_str());
+    std::printf("arch: %s d=%zu layers=%zu heads=%zu | T=%zu vocab_cap=%zu\n",
+                s.attention.c_str(), s.d, s.layers, s.heads, s.T, s.vocab_cap);
+    std::printf("train: %d steps lr=%g clip=%g eval_every=%d ckpt_every=%d "
+                "early_stop(patience=%zu, min_delta=%g)\n",
+                s.steps, s.lr, s.clip, s.eval_every, s.ckpt_every,
+                s.es_patience, s.es_min_delta);
+    std::printf("export: %s%s | serve: %s | out: %s\n",
+                s.exp_safetensors ? "safetensors " : "",
+                s.exp_gguf ? "gguf" : "", s.serve ? "yes" : "no",
+                s.out_dir.c_str());
+    if (plan_only) return 0;
+    if (s.corpus.empty() || s.vocab_gguf.empty())
+        throw std::runtime_error("spec needs data.corpus and data.vocab");
+    if (s.layers != 2)
+        throw std::runtime_error("v0 driver: layers must be 2 (parity model)");
+
+    std::system(("mkdir -p " + s.out_dir).c_str());
+    Events ev(s.out_dir + "/events.jsonl");
+    ev.emit({{"event", "start"}, {"name", s.name}, {"steps", s.steps}});
+
+    // Data.
+    auto tokens = read_gguf_vocab(s.vocab_gguf);
+    if (s.vocab_cap > 0 && s.vocab_cap < tokens.size()) tokens.resize(s.vocab_cap);
+    std::map<std::string, int> vocab;
+    for (size_t i = 0; i < tokens.size(); ++i)
+        vocab.emplace(tokens[i], static_cast<int>(i));
+    std::ifstream cf(s.corpus);
+    if (!cf) throw std::runtime_error("cannot open corpus " + s.corpus);
+    std::string text((std::istreambuf_iterator<char>(cf)),
+                     std::istreambuf_iterator<char>());
+    auto ids = tokenize(text, vocab, 400000);
+    // Hold out the tail 5% for validation (early stopping's signal).
+    const size_t val_start = ids.size() - ids.size() / 20;
+    ev.emit({{"event", "data"}, {"tokens", ids.size()},
+             {"vocab", tokens.size()}, {"val_tokens", ids.size() - val_start}});
+
+    // Model + optimizer (+ resume).
+    parity::ParityLM model(attn_kind(s.attention), tokens.size(), s.d, s.heads,
+                           s.T, /*seed=*/7);
+    model.train();
+    nn::AdamW opt(model.parameters(), s.lr);
+    const std::string ckpt = s.out_dir + "/model.safetensors";
+    const std::string state_path = s.out_dir + "/state.txt";
+    int start_step = 0;
+    {
+        std::ifstream st(state_path);
+        if (st >> start_step && start_step > 0) {
+            model.load_state_dict(load_safetensors(ckpt));
+            ev.emit({{"event", "resume"}, {"step", start_step}});
+        } else start_step = 0;
+    }
+
+    std::mt19937 rng(123);
+    for (int i = 0; i < start_step; ++i) rng();
+    auto save = [&](int step) {
+        save_safetensors(ckpt, model.state_dict());
+        std::ofstream st(state_path);
+        st << step << "\n";
+    };
+
+    // Train.
+    float best_val = 1e30f;
+    size_t evals_flat = 0;
+    bool stopped_early = false;
+    for (int step = start_step + 1; step <= s.steps; ++step) {
+        const size_t lim = val_start - s.T - 1;
+        const size_t at = rng() % lim;
+        std::vector<int> x(ids.begin() + at, ids.begin() + at + s.T);
+        std::vector<int> y(ids.begin() + at + 1, ids.begin() + at + s.T + 1);
+
+        Var logits = model.forward(x);
+        Var task = ops::cross_entropy(logits, y);
+        Var loss = task;
+        if (attn_kind(s.attention) == parity::AttnKind::SRD)
+            loss = ops::add(task, ops::scale(model.mean_gate(), s.lambda_gate));
+        opt.zero_grad();
+        backward(loss);
+        ops::clip_grad_norm(model.parameters(), s.clip);
+        opt.step();
+
+        json e = {{"event", "step"}, {"step", step},
+                  {"loss", task->data(0, 0)}};
+        if (attn_kind(s.attention) == parity::AttnKind::SRD)
+            e["gate"] = model.mean_gate()->data(0, 0);
+        ev.emit(e);
+
+        if (step % s.eval_every == 0) {
+            NoGrad ng;
+            model.eval();
+            double vl = 0;
+            const int NV = 8;
+            std::mt19937 vrng(999);
+            for (int k = 0; k < NV; ++k) {
+                const size_t va = val_start +
+                    vrng() % (ids.size() - val_start - s.T - 1);
+                std::vector<int> vx(ids.begin() + va, ids.begin() + va + s.T);
+                std::vector<int> vy(ids.begin() + va + 1,
+                                    ids.begin() + va + s.T + 1);
+                vl += ops::cross_entropy(model.forward(vx), vy)->data(0, 0);
+            }
+            vl /= NV;
+            model.train();
+            ev.emit({{"event", "eval"}, {"step", step}, {"val_loss", vl}});
+            if (s.es_patience > 0) {
+                if (vl < best_val - s.es_min_delta) {
+                    best_val = static_cast<float>(vl);
+                    evals_flat = 0;
+                } else if (++evals_flat >= s.es_patience) {
+                    ev.emit({{"event", "early_stop"}, {"step", step},
+                             {"best_val", best_val}});
+                    stopped_early = true;
+                }
+            } else if (vl < best_val) best_val = static_cast<float>(vl);
+        }
+        if (step % s.ckpt_every == 0 || stopped_early || step == s.steps) {
+            save(step);
+            if (stopped_early) break;
+        }
+    }
+
+    // Export.
+    if (s.exp_safetensors) {
+        save_safetensors(s.out_dir + "/" + s.name + ".safetensors",
+                         model.state_dict());
+        ev.emit({{"event", "export"}, {"format", "safetensors"}});
+    }
+    if (s.exp_gguf) {
+        // v0: GPT-2-family blocks are not llama-shaped; GGUF export applies
+        // to llama-family runs (rmsnorm/rope) once that model lands in the
+        // driver. Emit the honest event rather than a wrong file.
+        ev.emit({{"event", "export_skipped"}, {"format", "gguf"},
+                 {"reason", "v0 parity model is not llama-family"}});
+    }
+    ev.emit({{"event", "done"}, {"best_val", best_val},
+             {"early_stopped", stopped_early}});
+
+    if (s.serve) {
+        std::printf("serve: model exported to %s/%s.safetensors\n",
+                    s.out_dir.c_str(), s.name.c_str());
+        std::printf("serve: llama-family GGUF serving lands with the llama "
+                    "driver model; for now inspect via the safetensors.\n");
+    }
+    return 0;
+}
+
+}  // namespace
+
+// ---- GGUF vocab + tokenizer (shared logic with srd_parity) ----
+namespace {
+template <typename T>
+T rd(const std::vector<uint8_t>& b, size_t& p) {
+    T v; std::memcpy(&v, b.data() + p, sizeof(T)); p += sizeof(T); return v;
+}
+std::string rd_str(const std::vector<uint8_t>& b, size_t& p) {
+    const uint64_t n = rd<uint64_t>(b, p);
+    std::string s(reinterpret_cast<const char*>(b.data() + p), n);
+    p += n; return s;
+}
+std::vector<std::string> read_gguf_vocab(const std::string& path) {
+    std::ifstream f(path, std::ios::binary | std::ios::ate);
+    if (!f) throw std::runtime_error("cannot open " + path);
+    std::vector<uint8_t> b(static_cast<size_t>(f.tellg()));
+    f.seekg(0);
+    f.read(reinterpret_cast<char*>(b.data()), static_cast<std::streamsize>(b.size()));
+    size_t p = 0;
+    if (rd<uint32_t>(b, p) != 0x46554747u) throw std::runtime_error("not GGUF");
+    rd<uint32_t>(b, p); rd<uint64_t>(b, p);
+    const uint64_t n_meta = rd<uint64_t>(b, p);
+    std::vector<std::string> tokens;
+    for (uint64_t i = 0; i < n_meta; ++i) {
+        const std::string key = rd_str(b, p);
+        const uint32_t vt = rd<uint32_t>(b, p);
+        switch (vt) {
+            case 4: rd<uint32_t>(b, p); break;
+            case 5: rd<int32_t>(b, p); break;
+            case 6: rd<float>(b, p); break;
+            case 8: rd_str(b, p); break;
+            case 9: {
+                const uint32_t et = rd<uint32_t>(b, p);
+                const uint64_t n = rd<uint64_t>(b, p);
+                for (uint64_t k = 0; k < n; ++k) {
+                    if (et == 8) {
+                        std::string t = rd_str(b, p);
+                        if (key == "tokenizer.ggml.tokens")
+                            tokens.push_back(std::move(t));
+                    } else if (et == 6) rd<float>(b, p);
+                    else throw std::runtime_error("bad array");
+                }
+                break;
+            }
+            default: throw std::runtime_error("bad meta");
+        }
+    }
+    return tokens;
+}
+std::vector<int> tokenize(const std::string& text,
+                          const std::map<std::string, int>& vocab,
+                          size_t max_tokens) {
+    std::vector<int> ids;
+    std::string cur;
+    auto flush = [&]() {
+        if (cur.empty()) return;
+        auto it = vocab.find(cur);
+        ids.push_back(it == vocab.end() ? 0 : it->second);
+        cur.clear();
+    };
+    for (char ch : text) {
+        if (ids.size() >= max_tokens) break;
+        const unsigned char c = static_cast<unsigned char>(ch);
+        if (std::isalpha(c) || c == '\'' || std::isdigit(c)) {
+            cur.push_back(static_cast<char>(std::tolower(c)));
+        } else {
+            flush();
+            if (!std::isspace(c)) {
+                std::string pch(1, static_cast<char>(c));
+                auto it = vocab.find(pch);
+                ids.push_back(it == vocab.end() ? 0 : it->second);
+            }
+        }
+    }
+    flush();
+    return ids;
+}
+}  // namespace
+
+int main(int argc, char** argv) {
+    if (argc < 3 || (std::string(argv[1]) != "run" &&
+                     std::string(argv[1]) != "plan")) {
+        std::fprintf(stderr, "usage: mtstudio run|plan spec.json\n");
+        return 2;
+    }
+    try {
+        return run(parse_spec(argv[2]), std::string(argv[1]) == "plan");
+    } catch (const std::exception& e) {
+        std::fprintf(stderr, "mtstudio: %s\n", e.what());
+        return 1;
+    }
+}
