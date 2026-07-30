@@ -199,6 +199,40 @@ of the router mechanism, and the first evidence it concentrates density
 at retrieval sites specifically -- the hardened-inference story's
 prerequisite.
 
+### Needle amendment run (2026-07-31, results_needle128_{train,probe}.csv)
+
+The pre-registered amendment: 2000 steps at T=128 (shorter retrieval
+distance, 3.3x the training budget), same four lanes, 80 probes at
+25-step cadence.
+
+**Recall: INCONCLUSIVE AGAIN.** Every lane -- including exact -- sat at
+the same plateau: best answer CE 4.16-4.19 vs log 64 = 4.159 (the "right
+token class, uniform over values" attractor once more), max accuracy
+0.062 = 1/16 (a single probe-batch hit, consistent with noise). Shorter
+distance plus more steps did not form the circuit either, which narrows
+the suspect list to throughput/capacity: 1 sequence/step or d=128
+2-layer. Next escalation (pre-registered in the amendment): batch > 1.
+The discriminative srd-vs-exact comparison still has not activated; no
+lane comparison is being claimed from these runs.
+
+**Gate profile: POSITIVE and srd-specific again -- fourth confirmation --
+with new temporal structure.** Separation (tail_gate - fill_gate):
+
+    srd    sep > 0.1 at 70/80 probes; peak +0.60 (0.91 vs 0.31) at
+           step 475; decays to +0.07 by step 2000 as BOTH gates close
+           (tail 0.95 -> 0.35) with falling LM surprise
+    srd_f  sep > 0.1 at 0/80 probes -- flat at every single probe
+
+The decay is the new observation: at T=128 the router's positional split
+erodes late in training as the whole sequence becomes predictable and
+the surprise signal shrinks globally. Two readings, currently
+undistinguished: (a) designed behavior -- the density budget contracts
+when nothing is surprising, which is the point of surprise routing; or
+(b) the T=256 run (600 steps) simply never reached the late-training
+regime, and its "stable to step 600" split would also erode by 2000.
+A 2000-step T=256 run separates them; queued behind the batch>1 recall
+escalation.
+
 ## 3. Protocol
 
 - **Scale ladder**: (1) op-level gradchecks → (2) 2-layer model, TinyStories
