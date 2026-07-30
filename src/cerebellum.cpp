@@ -29,24 +29,23 @@ Var SelectiveGate::forward(const Var& x) const {
     // 2. Compute residual = actual - predicted (surprise signal)
     Var residual = ops::sub(x, predicted);
 
-    // 3. Compute gate probability per token
-    // gate_prob[t] = sigmoid(||residual[t]||)
+    // 3. Compute gate probability per token from the RMS of the residual.
+    // gate = sigmoid(SCALE * rms(residual) + BIAS). A raw sigmoid(||r||)
+    // can never go below 0.5 (norms are non-negative), which made the gate
+    // saturate open for every token (2026-07-30 Debug-suite audit). The
+    // affine form maps rms=0 -> sigmoid(BIAS) ~= 0.27 (routine, mostly
+    // skip) and rms=0.5 -> sigmoid(1) ~= 0.73 (surprising, mostly run).
+    constexpr float GATE_SCALE = 4.0f, GATE_BIAS = -1.0f;
     const size_t T = x->data.rows(), d = x->data.cols();
-    Matrix residual_norm(T, 1);
-    for (size_t t = 0; t < T; ++t) {
-        float norm = 0;
-        for (size_t j = 0; j < d; ++j) {
-            float val = residual->data(t, j);
-            norm += val * val;
-        }
-        residual_norm(t, 0) = std::sqrt(norm);  // L2 norm of residual
-    }
-
-    // Apply sigmoid to gate probabilities
-    Var gate_logits = make_var(residual_norm);
     Matrix gate_probs(T, 1);
     for (size_t t = 0; t < T; ++t) {
-        float logit = gate_logits->data(t, 0);
+        float sumsq = 0;
+        for (size_t j = 0; j < d; ++j) {
+            float val = residual->data(t, j);
+            sumsq += val * val;
+        }
+        const float rms = std::sqrt(sumsq / static_cast<float>(d));
+        const float logit = GATE_SCALE * rms + GATE_BIAS;
         gate_probs(t, 0) = 1.0f / (1.0f + std::exp(-logit));
     }
 

@@ -1,4 +1,4 @@
-#include <cassert>
+#include "check.hpp"
 #include <cmath>
 #include <cstdio>
 
@@ -27,12 +27,12 @@ void test_s4_layer() {
     Var out = s4.forward(x_var);
 
     // Verify output shape
-    assert(out->data.rows() == 8 && out->data.cols() == 256);
+    CHECK(out->data.rows() == 8 && out->data.cols() == 256);
 
     // Verify outputs are finite
     for (size_t i = 0; i < out->data.rows(); ++i) {
         for (size_t j = 0; j < out->data.cols(); ++j) {
-            assert(std::isfinite(out->data(i, j)));
+            CHECK(std::isfinite(out->data(i, j)));
         }
     }
 
@@ -59,7 +59,7 @@ void test_mamba_block() {
     Var out = block.forward(x_var);
 
     // Verify shape
-    assert(out->data.rows() == 8 && out->data.cols() == 256);
+    CHECK(out->data.rows() == 8 && out->data.cols() == 256);
 
     printf("✓ Output shape correct: [%zu, %zu]\n", out->data.rows(),
            out->data.cols());
@@ -87,12 +87,12 @@ void test_mamba_model() {
     Var logits = model.forward(tokens_var);
 
     // Verify output shape
-    assert(logits->data.rows() == 8 && logits->data.cols() == vocab_size);
+    CHECK(logits->data.rows() == 8 && logits->data.cols() == vocab_size);
 
     // Verify logits are finite
     for (size_t i = 0; i < logits->data.rows(); ++i) {
         for (size_t j = 0; j < logits->data.cols(); ++j) {
-            assert(std::isfinite(logits->data(i, j)));
+            CHECK(std::isfinite(logits->data(i, j)));
         }
     }
 
@@ -131,7 +131,8 @@ void test_ss_recurrence() {
         }
     }
 
-    assert(diff > 0.1f);  // Outputs should differ meaningfully
+    printf("  sum |out1 - out2| = %.6f (threshold 0.1)\n", diff);
+    CHECK(diff > 0.1f);  // Outputs should differ meaningfully
 
     printf("✓ State-space outputs respond to input variation\n");
     printf("✓ Recurrence mechanism active (outputs differ for different inputs)\n");

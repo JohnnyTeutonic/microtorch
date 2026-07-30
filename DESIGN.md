@@ -147,3 +147,26 @@ This document is the foundation for Q3/Q4 architectural decisions on Phase 2c (L
    CUDA reuses the fast kernels. Recommend CPU-first correctness, then CUDA.)
 4. Repo name (`microtorch` is a placeholder).
 5. **Which novel architecture to implement first for Phase 2c/3?** See NOVEL_LLM_ARCHITECTURES.md section "Architectural Decision Points" for recommendation (Kimi Linear, confidence: high).
+
+---
+
+## 8. Phase 4: the pipeline + CUDA (agreed 2026-07-30)
+
+Priority order, per discussion:
+
+1. **GGUF exporter** (done): `microtorch::gguf::export_gguf_llama` bridges
+   state_dict → transformer_core's alignment-audited `GGUFWriter`, closing the
+   loop "load HF checkpoint → fine-tune on the tape → serve in tinyllama.cpp".
+   Round-trip regression test: `tests/test_gguf_export.cpp` (independent
+   spec-based parser; guards the 2026-07-13 alignment bug class).
+2. **CUDA support** (committed, not started): route the ops through the
+   `primitives.hpp` seam onto GPU kernels. `Matrix` already carries
+   `CUDA_AVAILABLE` scaffolding from transformer_core (gpu_data_/is_on_gpu_),
+   and transformer_cpp has a `src/cuda/` tree to draw from. Decision 7.3
+   resolves as planned: CPU-first correctness held; CUDA lands behind the
+   same seam with semantics unchanged. Validate on Colab, not locally.
+3. **arXiv LaTeX fetcher**: pull paper LaTeX source (arXiv serves it for most
+   papers), extract the architecture table (d_model, layers, heads/GQA, norm,
+   activation, rope theta), map onto a composable block DSL, instantiate.
+   Constrained config-delta extraction over a Llama-style skeleton — not
+   free-form code generation.

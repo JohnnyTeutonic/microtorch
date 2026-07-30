@@ -39,8 +39,10 @@ S4Layer::S4Layer(size_t d_model, size_t d_state, unsigned seed)
     }
     C = reg("C", C_init);
 
-    // D: feedthrough matrix [1, 1]
-    D = reg("D", Matrix(1, 1, dist(rng)));
+    // D: feedthrough [1, 1]. Initialized to 1 (identity skip), the standard
+    // S4 init -- a small random D crushes the input path to near-zero before
+    // the state path has trained, killing all signal through the layer.
+    D = reg("D", Matrix(1, 1, 1.0f));
 
     // Output gating: d_model -> d_model
     gate_proj = mod<nn::Linear>("gate", d_model, d_model, true, seed + 4);
@@ -52,48 +54,30 @@ Var S4Layer::forward(const Var& x) const {
     // Project input to state dimension
     Var u = proj_in->forward(x);  // [T, d_state]
 
-    // State-space forward pass: simplified implementation
-    // For each step t: x[t] = A @ x[t-1] + B @ u[t], y[t] = C @ x[t] + D @ u[t]
-    // Treat as per-token processing without full parallel scan
-
+    // State-space forward pass (sequential scan; parallel scan is the
+    // roadmap item). Per-channel formulation -- an earlier version averaged
+    // u over channels into one scalar per step, which collapsed the output
+    // to ~0 for every input (2026-07-30 Debug-suite audit):
+    //   state = A @ state + B[i] * u[t, i]     (A mixes channels)
+    //   y[t, i] = C[i] * state[i] + D * u[t, i]  (per-channel readout)
     Matrix y_out(T, d_state_);
-    Vector state(d_state_, 0.0f);  // Initialize state
+    Vector state(d_state_, 0.0f);
 
     for (size_t t = 0; t < T; ++t) {
-        // Update state: state = A @ state + B @ u[t]
         Vector new_state(d_state_, 0.0f);
         for (size_t i = 0; i < d_state_; ++i) {
             float val = 0;
-            // A @ state
             for (size_t j = 0; j < d_state_; ++j) {
                 val += A->data(i, j) * state[j];
             }
-            // + B @ u[t] (B is [d_state, 1], u[t] is a scalar averaged)
-            float u_avg = 0;
-            for (size_t j = 0; j < d_state_; ++j) {
-                u_avg += u->data(t, j);
-            }
-            u_avg /= d_state_;
-            val += B->data(i, 0) * u_avg;
+            val += B->data(i, 0) * u->data(t, i);
             new_state[i] = val;
         }
         state = new_state;
 
-        // Output: y[t] = C @ state + D * u[t]
-        float output = 0;
         for (size_t i = 0; i < d_state_; ++i) {
-            output += C->data(0, i) * state[i];
-        }
-        // Average u[t] for scalar feedthrough
-        float u_scalar = 0;
-        for (size_t j = 0; j < d_state_; ++j) {
-            u_scalar += u->data(t, j);
-        }
-        u_scalar /= d_state_;
-        output += D->data(0, 0) * u_scalar;
-
-        for (size_t i = 0; i < d_state_; ++i) {
-            y_out(t, i) = output;  // Broadcast scalar output
+            y_out(t, i) = C->data(0, i) * state[i] +
+                          D->data(0, 0) * u->data(t, i);
         }
     }
 

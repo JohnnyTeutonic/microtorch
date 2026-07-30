@@ -100,24 +100,37 @@ Matrix KimiLinearAttention::forward(const Matrix& q, const Matrix& k,
     Matrix phi_q = feature_map(q);  // [seq, head_dim]
     Matrix phi_k = feature_map(k);  // [seq, head_dim]
 
-    // Step 2: Numerator accumulation
-    // numerator[t, :] = Σ_{i=0}^{t} φ(k_i) ⊗ v_i
-    // For each position, accumulate weighted values from past (causal)
+    // Step 2+3: Numerator / denominator accumulation.
+    //   causal:  prefix sums  -- position t sees keys/values 0..t
+    //   full:    totals       -- every position sees the whole sequence
+    // (The 2026-07-30 Debug-suite audit found `causal` was ignored and both
+    // branches returned the causal result; test_kimi_causal_masking now
+    // pins the difference.)
     Matrix numerator = Matrix(seq_len, head_dim_);
-    for (size_t j = 0; j < head_dim_; ++j) {
-        numerator(0, j) = phi_k(0, j) * v(0, j);  // First position
-    }
-    for (size_t t = 1; t < seq_len; ++t) {
+    Matrix denominator = Matrix(seq_len, head_dim_);
+    if (causal) {
         for (size_t j = 0; j < head_dim_; ++j) {
-            // numerator[t, j] = numerator[t-1, j] + φ(k[t, j]) * v[t, j]
-            numerator(t, j) =
-                numerator(t - 1, j) + phi_k(t, j) * v(t, j);
+            numerator(0, j) = phi_k(0, j) * v(0, j);
+        }
+        for (size_t t = 1; t < seq_len; ++t) {
+            for (size_t j = 0; j < head_dim_; ++j) {
+                numerator(t, j) = numerator(t - 1, j) + phi_k(t, j) * v(t, j);
+            }
+        }
+        denominator = cumsum(phi_k);
+    } else {
+        for (size_t j = 0; j < head_dim_; ++j) {
+            float num_total = 0.f, den_total = 0.f;
+            for (size_t t = 0; t < seq_len; ++t) {
+                num_total += phi_k(t, j) * v(t, j);
+                den_total += phi_k(t, j);
+            }
+            for (size_t t = 0; t < seq_len; ++t) {
+                numerator(t, j) = num_total;
+                denominator(t, j) = den_total;
+            }
         }
     }
-
-    // Step 3: Denominator accumulation (normalization)
-    // denominator[t, :] = Σ_{i=0}^{t} φ(k_i)
-    Matrix denominator = cumsum(phi_k);  // [seq, head_dim]
 
     // Step 4: Output
     // output[t, :] = φ(q[t, :]) * numerator[t, :] / denominator[t, :]

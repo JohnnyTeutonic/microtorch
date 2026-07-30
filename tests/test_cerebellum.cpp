@@ -1,4 +1,4 @@
-#include <cassert>
+#include "check.hpp"
 #include <cmath>
 #include <cstdio>
 #include <random>
@@ -31,13 +31,13 @@ void test_routine_predictor() {
     Var predicted = predictor.forward(x_var);
 
     // Verify output shape
-    assert(predicted->data.rows() == 8 && predicted->data.cols() == 256);
+    CHECK(predicted->data.rows() == 8 && predicted->data.cols() == 256);
 
     // Verify outputs are finite
     for (size_t i = 0; i < predicted->data.rows(); ++i) {
         for (size_t j = 0; j < predicted->data.cols(); ++j) {
             float val = predicted->data(i, j);
-            assert(std::isfinite(val));
+            CHECK(std::isfinite(val));
         }
     }
 
@@ -69,13 +69,13 @@ void test_selective_gate() {
     Var gated_out = gate.forward(x_var);
 
     // Verify output shape
-    assert(gated_out->data.rows() == 8 && gated_out->data.cols() == 256);
+    CHECK(gated_out->data.rows() == 8 && gated_out->data.cols() == 256);
 
     // Verify gate logits are in reasonable range
     const Matrix& gates = gate.last_gate_logits();
     for (size_t t = 0; t < gates.rows(); ++t) {
         float gate_prob = gates(t, 0);
-        assert(gate_prob >= 0.0f && gate_prob <= 1.0f);
+        CHECK(gate_prob >= 0.0f && gate_prob <= 1.0f);
     }
 
     printf("✓ Output shape correct: [%zu, %zu]\n", gated_out->data.rows(),
@@ -109,13 +109,13 @@ void test_gated_block() {
     Var out = block.forward(x_var);
 
     // Verify output shape
-    assert(out->data.rows() == 8 && out->data.cols() == 256);
+    CHECK(out->data.rows() == 8 && out->data.cols() == 256);
 
     // Verify outputs are finite
     for (size_t i = 0; i < out->data.rows(); ++i) {
         for (size_t j = 0; j < out->data.cols(); ++j) {
             float val = out->data(i, j);
-            assert(std::isfinite(val));
+            CHECK(std::isfinite(val));
         }
     }
 
@@ -145,7 +145,8 @@ void test_gating_mechanism() {
 
     Var routine_var = make_var(routine_x, true);
     gate.forward(routine_var);
-    const Matrix& routine_gates = gate.last_gate_logits();
+    // Copy, not reference: the next forward() overwrites the cached gates.
+    Matrix routine_gates = gate.last_gate_logits();
 
     // Test 2: Surprising input (large values) should get HIGH gate probability
     Matrix surprising_x(4, 256);
@@ -165,9 +166,9 @@ void test_gating_mechanism() {
            surprising_gates(0, 0));
 
     // Verify mechanism works
-    assert(routine_gates(0, 0) < 0.5f);       // Routine should have low gate
-    assert(surprising_gates(0, 0) > 0.5f);    // Surprising should have high gate
-    assert(surprising_gates(0, 0) > routine_gates(0, 0));
+    CHECK(routine_gates(0, 0) < 0.5f);       // Routine should have low gate
+    CHECK(surprising_gates(0, 0) > 0.5f);    // Surprising should have high gate
+    CHECK(surprising_gates(0, 0) > routine_gates(0, 0));
 
     printf("✓ Gating mechanism works: high residual → high gate prob\n");
 }

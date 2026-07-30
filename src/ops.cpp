@@ -498,6 +498,16 @@ Var apply_rope(const Var& qk, const std::vector<int>& pos, float theta_base,
 Var kimi_attention(const Var& q, const Var& k, const Var& v, bool causal) {
     using kimi::KimiLinearAttention;
 
+    // The class backward recomputes CAUSAL prefix sums; a non-causal
+    // forward under grad would get silently wrong gradients. Fail loudly
+    // until the full-sum backward exists.
+    if (!causal && grad_enabled() &&
+        (q->requires_grad || k->requires_grad || v->requires_grad)) {
+        throw std::runtime_error(
+            "kimi_attention: non-causal backward not implemented; wrap in "
+            "NoGrad for inference or use causal=true");
+    }
+
     size_t head_dim = q->data.cols();
     KimiLinearAttention kimi(head_dim);
 

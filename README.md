@@ -35,6 +35,7 @@ That makes it three things at once:
 | LR schedulers | ✅ | Cosine-with-warmup, StepLR |
 | Grad clipping | ✅ | Global-norm (`clip_grad_norm`) |
 | Checkpoint IO | ✅ | safetensors load **and** save (HF round-trip) |
+| GGUF export | ✅ | `export_gguf_llama`: state_dict → .gguf for [tinyllama.cpp](#the-training--inference-pipeline) |
 | Cross-entropy loss | ✅ | Fused softmax backward |
 | Python bindings | ✅ | pybind11, numpy interop (`-DMICROTORCH_BUILD_PYTHON=ON`) |
 | **Kimi linear attention** | ✅ | O(n·d²) vs O(n²·d); drop-in `KimiLinearAttention` |
@@ -163,12 +164,43 @@ Nothing merges without:
 CI runs the full suite (plus cppcheck, clang-format, Valgrind) on every push —
 see [.github/workflows](.github/workflows).
 
+## The training → inference pipeline
+
+microtorch is the training half of a two-engine pipeline:
+
+```
+HF checkpoint ──load_safetensors──► microtorch (fine-tune on the tape)
+                                        │
+                              export_gguf_llama(path, state_dict, cfg)
+                                        │
+                                        ▼
+                              .gguf ──► tinyllama.cpp (inference engine)
+```
+
+```cpp
+#include "microtorch/gguf.hpp"
+
+gguf::LlamaExportConfig cfg;
+cfg.embedding_length = 2048; cfg.block_count = 24;
+cfg.feed_forward_length = 5504; cfg.head_count = 16;
+cfg.vocab_size = 151936; cfg.tokens = vocab;
+gguf::export_gguf_llama("model.gguf", model.state_dict(), cfg);
+```
+
+The GGUF writer is the alignment-audited implementation from `transformer_core`
+(the tensor-data section starts at `align_up(header_end, 32)` — the exact detail
+that once turned a working model into word salad, now regression-tested in
+`test_gguf_export`).
+
 ## Roadmap
 
+- **CUDA support** (committed): the compute seam is already isolated — `primitives.hpp`
+  routes every matmul through one entry point, and the `Matrix` type carries
+  `CUDA_AVAILABLE` scaffolding from transformer_core. The plan is a CUDA path behind
+  the same seam, CPU-first semantics unchanged.
 - Parallel scan for Mamba (training-speed parity with attention)
-- CUDA matmul path (the AVX2 seam is already isolated in `primitives.hpp`)
-- Paper-to-architecture pipeline: parse an arXiv paper's config → instantiate the model
-- Export path into [tinyllama.cpp](https://github.com/JohnnyTeutonic) for inference
+- Paper-to-architecture pipeline: pull a paper's LaTeX source from arXiv, extract the
+  architecture config (dims, heads, norm type, activation), instantiate the model
 
 ## License
 

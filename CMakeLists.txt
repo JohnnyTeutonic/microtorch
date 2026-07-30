@@ -22,6 +22,7 @@ add_library(microtorch STATIC
     src/ops.cpp
     src/nn.cpp
     src/safetensors.cpp
+    src/gguf.cpp
     src/kimi_linear.cpp
     src/cerebellum.cpp
     src/mamba.cpp
@@ -54,6 +55,10 @@ add_test(NAME mamba COMMAND test_mamba)
 add_executable(test_train_utils tests/test_train_utils.cpp)
 target_link_libraries(test_train_utils PRIVATE microtorch)
 add_test(NAME train_utils COMMAND test_train_utils)
+
+add_executable(test_gguf_export tests/test_gguf_export.cpp)
+target_link_libraries(test_gguf_export PRIVATE microtorch)
+add_test(NAME gguf_export COMMAND test_gguf_export)
 
 # Phase-1c success test; needs a checkpoint + reference on disk, so it is a
 # tool rather than a registered test (tools/make_gpt2_reference.py builds

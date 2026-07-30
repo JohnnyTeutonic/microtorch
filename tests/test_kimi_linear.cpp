@@ -1,4 +1,4 @@
-#include <cassert>
+#include "check.hpp"
 #include <cmath>
 #include <cstdio>
 #include <random>
@@ -45,7 +45,7 @@ void gradient_check(const Matrix& x, const std::string& name,
     printf("%-25s: max_diff=%8.2e vs tol=%8.2e %s\n", name.c_str(), max_diff,
            tol, (max_diff < tol) ? "✓" : "✗");
 
-    assert(max_diff < tol && "Gradient check failed");
+    CHECK(max_diff < tol && "Gradient check failed");
 }
 
 // Test 1: Feature map (elu + 1) has correct gradients
@@ -99,14 +99,14 @@ void test_kimi_forward_basic() {
     Matrix output = kimi.forward(q, k, v, true);
 
     // Verify output shape
-    assert(output.rows() == seq_len && "Output seq_len mismatch");
-    assert(output.cols() == head_dim && "Output head_dim mismatch");
+    CHECK(output.rows() == seq_len && "Output seq_len mismatch");
+    CHECK(output.cols() == head_dim && "Output head_dim mismatch");
 
     // Verify outputs are finite (not NaN or Inf)
     for (size_t i = 0; i < output.rows(); ++i) {
         for (size_t j = 0; j < output.cols(); ++j) {
             float val = output(i, j);
-            assert(std::isfinite(val) && "Output contains NaN or Inf");
+            CHECK(std::isfinite(val) && "Output contains NaN or Inf");
         }
     }
 
@@ -153,16 +153,16 @@ void test_kimi_backward_basic() {
     auto [grad_q, grad_k, grad_v] = kimi.backward(grad_out, q, k, v, output);
 
     // Verify gradient shapes
-    assert(grad_q.rows() == seq_len && grad_q.cols() == head_dim);
-    assert(grad_k.rows() == seq_len && grad_k.cols() == head_dim);
-    assert(grad_v.rows() == seq_len && grad_v.cols() == head_dim);
+    CHECK(grad_q.rows() == seq_len && grad_q.cols() == head_dim);
+    CHECK(grad_k.rows() == seq_len && grad_k.cols() == head_dim);
+    CHECK(grad_v.rows() == seq_len && grad_v.cols() == head_dim);
 
     // Verify gradients are finite
     for (size_t i = 0; i < seq_len; ++i) {
         for (size_t j = 0; j < head_dim; ++j) {
-            assert(std::isfinite(grad_q(i, j)) && "grad_q contains NaN/Inf");
-            assert(std::isfinite(grad_k(i, j)) && "grad_k contains NaN/Inf");
-            assert(std::isfinite(grad_v(i, j)) && "grad_v contains NaN/Inf");
+            CHECK(std::isfinite(grad_q(i, j)) && "grad_q contains NaN/Inf");
+            CHECK(std::isfinite(grad_k(i, j)) && "grad_k contains NaN/Inf");
+            CHECK(std::isfinite(grad_v(i, j)) && "grad_v contains NaN/Inf");
         }
     }
 
@@ -310,10 +310,10 @@ void test_kimi_causal_masking() {
     printf("Last pos diff:  %.6f (should be ~0)\n", last_pos_diff);
 
     // First position should have large difference (future masked out)
-    assert(first_pos_diff > 1.f && "Causal mask not working: early positions");
+    CHECK(first_pos_diff > 1.f && "Causal mask not working: early positions");
 
     // Last position should have small difference (attends to all anyway)
-    assert(last_pos_diff < 0.1f && "Causal mask broken: late positions");
+    CHECK(last_pos_diff < 0.1f && "Causal mask broken: late positions");
 
     printf("Causal masking ✓\n");
 }

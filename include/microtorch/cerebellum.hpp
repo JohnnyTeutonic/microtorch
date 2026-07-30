@@ -9,7 +9,8 @@
 // Mechanism:
 // 1. Prediction head: learns to model expected/routine token features
 // 2. Residual: actual - predicted (surprise/novelty signal)
-// 3. Gate: sigmoid(||residual||) determines if layer runs at full capacity
+// 3. Gate: sigmoid(4*rms(residual) - 1) -- the affine form lets the gate
+//    close (< 0.5) for well-predicted tokens; sigmoid of a bare norm cannot
 // 4. Efficiency: Skip expensive layers (LN, attention, MLP) for routine tokens
 //
 // Benefits:
