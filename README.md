@@ -225,8 +225,33 @@ tree and `device::set(Device::CUDA)` (or `MICROTORCH_DEVICE=cuda`) dispatches to
 [tools/colab_cuda_validate.sh](tools/colab_cuda_validate.sh). Phase B (resident
 device memory instead of per-call round trips) is the next CUDA milestone.
 
+## Paper-to-architecture: the arXiv fetcher
+
+```bash
+pip install requests
+python papers/fetch.py 1706.03762                     # Attention Is All You Need
+python papers/fetch.py 2302.13971 --emit-cpp llama.cpp --json llama.json
+```
+
+`papers/fetch.py` downloads a paper's **LaTeX source** from arXiv, sweeps prose and
+model-size tables for the architecture hyperparameters, and emits a normalized
+config — every extracted value carries an **evidence snippet** from the paper, and
+anything it can't resolve is listed as unresolved rather than guessed. `--emit-cpp`
+generates compilable microtorch code (GPT-2-family `GPT2Config` or, when it detects
+RMSNorm/RoPE, a Llama-family `LlamaExportConfig`).
+
+Validated live against: *Attention Is All You Need* (d_model=512, N=6, h=8,
+d_ff=2048, sinusoidal), *LLaMA* (4096/32/32 from its model-size table +
+RMSNorm/SwiGLU/RoPE), *TinyLlama* (22 layers, 32 heads, vocab 32000). Offline
+fixture tests: `python papers/test_fetch.py` — no network needed in CI.
+
+This is the constrained config-delta approach: most transformer papers are deltas
+over a known skeleton, so extraction is pattern-matching with provenance, not
+free-form code generation.
+
 ## Roadmap
 
+- arXiv fetcher v2: per-variant instantiation, GQA/MoE fields, HF-config cross-check
 - CUDA phase B: resident device tensors (params uploaded once, activations on-device)
 - int4/NF4 quantization (QLoRA paper's datatype; int8 is the current base)
 - Parallel scan for Mamba (training-speed parity with attention)
