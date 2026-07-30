@@ -34,6 +34,7 @@ add_library(microtorch STATIC
     src/safetensors.cpp
     src/gguf.cpp
     src/quant.cpp
+    src/llama.cpp
     src/kimi_linear.cpp
     src/srd.cpp
     src/cerebellum.cpp
@@ -81,6 +82,10 @@ add_test(NAME gguf_export COMMAND test_gguf_export)
 add_executable(test_lora_quant tests/test_lora_quant.cpp)
 target_link_libraries(test_lora_quant PRIVATE microtorch)
 add_test(NAME lora_quant COMMAND test_lora_quant)
+
+add_executable(test_llama tests/test_llama.cpp)
+target_link_libraries(test_llama PRIVATE microtorch)
+add_test(NAME llama COMMAND test_llama)
 
 add_executable(test_srd tests/test_srd.cpp)
 target_link_libraries(test_srd PRIVATE microtorch)
