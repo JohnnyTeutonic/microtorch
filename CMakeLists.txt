@@ -109,6 +109,10 @@ add_executable(test_checkpointing tests/test_checkpointing.cpp)
 target_link_libraries(test_checkpointing PRIVATE microtorch)
 add_test(NAME checkpointing COMMAND test_checkpointing)
 
+add_executable(test_muon tests/test_muon.cpp)
+target_link_libraries(test_muon PRIVATE microtorch)
+add_test(NAME muon COMMAND test_muon)
+
 add_executable(test_srd tests/test_srd.cpp)
 target_link_libraries(test_srd PRIVATE microtorch)
 add_test(NAME srd COMMAND test_srd)

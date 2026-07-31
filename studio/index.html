@@ -91,6 +91,11 @@
     <label>T <input id="b-T" type="number" value="256"></label>
     <label>steps <input id="b-steps" type="number" value="3000"></label>
     <label>lr <input id="b-lr" value="3e-3"></label>
+    <label>optimizer
+      <select id="b-opt">
+        <option value="adamw">adamw</option>
+        <option value="muon">muon (hybrid, per-head)</option>
+      </select></label>
     <label>batch <input id="b-batch" type="number" value="4"></label>
     <label>accum <input id="b-accum" type="number" value="1"></label>
     <label>early-stop patience <input id="b-pat" type="number" value="8"></label>
@@ -383,7 +388,7 @@ function buildSpec() {
     arch: { preset: v("b-preset") },
     data: { corpus: v("b-corpus"), vocab: v("b-vocab"),
             vocab_cap: +v("b-cap"), T: +v("b-T") },
-    train: { steps: +v("b-steps"), lr: +v("b-lr"),
+    train: { steps: +v("b-steps"), lr: +v("b-lr"), optimizer: v("b-opt"),
              batch: +v("b-batch"), accum: +v("b-accum"),
              checkpoint_activations: document.getElementById("b-ckpt").checked,
              eval_every: 100, checkpoint_every: 100, gradmap_every: 10,

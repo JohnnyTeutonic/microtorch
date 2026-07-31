@@ -14,7 +14,7 @@ Effort key: **S** ≤ a day · **M** a few days · **L** a week+.
 |---|---|---|---|---|---|
 | 1 | **Attention Residuals (AttnRes)** | microtorch, transformer_cpp, dit | S–M | high | Cheapest real win; drops into DiT too. Do first. |
 | 2 | **KDA (Kimi Delta Attention)** op | microtorch, chimera | M (recurrent) / L (chunkwise+CUDA) | high | Reference impl first (this backlog). Feeds the Chimera paper extension. |
-| 3 | **Muon optimizer (per-head)** | microtorch | S | med–high | Small; cross-validated by K3 *and* DeepSeek-V4, so not a fad. |
+| 3 | **Muon optimizer (per-head)** | microtorch | S | med–high | **DONE 2026-07-31**: nn::Muon + newton_schulz5, golden-pinned to the reference, per-head receipts, mtstudio hybrid routing + studio dropdown. |
 | 4 | **SiTU-GLU + Quantile Balancing** | transformer_cpp (moe/router) | S–M | med | Bounded GLU stops activation explosion; QB improves load balance. |
 | 5 | **Gated MLA + NoPE** | transformer_cpp, tinyllama (kv_cache) | M | med | KV-cache compression; NoPE removes RoPE-retuning at long ctx. |
 | 6 | **MXFP4 wt / MXFP8 act + QAT** | quantization.cpp, tinyllama | L | med | Frontier quant format; bigger lift. |

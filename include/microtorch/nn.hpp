@@ -174,6 +174,48 @@ private:
     long t_ = 0;
 };
 
+// Quintic Newton-Schulz orthogonalization (Muon's core; coefficients per
+// Keller Jordan's Muon). Drives the singular values of a 2-D matrix into
+// a loose band around 1 while preserving the singular DIRECTIONS —
+// approximately UV^T of the input's SVD. Iterates on the wide
+// orientation internally; commutes with transpose. Reference anchor:
+// muon_reference.py (golden-pinned in test_muon).
+Matrix newton_schulz5(const Matrix& G, int steps = 5);
+
+// Muon optimizer with the K3 per-head refinement (TECH_TRANSFER item 3;
+// arXiv 2607.24653 section 2.5, on Keller Jordan's base Muon).
+//
+//   M_t = mu*M_{t-1} + G_t;  U = G_t + mu*M_t (nesterov) else M_t
+//   O   = newton_schulz5(U);  W -= lr * sqrt(max(1, out/in)) * O
+//
+// LAYOUT NOTE, load-bearing: microtorch Linear stores W as [in, out]
+// (x @ W), the transpose of the PyTorch reference's [out, in]. Heads
+// therefore live along COLUMNS here, so n_heads partitions the COLUMN
+// dimension, and the shape scale is sqrt(max(1, cols/rows)) per block —
+// the exact mirror of the reference (newton_schulz5 commutes with
+// transpose, so the two formulations produce transposed-identical
+// updates). n_heads=1 is full-matrix Muon.
+//
+// Muon is for HIDDEN MATRIX parameters only. Vectors (biases, norm
+// gains) are refused; embeddings/heads should go to AdamW by routing
+// discipline, as in every deployment this is transferred from.
+class Muon {
+public:
+    Muon(std::vector<Var> params, float lr = 0.02f, float momentum = 0.95f, bool nesterov = true,
+         int ns_steps = 5, size_t n_heads = 1);
+    void step();
+    void zero_grad();
+    float lr;
+
+private:
+    std::vector<Var> params_;
+    std::vector<Matrix> buf_;
+    float mu_;
+    bool nesterov_;
+    int ns_;
+    size_t H_;
+};
+
 // Dropout as a module so `training()` decides train/eval behavior the way
 // torch.nn.Dropout does; eval mode is the identity. Each forward draws a
 // fresh op seed from the module's own counter, so two calls in one step

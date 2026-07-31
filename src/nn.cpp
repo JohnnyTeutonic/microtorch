@@ -4,6 +4,8 @@
 #include <random>
 #include <stdexcept>
 
+#include "microtorch/device.hpp"
+
 namespace microtorch {
 namespace nn {
 
@@ -292,6 +294,81 @@ void AdamW::step() {
 }
 
 void AdamW::zero_grad() {
+    microtorch::zero_grad(params_);
+}
+
+// ---- Muon ------------------------------------------------------------------
+
+Matrix newton_schulz5(const Matrix& G, int steps) {
+    const float a = 3.4445f, b = -4.7750f, c = 2.0315f;
+    const bool transposed = G.rows() > G.cols();
+    Matrix X = transposed ? G.transpose() : G;
+    double fro = 0.0;
+    for (size_t i = 0; i < X.rows(); ++i)
+        for (size_t j = 0; j < X.cols(); ++j) fro += static_cast<double>(X(i, j)) * X(i, j);
+    const float inv = 1.0f / (static_cast<float>(std::sqrt(fro)) + 1e-7f);
+    for (size_t i = 0; i < X.rows(); ++i)
+        for (size_t j = 0; j < X.cols(); ++j) X(i, j) *= inv;
+    for (int s = 0; s < steps; ++s) {
+        Matrix A = device::matmul(X, X.transpose());
+        Matrix A2 = device::matmul(A, A);
+        for (size_t i = 0; i < A.rows(); ++i)
+            for (size_t j = 0; j < A.cols(); ++j) A(i, j) = b * A(i, j) + c * A2(i, j);
+        Matrix BX = device::matmul(A, X);
+        for (size_t i = 0; i < X.rows(); ++i)
+            for (size_t j = 0; j < X.cols(); ++j) X(i, j) = a * X(i, j) + BX(i, j);
+    }
+    return transposed ? X.transpose() : X;
+}
+
+Muon::Muon(std::vector<Var> params, float lr_, float momentum, bool nesterov, int ns_steps,
+           size_t n_heads)
+    : lr(lr_),
+      params_(std::move(params)),
+      mu_(momentum),
+      nesterov_(nesterov),
+      ns_(ns_steps),
+      H_(n_heads) {
+    for (const auto& p : params_) {
+        if (p->data.rows() <= 1 || p->data.cols() <= 1) {
+            throw std::runtime_error("Muon is for 2-D hidden matrices; route vectors to AdamW/SGD");
+        }
+        if (p->data.cols() % H_ != 0) {
+            throw std::runtime_error("Muon: cols not divisible by n_heads");
+        }
+        buf_.emplace_back(p->data.rows(), p->data.cols());
+    }
+}
+
+void Muon::step() {
+    for (size_t k = 0; k < params_.size(); ++k) {
+        Var& p = params_[k];
+        if (p->grad.rows() == 0) continue;
+        Matrix& buf = buf_[k];
+        const size_t R = p->data.rows(), C = p->data.cols();
+        Matrix upd(R, C);
+        for (size_t i = 0; i < R; ++i)
+            for (size_t j = 0; j < C; ++j) {
+                buf(i, j) = mu_ * buf(i, j) + p->grad(i, j);
+                upd(i, j) = nesterov_ ? p->grad(i, j) + mu_ * buf(i, j) : buf(i, j);
+            }
+        // Per-head: partition the COLUMN (output) dimension — see the
+        // layout note in nn.hpp — and orthogonalize each block alone.
+        const size_t cols = C / H_;
+        for (size_t h = 0; h < H_; ++h) {
+            Matrix blk(R, cols);
+            for (size_t i = 0; i < R; ++i)
+                for (size_t j = 0; j < cols; ++j) blk(i, j) = upd(i, h * cols + j);
+            Matrix O = newton_schulz5(blk, ns_);
+            const float scale =
+                std::sqrt(std::max(1.0f, static_cast<float>(cols) / static_cast<float>(R)));
+            for (size_t i = 0; i < R; ++i)
+                for (size_t j = 0; j < cols; ++j) p->data(i, h * cols + j) -= lr * scale * O(i, j);
+        }
+    }
+}
+
+void Muon::zero_grad() {
     microtorch::zero_grad(params_);
 }
 

@@ -49,10 +49,13 @@ struct Spec {
     int steps = 500;
     float lr = 3e-3f, clip = 1.0f, lambda_gate = 0.05f;
     int eval_every = 50, ckpt_every = 100;
-    int batch = 1;           // sequences per FORWARD (stacked rows, one graph)
-    int accum = 1;           // batches accumulated per optimizer step
-    bool ckpt_act = false;   // activation checkpointing per block
-    unsigned seed = 7;       // model init + data-order seed (Atlas multi-seed)
+    int batch = 1;                    // sequences per FORWARD (stacked rows, one graph)
+    int accum = 1;                    // batches accumulated per optimizer step
+    bool ckpt_act = false;            // activation checkpointing per block
+    unsigned seed = 7;                // model init + data-order seed (Atlas multi-seed)
+    std::string optimizer = "adamw";  // adamw | muon (hybrid: hidden matrices
+                                      // to Muon, embeddings/vectors to AdamW)
+    float muon_lr = 0.02f;
     int gradmap_every = 5;   // per-layer grad-norm event cadence
     size_t es_patience = 0;  // early stopping (0 = off)
     float es_min_delta = 0.0f;
@@ -114,6 +117,8 @@ Spec parse_spec(const std::string& path) {
     s.accum = tr.value("accum", s.accum);
     s.ckpt_act = tr.value("checkpoint_activations", s.ckpt_act);
     s.seed = tr.value("seed", s.seed);
+    s.optimizer = tr.value("optimizer", s.optimizer);
+    s.muon_lr = tr.value("muon_lr", s.muon_lr);
     s.gradmap_every = tr.value("gradmap_every", s.gradmap_every);
     if (tr.contains("early_stopping")) {
         s.es_patience = tr["early_stopping"].value("patience", size_t(0));
@@ -268,7 +273,53 @@ int run(const Spec& s, bool plan_only) {
         throw std::runtime_error("train.batch > 1 requires llama family or exact attention");
     }
     model_ref.train();
-    nn::AdamW opt(model_ref.parameters(), s.lr);
+    // Optimizer. "muon" is the deployment-faithful hybrid (TECH_TRANSFER
+    // item 3): per-head Muon on qkv projections (columns are head-major in
+    // the [in, out] layout; fused c_attn carries 3*H head blocks), full-
+    // matrix Muon on the remaining hidden matrices, AdamW for embeddings,
+    // vectors and the head — Muon is never applied outside its remit.
+    struct Optim {
+        std::vector<nn::AdamW> adamw;
+        std::vector<nn::Muon> muon;
+        void zero_grad() {
+            for (auto& o : adamw) o.zero_grad();
+            for (auto& o : muon) o.zero_grad();
+        }
+        void step() {
+            for (auto& o : adamw) o.step();
+            for (auto& o : muon) o.step();
+        }
+    } opt;
+    if (s.optimizer == "muon") {
+        std::vector<Var> qkv, hidden, rest;
+        for (const auto& [name, p] : model_ref.named_parameters()) {
+            const bool matrix = p->data.rows() > 1 && p->data.cols() > 1;
+            const bool excluded =
+                name.find("embed") != std::string::npos || name.find("wte") != std::string::npos ||
+                name.find("wpe") != std::string::npos || name.find("head") != std::string::npos ||
+                name.find("norm") != std::string::npos || name.find("ln") != std::string::npos;
+            const bool is_qkv = name.find("c_attn") != std::string::npos ||
+                                name.find("q_proj") != std::string::npos ||
+                                name.find("k_proj") != std::string::npos ||
+                                name.find("v_proj") != std::string::npos;
+            if (matrix && !excluded && is_qkv)
+                qkv.push_back(p);
+            else if (matrix && !excluded)
+                hidden.push_back(p);
+            else
+                rest.push_back(p);
+        }
+        const size_t nh = s.family == "llama" ? s.heads : 3 * s.heads;
+        if (!qkv.empty()) opt.muon.emplace_back(qkv, s.muon_lr, 0.95f, true, 5, nh);
+        if (!hidden.empty()) opt.muon.emplace_back(hidden, s.muon_lr);
+        if (!rest.empty()) opt.adamw.emplace_back(rest, s.lr);
+        std::printf(
+            "optimizer: muon hybrid — %zu qkv (per-head n=%zu), %zu hidden, "
+            "%zu adamw\n",
+            qkv.size(), nh, hidden.size(), rest.size());
+    } else {
+        opt.adamw.emplace_back(model_ref.parameters(), s.lr);
+    }
     const std::string ckpt = s.out_dir + "/model.safetensors";
     const std::string state_path = s.out_dir + "/state.txt";
     int start_step = 0;
