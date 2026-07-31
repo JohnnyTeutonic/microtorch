@@ -51,6 +51,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from atlas_extract import extract_row  # noqa: E402
+from atlas_taxonomy import spec_assignment, violations  # noqa: E402
 
 # Classic PB12 first row; rows 2-11 are cyclic shifts, row 12 is all-minus.
 _PB12_FIRST = [+1, +1, -1, +1, +1, +1, -1, -1, -1, +1, -1]
@@ -116,6 +117,12 @@ def materialise(sweep, runs, out_root):
         spec["name"] = name
         spec["out_dir"] = os.path.join(out_root, "runs", name)
         spec.setdefault("serve", {})["on_finish"] = False
+        # The grammar gate: refuse to spend compute on an illegal config
+        # (ARCHITECTURE_ATLAS stage 1 — validation is one of the
+        # taxonomy's three consumers).
+        v = violations(spec_assignment(spec))
+        if v:
+            raise SystemExit(f"{name}: invalid config: {'; '.join(v)}")
         p = os.path.join(out_root, "specs", name + ".json")
         with open(p, "w", encoding="utf-8") as f:
             json.dump(spec, f, indent=2)

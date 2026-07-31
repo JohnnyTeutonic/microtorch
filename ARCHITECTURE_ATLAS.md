@@ -805,7 +805,13 @@ designs over dotted spec paths × seeds, resumable, parallel with the
 OMP-oversubscription lesson baked in, per-cell seed statistics and a
 signal-vs-seed-noise verdict in the aggregate). Verified end-to-end on a
 4-run micro-sweep: lr=3e-3 beat lr=1e-3 with the gap 16x mean seed noise.
-Taxonomy + constrained grammar remain open.
+**STATUS 2026-08-01: taxonomy + grammar DONE** (`tools/atlas_taxonomy.py`):
+slots with alternatives + aliases, compatibility constraints as predicates,
+`sample()` drawing random VALID architectures (corpus source 5),
+`validate()` wired into mtsweep so no compute is ever spent on an illegal
+config, and the not-yet-spec-expressible slots (norm/position/activation/
+residual) declared as PLANNED lattices so the taxonomy is ready the day
+the spec grows each knob. Stage 1 complete.
 
 **Stage 2 — the screening experiment (one night).** Plackett–Burman over ~11
 architectural factors, 3 seeds, one dataset, parameter-matched. Main effects
