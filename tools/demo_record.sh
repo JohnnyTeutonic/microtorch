@@ -39,8 +39,15 @@ STEPS=${DEMO_STEPS:-300}
 cue()  { printf "\n\033[1;33m>>> %s\033[0m\n" "$*"; }
 step() { printf "\n\033[1;36m== %s ==\033[0m\n" "$*"; }
 pause() { read -rp $'\033[1;33m[enter to continue]\033[0m '; }
-openurl() {  # auto-open in the Windows default browser (WSL interop);
-             # harmless no-op if interop is unavailable.
+# Inside VSCode's integrated terminal (TERM_PROGRAM=vscode) nothing is
+# spawned externally — the whole demo lives in one Simple Browser tab.
+# Elsewhere, URLs auto-open in the Windows default browser via interop.
+IN_VSCODE=""
+[ "${TERM_PROGRAM:-}" = "vscode" ] && IN_VSCODE=1
+openurl() {
+  if [ -n "$IN_VSCODE" ]; then
+    return 0  # the one-tab instruction is printed once, up front
+  fi
   (cd /mnt/c && /mnt/c/Windows/System32/cmd.exe /c start "$1") \
     > /dev/null 2>&1 || cue "open manually: $1"
 }
@@ -53,12 +60,48 @@ step "SCENE 1 — paper -> architecture, every value with its evidence"
 python3 papers/fetch.py 1706.03762 --json /tmp/mtdemo_arch.json \
     --emit-html "$OUT/paper.html" 2>/dev/null || true
 
+# The one-tab page: paper view and live dashboard behind an in-page
+# toggle, so a VSCode Simple Browser tab never needs a companion.
+cat > "$OUT/demo.html" <<'HTML'
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<title>microtorch demo</title><style>
+  * { box-sizing:border-box; margin:0; }
+  body { background:#0d1117; height:100vh; display:flex; flex-direction:column;
+         font:13px ui-monospace,Consolas,monospace; }
+  nav { padding:.45rem .8rem; border-bottom:1px solid #30363d; }
+  button { background:#161b22; color:#c9d1d9; border:1px solid #30363d;
+           border-radius:6px; padding:.3rem .9rem; font:inherit; cursor:pointer;
+           margin-right:.5rem; }
+  button.on { background:#1f6feb; border-color:#1f6feb; color:#fff; }
+  iframe { flex:1; border:0; width:100%; }
+</style></head><body>
+<nav>
+  <button id="bp" class="on">paper &rarr; architecture</button>
+  <button id="bd">live dashboard</button>
+</nav>
+<iframe id="fr" src="/paper.html"></iframe>
+<script>
+  const fr = document.getElementById('fr');
+  const bp = document.getElementById('bp'), bd = document.getElementById('bd');
+  bp.onclick = () => { fr.src = '/paper.html'; bp.classList.add('on'); bd.classList.remove('on'); };
+  bd.onclick = () => { fr.src = '/';           bd.classList.add('on'); bp.classList.remove('on'); };
+</script></body></html>
+HTML
+
 "$MT" serve "$OUT" 8080 > /dev/null 2>&1 &
 SERVE_PID=$!
 sleep 1
-cue "SCENE 2: the diff-to-paper page is opening in your browser"
-cue "(http://localhost:8080/paper.html — hover a field, evidence lights up)"
-openurl "http://localhost:8080/paper.html"
+if [ -n "$IN_VSCODE" ]; then
+  cue "ONE TAB, INSIDE VSCODE — do this once, now:"
+  cue "  Ctrl+Shift+P  ->  'Simple Browser: Show'  ->  paste:"
+  echo ""
+  echo "        http://localhost:8080/demo.html"
+  echo ""
+  cue "Drag that tab into a split beside this terminal. The [paper] and"
+  cue "[dashboard] buttons at its top switch views — no app switching ever."
+fi
+cue "SCENE 2: the diff-to-paper page (hover a field, evidence lights up)"
+openurl "http://localhost:8080/demo.html"
 pause
 
 step "SCENE 3 — one spec describes the lifecycle; training launches NOW"
@@ -77,9 +120,13 @@ EOF
 export OMP_NUM_THREADS=${OMP_NUM_THREADS:-4} OMP_WAIT_POLICY=PASSIVE
 "$MT" run /tmp/mtdemo_rec_spec.json > /tmp/mtdemo_rec_run.log 2>&1 &
 RUN_PID=$!
-cue "SCENE 4: training is RUNNING — the dashboard is opening now."
+if [ -n "$IN_VSCODE" ]; then
+  cue "SCENE 4: training is RUNNING — click [live dashboard] in the demo tab."
+else
+  cue "SCENE 4: training is RUNNING — the dashboard is opening now."
+  openurl "http://localhost:8080/"
+fi
 cue "Watch the loss curve descend and the node-graph glow (updates every 2s)."
-openurl "http://localhost:8080/"
 echo "     (milestones stream here meanwhile:)"
 tail --pid="$RUN_PID" -n +1 -f /tmp/mtdemo_rec_run.log \
   | grep --line-buffered -E '"eval"|"done"|"export"' || true

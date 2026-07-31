@@ -34,25 +34,25 @@ Enter, so the recording can never run away from you.
    (100 steps ≈ 1 minute of training; the real take can use 300 ≈ 5 min,
    which you'll speed up in the edit — see §4.)
 
-## 1.5 The all-in-VSCode variant (single window, simplest recording)
+## 1.5 The all-in-VSCode variant (single window, ONE tab — recommended)
 
-Since Claude Code runs as a VSCode extension, the whole demo can live in ONE
-VSCode window — no Alt+Tab at all:
+The script detects VSCode's integrated terminal automatically
+(`TERM_PROGRAM=vscode`): it then spawns NO external browser and serves a
+combined page with an in-page toggle, so the entire demo is one terminal
+pane plus one Simple Browser tab:
 
 1. Open the integrated terminal (Ctrl+`) in a WSL profile and run
-   `tools/demo_record.sh` there.
-2. When the script announces a page, press **Ctrl+Shift+P → "Simple
-   Browser: Show"** and paste the URL (`http://localhost:8080/paper.html`,
-   then later `http://localhost:8080/`). The page renders as an editor tab
-   beside the terminal.
-3. Record just the VSCode window with **Win + Alt + R** (Game Bar) — one
-   app, one clip, no desktop visible. Drag the Simple Browser tab to a
-   split so terminal and dashboard are visible side-by-side, which is the
-   best-looking layout anyway.
+   `tools/demo_record.sh`.
+2. The script prints the one instruction: **Ctrl+Shift+P → "Simple
+   Browser: Show"** → paste `http://localhost:8080/demo.html`. Do it once.
+3. Drag that tab into a split beside the terminal. The **[paper →
+   architecture]** and **[live dashboard]** buttons at the top of the page
+   switch views — no app switching, no second tab, ever.
+4. Record the VSCode window with **Win + Alt + R** (Game Bar) — one app,
+   one clip, no desktop visible.
 
-Note: the script also auto-opens URLs in your default Windows browser via
-interop; in the VSCode flow just ignore that tab (or close it) and use
-Simple Browser.
+Outside VSCode the script keeps the old behaviour: it auto-opens the same
+`demo.html` in your default Windows browser.
 
 ## 2. Recording — Snipping Tool (recommended, no install)
 
