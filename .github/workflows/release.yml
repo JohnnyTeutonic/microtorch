@@ -108,8 +108,8 @@ jobs:
 
           ### Phase 1: Autograd Foundation
           - Reverse-mode differentiation on DAG tape
-          - Gradient checkpointing
-          - SafeTensors model loading
+          - Every op finite-difference gradient-checked in CI
+          - SafeTensors model loading and saving (HF round-trip)
           - GPT-2 parity verification
 
           ### Phase 2: Llama-Family Models
