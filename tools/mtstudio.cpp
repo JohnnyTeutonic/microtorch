@@ -25,6 +25,7 @@
 #include <vector>
 
 #include <nlohmann/json.hpp>
+#include <regex>
 
 #include "microtorch/gguf.hpp"
 #include "microtorch/llama.hpp"
@@ -640,6 +641,23 @@ std::string slurp(const std::string& path) {
     return std::string((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
 }
 
+// Accepts "1706.03762", "2302.13971v1", "cs/9901002", or any arxiv.org
+// URL containing one of those (abs/, pdf/, e-print/). Returns the bare
+// id, or "" if nothing that looks like an arXiv id is present — the
+// gate before the id is ever placed on an exec argv.
+std::string sanitize_arxiv(std::string s) {
+    for (const char* p : {"abs/", "pdf/", "e-print/"}) {
+        const auto k = s.rfind(p);
+        if (k != std::string::npos) s = s.substr(k + std::strlen(p));
+    }
+    while (!s.empty() && std::isspace(static_cast<unsigned char>(s.back()))) s.pop_back();
+    while (!s.empty() && std::isspace(static_cast<unsigned char>(s.front()))) s.erase(0, 1);
+    if (s.size() > 4 && s.substr(s.size() - 4) == ".pdf") s.resize(s.size() - 4);
+    static const std::regex id_re(
+        R"(^(\d{4}\.\d{4,5}(v\d+)?|[a-z][a-z-]{1,12}(\.[A-Z]{2})?/\d{7}(v\d+)?)$)");
+    return s.size() <= 32 && std::regex_match(s, id_re) ? s : "";
+}
+
 int serve_ui(const std::string& out_dir, int port, const std::string& ui_path,
              const std::string& spec_path = "") {
 #ifdef _WIN32
@@ -681,9 +699,10 @@ int serve_ui(const std::string& out_dir, int port, const std::string& ui_path,
 
     // The in-page Train button: POST /train forks this binary as
     // "mtstudio run <spec>" with output logged into out_dir. One run at
-    // a time; state is reaped non-blockingly per request.
-    pid_t run_pid = -1;
-    bool run_finished = false;
+    // a time; state is reaped non-blockingly per request. POST /fetch
+    // forks papers/fetch.py the same way (the drag-an-arXiv-id flow).
+    pid_t run_pid = -1, fetch_pid = -1;
+    bool run_finished = false, fetch_failed = false;
     for (;;) {
         const int c = ::accept(fd, nullptr, nullptr);
         if (c < 0) continue;
@@ -694,9 +713,36 @@ int serve_ui(const std::string& out_dir, int port, const std::string& ui_path,
                 run_finished = true;
             }
         }
-        char req[1024] = {0};
-        const ssize_t r = ::read(c, req, sizeof(req) - 1);
-        std::string line = r > 0 ? std::string(req) : "";
+        if (fetch_pid > 0) {
+            int st = 0;
+            if (::waitpid(fetch_pid, &st, WNOHANG) == fetch_pid) {
+                fetch_pid = -1;
+                fetch_failed = !WIFEXITED(st) || WEXITSTATUS(st) != 0;
+            }
+        }
+        // Read the whole request: loop until the header terminator and
+        // any Content-Length worth of body have arrived (browser POST
+        // headers alone can exceed a single small read).
+        std::string line;
+        {
+            char buf[4096];
+            size_t hdr_end = std::string::npos, want = 0;
+            ssize_t r;
+            while ((r = ::read(c, buf, sizeof(buf))) > 0) {
+                line.append(buf, static_cast<size_t>(r));
+                if (hdr_end == std::string::npos) {
+                    hdr_end = line.find("\r\n\r\n");
+                    if (hdr_end != std::string::npos) {
+                        auto cl = line.find("Content-Length:");
+                        if (cl == std::string::npos) cl = line.find("content-length:");
+                        if (cl != std::string::npos)
+                            want = std::strtoul(line.c_str() + cl + 15, nullptr, 10);
+                    }
+                }
+                if (hdr_end != std::string::npos && line.size() >= hdr_end + 4 + want) break;
+                if (line.size() > 65536) break;
+            }
+        }
         if (line.rfind("POST /train", 0) == 0) {
             if (spec_path.empty()) {
                 respond(c, "409 Conflict", "text/plain",
@@ -718,6 +764,44 @@ int serve_ui(const std::string& out_dir, int port, const std::string& ui_path,
                 run_pid = pid;
                 respond(c, "200 OK", "text/plain", pid > 0 ? "training…" : "fork failed");
             }
+        } else if (line.rfind("POST /fetch", 0) == 0) {
+            // Body = an arXiv id or URL. Forks the paper fetcher, which
+            // writes arch.json + paper.html into out_dir; the page polls
+            // /fetchstatus, then reads both over this same server.
+            const auto he = line.find("\r\n\r\n");
+            const std::string id =
+                sanitize_arxiv(he == std::string::npos ? "" : line.substr(he + 4));
+            if (id.empty()) {
+                respond(c, "400 Bad Request", "text/plain",
+                        "not an arXiv id (want 1706.03762-style, or an arxiv.org URL)");
+            } else if (fetch_pid > 0) {
+                respond(c, "200 OK", "text/plain", "fetching…");
+            } else {
+                ::unlink((out_dir + "/arch.json").c_str());
+                ::unlink((out_dir + "/paper.html").c_str());
+                fetch_failed = false;
+                const char* fp = std::getenv("MTSTUDIO_FETCH");
+                const std::string fetcher = fp ? fp : "papers/fetch.py";
+                const std::string aj = out_dir + "/arch.json", ph = out_dir + "/paper.html";
+                const pid_t pid = ::fork();
+                if (pid == 0) {
+                    const std::string log = out_dir + "/fetch.log";
+                    (void)!::freopen(log.c_str(), "a", stdout);
+                    (void)!::freopen(log.c_str(), "a", stderr);
+                    ::execlp("python3", "python3", fetcher.c_str(), id.c_str(), "--json",
+                             aj.c_str(), "--emit-html", ph.c_str(), static_cast<char*>(nullptr));
+                    _exit(127);
+                }
+                fetch_pid = pid;
+                respond(c, "200 OK", "text/plain",
+                        pid > 0 ? "fetching " + id + "…" : "fork failed");
+            }
+        } else if (line.rfind("GET /fetchstatus", 0) == 0) {
+            const char* s = fetch_pid > 0                            ? "fetching"
+                            : fetch_failed                           ? "failed (see fetch.log)"
+                            : !slurp(out_dir + "/arch.json").empty() ? "done"
+                                                                     : "idle";
+            respond(c, "200 OK", "text/plain", s);
         } else if (line.rfind("GET /spec", 0) == 0) {
             const std::string body = spec_path.empty() ? "" : slurp(spec_path);
             if (body.empty()) {
@@ -730,18 +814,26 @@ int serve_ui(const std::string& out_dir, int port, const std::string& ui_path,
         } else if (line.rfind("GET / ", 0) == 0 || line.rfind("GET /index.html", 0) == 0) {
             respond(c, "200 OK", "text/html; charset=utf-8", ui);
         } else if (line.rfind("GET /", 0) == 0) {
-            // Serve sibling .html files from out_dir (the diff-to-paper
-            // page rides the same localhost as the dashboard, so no
-            // file:// URL gymnastics from Windows/WSL). Name only — no
-            // slashes or dots-paths — and .html only.
+            // Serve sibling files from out_dir (the diff-to-paper page
+            // and the fetched arch.json ride the same localhost as the
+            // dashboard, so no file:// URL gymnastics from Windows/WSL).
+            // Name only — no slashes or dots-paths — and a fixed
+            // extension whitelist.
             const size_t sp = line.find(' ', 4);
             std::string name = sp == std::string::npos ? "" : line.substr(5, sp - 5);
-            const bool safe = !name.empty() && name.find('/') == std::string::npos &&
-                              name.find("..") == std::string::npos && name.size() > 5 &&
-                              name.substr(name.size() - 5) == ".html";
+            const char* ctype = nullptr;
+            auto ends = [&](const char* suf) {
+                const size_t n = std::strlen(suf);
+                return name.size() > n && name.compare(name.size() - n, n, suf) == 0;
+            };
+            if (ends(".html")) ctype = "text/html; charset=utf-8";
+            if (ends(".json")) ctype = "application/json";
+            if (ends(".log")) ctype = "text/plain; charset=utf-8";
+            const bool safe = ctype && name.find('/') == std::string::npos &&
+                              name.find("..") == std::string::npos;
             const std::string body = safe ? slurp(out_dir + "/" + name) : "";
             if (!body.empty()) {
-                respond(c, "200 OK", "text/html; charset=utf-8", body);
+                respond(c, "200 OK", ctype, body);
             } else {
                 respond(c, "404 Not Found", "text/plain", "404");
             }

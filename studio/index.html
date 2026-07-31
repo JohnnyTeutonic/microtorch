@@ -68,7 +68,19 @@
 
 <div class="drop" id="drop">
   drop <b>events.jsonl</b> here &nbsp;·&nbsp; or click to pick a file
+  &nbsp;·&nbsp; or drop an <b>arxiv.org link</b> to fetch its architecture
   <input type="file" id="file" accept=".jsonl,.json,.txt" hidden>
+</div>
+
+<div class="panel" id="paper" style="display:none">
+  <h2>from paper — arXiv &rarr; architecture</h2>
+  <div class="form">
+    <label>arXiv <input id="p-id" size="30"
+      placeholder="1706.03762 or an arxiv.org URL"></label>
+    <button id="p-go">&#8681; fetch architecture</button>
+    <span id="p-status" class="legend"></span>
+  </div>
+  <div id="p-result" class="legend"></div>
 </div>
 
 <div class="panel">
@@ -85,6 +97,12 @@
         <option value="srd-tiny">srd-tiny (surprise-routed density)</option>
         <option value="attnres-tiny">attnres-tiny (attention over depth)</option>
       </select></label>
+    <label>d <input id="b-d" type="number" placeholder="preset"
+      style="width:5.5em"></label>
+    <label>layers <input id="b-layers" type="number" placeholder="preset"
+      style="width:5em"></label>
+    <label>heads <input id="b-heads" type="number" placeholder="preset"
+      style="width:5em"></label>
     <label>corpus <input id="b-corpus" size="38"
       value="/path/to/corpus.txt"></label>
     <label>vocab gguf <input id="b-vocab" size="38"
@@ -335,7 +353,7 @@ function drawNodeGraph() {
   });
   ctx.textAlign = "left";
   ctx.fillStyle = "#8b949e";
-  ctx.fillText("grads @ step " + lastGrads.step, 8, H - 6);
+  ctx.fillText(lastGrads.label || "grads @ step " + lastGrads.step, 8, H - 6);
 }
 
 let glowMode = "graph";
@@ -385,9 +403,15 @@ function drawGrads() {
 // ---- spec builder: form -> spec.json (mtstudio's input format) ----
 function buildSpec() {
   const v = id => document.getElementById(id).value;
+  const custom = {};
+  if (v("b-d")) custom.d = +v("b-d");
+  if (v("b-layers")) custom.layers = +v("b-layers");
+  if (v("b-heads")) custom.heads = +v("b-heads");
+  const arch = Object.keys(custom).length
+    ? { preset: v("b-preset"), custom } : { preset: v("b-preset") };
   const spec = {
     name: v("b-name"),
-    arch: { preset: v("b-preset") },
+    arch,
     data: { corpus: v("b-corpus"), vocab: v("b-vocab"),
             vocab_cap: +v("b-cap"), T: +v("b-T") },
     train: { steps: +v("b-steps"), lr: +v("b-lr"), optimizer: v("b-opt"),
@@ -430,7 +454,14 @@ file.addEventListener("change", () => load(file.files[0]));
     drop.classList.remove("armed"); }));
 drop.addEventListener("drop", e => {
   const f = e.dataTransfer.files[0];
-  if (f) load(f);
+  if (f) { load(f); return; }
+  // No file? Maybe an arXiv link was dropped (the from-paper flow).
+  const txt = (e.dataTransfer.getData("text/uri-list") ||
+               e.dataTransfer.getData("text/plain") || "").trim();
+  if (/arxiv\.org|^\d{4}\.\d{4,5}(v\d+)?$/.test(txt)) {
+    $("p-id").value = txt;
+    doFetch();
+  }
 });
 function load(f) {
   const r = new FileReader();
@@ -449,9 +480,74 @@ function poll() {
         "the moment mtstudio run begins, this page fills in)";
     }).catch(() => {});
 }
+// ---- from-paper flow: POST /fetch, poll /fetchstatus, land the
+// extracted architecture in the (editable) spec builder + node graph.
+function applyArch(cfg) {
+  const g = {};
+  for (const [k, f] of Object.entries(cfg.fields || {})) g[k] = f.value;
+  if (g.d_model) $("b-d").value = g.d_model;
+  if (g.n_layers) $("b-layers").value = g.n_layers;
+  if (g.n_heads) $("b-heads").value = g.n_heads;
+  if (g.context_length) $("b-T").value = Math.min(g.context_length, 512);
+  if (cfg.arxiv_id) $("b-name").value = "arxiv-" + cfg.arxiv_id;
+  buildSpec();
+  // Architecture preview through the node graph: one uniform node per
+  // module the extracted config implies. Real glow arrives with grads.
+  const grads = { wte: 1, wpe: 1 };
+  for (let i = 0; i < Math.min(g.n_layers || 2, 12); i++)
+    grads["layers." + i] = 1;
+  grads.ln_f = 1; grads.head = 1;
+  lastGrads = { step: 0, grads,
+                label: "architecture preview — arXiv:" + cfg.arxiv_id +
+                       (cfg.title ? " (" + cfg.title + ")" : "") };
+  gradHist = {};
+  drawGrads();
+  const un = (cfg.unresolved || []).length
+    ? " · unresolved: " + cfg.unresolved.join(", ") : "";
+  $("p-result").innerHTML =
+    (cfg.title ? "<b>" + cfg.title + "</b> · " : "") +
+    "extracted " + Object.keys(g).length + " fields" + un +
+    ' · <a href="/paper.html" target="_blank" style="color:var(--accent)">' +
+    "evidence: diff-to-paper view</a> · values landed in the builder " +
+    "below — edit freely, then train";
+}
+
+let fetchTimer = null;
+function doFetch() {
+  const id = $("p-id").value.trim();
+  if (!id) return;
+  $("p-status").textContent = "fetching…";
+  $("p-result").textContent = "";
+  fetch("fetch", { method: "POST", body: id }).then(r => r.text()).then(t => {
+    if (t.startsWith("not an arXiv id")) {
+      $("p-status").textContent = t;
+      return;
+    }
+    clearInterval(fetchTimer);
+    fetchTimer = setInterval(() => {
+      fetch("fetchstatus").then(r => r.text()).then(s => {
+        $("p-status").textContent = s;
+        if (s === "done") {
+          clearInterval(fetchTimer);
+          fetch("arch.json").then(r => r.json()).then(applyArch)
+            .catch(() => { $("p-status").textContent = "arch.json unreadable"; });
+        } else if (s.startsWith("failed")) {
+          clearInterval(fetchTimer);
+          $("p-result").innerHTML =
+            '<a href="/fetch.log" target="_blank" ' +
+            'style="color:var(--accent)">fetch.log</a>';
+        }
+      }).catch(() => {});
+    }, 1500);
+  }).catch(() => { $("p-status").textContent = "server unreachable"; });
+}
+$("p-go").addEventListener("click", doFetch);
+$("p-id").addEventListener("keydown", e => { if (e.key === "Enter") doFetch(); });
+
 if (location.protocol.startsWith("http")) {
   poll();
   setInterval(poll, 2000);
+  $("paper").style.display = "";   // server-side fetch needs serve mode
   // Served with an armed spec? Show the in-page Train button — the whole
   // demo drives from the browser, no terminal commands.
   fetch("spec").then(r => {

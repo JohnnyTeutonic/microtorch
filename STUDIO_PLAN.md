@@ -22,6 +22,12 @@ Two hooks no incumbent can copy quickly:
    attention variants that exist nowhere else."
 2. **Paste an arXiv ID into the architecture box** — papers/fetch.py populates
    the config from the paper's LaTeX. A launch-demo moment nobody has.
+   **STATUS 2026-08-01: LIVE in the served studio.** Drop an arxiv.org link
+   on the page (or type the id): `POST /fetch` forks the fetcher server-side,
+   the extracted values land in the editable spec builder, the node graph
+   shows the architecture preview, and the diff-to-paper evidence view is one
+   click away — then ▶ train, all in one tab. Smoked end-to-end on
+   1706.03762 (512/6/8 extracted over the wire).
 
 Positioning line: **the glass-box ML studio** — every block in the UI links to
 its readable source and the gradcheck that verifies it. Smallness becomes the
