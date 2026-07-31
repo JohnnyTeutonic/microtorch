@@ -13,6 +13,7 @@
 #include <algorithm>
 #include <array>
 #include <cctype>
+#include <chrono>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -51,6 +52,7 @@ struct Spec {
     int batch = 1;           // sequences per FORWARD (stacked rows, one graph)
     int accum = 1;           // batches accumulated per optimizer step
     bool ckpt_act = false;   // activation checkpointing per block
+    unsigned seed = 7;       // model init + data-order seed (Atlas multi-seed)
     int gradmap_every = 5;   // per-layer grad-norm event cadence
     size_t es_patience = 0;  // early stopping (0 = off)
     float es_min_delta = 0.0f;
@@ -111,6 +113,7 @@ Spec parse_spec(const std::string& path) {
     s.batch = tr.value("batch", s.batch);
     s.accum = tr.value("accum", s.accum);
     s.ckpt_act = tr.value("checkpoint_activations", s.ckpt_act);
+    s.seed = tr.value("seed", s.seed);
     s.gradmap_every = tr.value("gradmap_every", s.gradmap_every);
     if (tr.contains("early_stopping")) {
         s.es_patience = tr["early_stopping"].value("patience", size_t(0));
@@ -221,16 +224,34 @@ int run(const Spec& s, bool plan_only) {
         lc.n_heads = s.heads;
         lc.d_ff = 3 * s.d;
         lc.n_ctx = s.T;
-        llama = std::make_shared<nn::Llama>(lc, 7);
+        llama = std::make_shared<nn::Llama>(lc, s.seed);
         llama->checkpoint_blocks = s.ckpt_act;
     } else {
         gpt = std::make_shared<parity::ParityLM>(attn_kind(s.attention), tokens.size(), s.d,
-                                                 s.heads, s.T, 7);
+                                                 s.heads, s.T, s.seed);
         if (s.ckpt_act) {
             throw std::runtime_error(
                 "train.checkpoint_activations requires the llama family for now");
         }
     }
+    // Atlas stage-0 structural echo: the run's identity as a data point.
+    const size_t n_params =
+        (llama ? static_cast<nn::Module&>(*llama) : static_cast<nn::Module&>(*gpt))
+            .parameter_count();
+    ev.emit({{"event", "model"},
+             {"family", s.family},
+             {"attention", s.attention},
+             {"d", s.d},
+             {"layers", s.layers},
+             {"heads", s.heads},
+             {"T", s.T},
+             {"vocab", tokens.size()},
+             {"batch", s.batch},
+             {"accum", s.accum},
+             {"lr", s.lr},
+             {"seed", s.seed},
+             {"checkpoint_activations", s.ckpt_act},
+             {"params", n_params}});
     nn::Module& model_ref =
         llama ? static_cast<nn::Module&>(*llama) : static_cast<nn::Module&>(*gpt);
     auto fwd = [&](const std::vector<int>& ids, size_t seq_len = 0) {
@@ -253,7 +274,12 @@ int run(const Spec& s, bool plan_only) {
             start_step = 0;
     }
 
-    std::mt19937 rng(123);
+    // Data order follows the spec seed so multi-seed sweeps vary both init
+    // and batch composition (offset keeps seed=7 runs distinct from the
+    // old fixed-123 stream only in the documented way).
+    std::mt19937 rng(123 + 1000003u * s.seed);
+    const auto t_train0 = std::chrono::steady_clock::now();
+    int last_step = start_step;
     // Resume determinism: each step consumed accum*batch draws.
     for (int i = 0; i < start_step * s.accum * s.batch; ++i) rng();
     auto save = [&](int step) {
@@ -268,6 +294,7 @@ int run(const Spec& s, bool plan_only) {
     bool stopped_early = false;
     const bool is_srd = attn_kind(s.attention) == parity::AttnKind::SRD;
     for (int step = start_step + 1; step <= s.steps; ++step) {
+        last_step = step;
         const size_t lim = val_start - s.T - 1;
         // Mini-batching + accumulation: each of s.accum micro-steps stacks
         // s.batch sequences into ONE forward ([batch*T, d] rows; positions
@@ -376,7 +403,42 @@ int run(const Spec& s, bool plan_only) {
                      {"reason", "gpt2-family blocks are not llama-shaped"}});
         }
     }
-    ev.emit({{"event", "done"}, {"best_val", best_val}, {"early_stopped", stopped_early}});
+    const double wall_s =
+        std::chrono::duration<double>(std::chrono::steady_clock::now() - t_train0).count();
+    ev.emit({{"event", "done"},
+             {"best_val", best_val},
+             {"early_stopped", stopped_early},
+             {"final_step", last_step},
+             {"wall_seconds", wall_s}});
+    // Atlas stage-0 result row: one durable JSON per run, joining the
+    // structural echo with the outcome. atlas_extract.py enriches it with
+    // behavioural features computed from events.jsonl.
+    {
+        json result = {{"name", s.name},
+                       {"family", s.family},
+                       {"attention", s.attention},
+                       {"d", s.d},
+                       {"layers", s.layers},
+                       {"heads", s.heads},
+                       {"T", s.T},
+                       {"batch", s.batch},
+                       {"accum", s.accum},
+                       {"lr", s.lr},
+                       {"seed", s.seed},
+                       {"checkpoint_activations", s.ckpt_act},
+                       {"params", n_params},
+                       {"steps_requested", s.steps},
+                       {"final_step", last_step},
+                       {"best_val", best_val},
+                       {"early_stopped", stopped_early},
+                       {"wall_seconds", wall_s},
+                       {"tokens_per_second", wall_s > 0 ? (last_step - start_step) *
+                                                              static_cast<double>(s.batch) *
+                                                              s.accum * s.T / wall_s
+                                                        : 0.0}};
+        std::ofstream rf(s.out_dir + "/result.json");
+        rf << result.dump(2) << "\n";
+    }
 
     if (s.serve) {
         if (llama && s.exp_gguf) {

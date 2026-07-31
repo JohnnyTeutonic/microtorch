@@ -26,6 +26,9 @@ public:
     // Dotted-path collection over the registration tree.
     std::vector<std::pair<std::string, Var>> named_parameters() const;
     std::vector<Var> parameters() const;
+    // Total scalar parameter count — the first Atlas structural feature
+    // (ARCHITECTURE_ATLAS.md stage 0).
+    size_t parameter_count() const;
     std::map<std::string, Matrix> state_dict() const;
     // strict: every entry must land on a parameter and every parameter must
     // be hit -- loading a frontier checkpoint should fail loudly, not

@@ -49,6 +49,12 @@ std::vector<Var> Module::parameters() const {
     return out;
 }
 
+size_t Module::parameter_count() const {
+    size_t n = 0;
+    for (const auto& p : parameters()) n += p->data.rows() * p->data.cols();
+    return n;
+}
+
 std::map<std::string, Matrix> Module::state_dict() const {
     std::map<std::string, Matrix> sd;
     for (auto& [n, p] : named_parameters()) sd.emplace(n, p->data);
