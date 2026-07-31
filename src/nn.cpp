@@ -220,7 +220,11 @@ Var GPT2::forward(const std::vector<int>& ids, size_t seq_len) const {
     std::vector<int> pos(ids.size());
     for (size_t i = 0; i < pos.size(); ++i) pos[i] = static_cast<int>(i % sl);
     Var x = ops::add(wte->forward(ids), wpe->forward(pos));
-    for (const auto& blk : h) x = blk->forward(x, seq_len);
+    for (const auto& blk : h) {
+        x = checkpoint_blocks && grad_enabled()
+                ? checkpoint([blk, seq_len](const Var& in) { return blk->forward(in, seq_len); }, x)
+                : blk->forward(x, seq_len);
+    }
     x = ln_f->forward(x);
     // Weight-tied head: logits = h wte^T (GPT-2 has no separate lm_head).
     return ops::matmul(x, ops::transpose(wte->weight));

@@ -76,7 +76,12 @@ Var Llama::forward(const std::vector<int>& ids, size_t seq_len) const {
     std::vector<int> pos(ids.size());
     for (size_t i = 0; i < pos.size(); ++i) pos[i] = static_cast<int>(i % sl);
     Var h = embed_tokens->forward(ids);
-    for (const auto& b : blocks) h = b->forward(h, pos, seq_len);
+    for (const auto& b : blocks) {
+        h = checkpoint_blocks && grad_enabled()
+                ? checkpoint(
+                      [b, pos, seq_len](const Var& in) { return b->forward(in, pos, seq_len); }, h)
+                : b->forward(h, pos, seq_len);
+    }
     h = ops::rmsnorm(h, norm_w);
     // Tied head: logits = h @ E^T (gradients flow into the embedding both
     // through the gather and through the head matmul).

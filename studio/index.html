@@ -94,6 +94,7 @@
     <label>batch <input id="b-batch" type="number" value="4"></label>
     <label>accum <input id="b-accum" type="number" value="1"></label>
     <label>early-stop patience <input id="b-pat" type="number" value="8"></label>
+    <label><input id="b-ckpt" type="checkbox"> checkpoint activations</label>
     <label><input id="b-gguf" type="checkbox" checked> export GGUF</label>
     <label>out dir <input id="b-out" size="24" value="/tmp/mtstudio_run"></label>
   </div>
@@ -279,6 +280,7 @@ function buildSpec() {
             vocab_cap: +v("b-cap"), T: +v("b-T") },
     train: { steps: +v("b-steps"), lr: +v("b-lr"),
              batch: +v("b-batch"), accum: +v("b-accum"),
+             checkpoint_activations: document.getElementById("b-ckpt").checked,
              eval_every: 100, checkpoint_every: 100, gradmap_every: 10,
              early_stopping: { patience: +v("b-pat"), min_delta: 0.003 } },
     export: { formats: document.getElementById("b-gguf").checked

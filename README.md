@@ -159,6 +159,9 @@ yourself and pick the attention mechanism.
                                       // (positions + attention mask restart
                                       // per sequence; parity-tested)
     "accum": 2,                       // gradient accumulation over batches
+    "checkpoint_activations": false,  // rematerialize block interiors on
+                                      // backward (llama family; bit-identical
+                                      // grads, ~95% fewer live tape nodes)
     "eval_every": 100,
     "checkpoint_every": 100,          // resume picks up from here
     "gradmap_every": 10,              // per-module grad-norm event cadence
@@ -188,6 +191,7 @@ can consume a run.
 | LR schedulers | ✅ | Cosine-with-warmup, StepLR |
 | Grad clipping | ✅ | Global-norm (`clip_grad_norm`) |
 | Mini-batching | ✅ | Stacked `[B*T, d]` batches, block-isolated attention; stacked-vs-per-seq logits/loss/grads equal to fp epsilon (`test_batching`), 1.34x measured at B=4/T=128 |
+| Gradient checkpointing | ✅ | `checkpoint(fn, x)` rematerializes block interiors on backward: loss+grads **bit-identical**, live tape nodes after forward 211→11 (GPT-2) / 229→9 (Llama) (`test_checkpointing`) |
 | Checkpoint IO | ✅ | safetensors load **and** save (HF round-trip) |
 | GGUF export | ✅ | `export_gguf_llama`: state_dict → .gguf for tinyllama.cpp |
 | Cross-entropy loss | ✅ | Fused softmax backward |

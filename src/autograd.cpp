@@ -5,6 +5,14 @@
 
 namespace microtorch {
 
+namespace detail {
+std::atomic<size_t> g_live_vars{0};
+}
+
+size_t live_variables() {
+    return detail::g_live_vars.load();
+}
+
 void Variable::accumulate(const Matrix& g) {
     if (grad.rows() == 0) {
         grad = Matrix(data.rows(), data.cols());  // zero-filled by ctor
@@ -55,6 +63,42 @@ void backward(const Var& root) {
             (*it)->backward_fn();
         }
     }
+}
+
+Var checkpoint(const std::function<Var(const Var&)>& fn, const Var& x) {
+    if (!grad_enabled()) return fn(x);  // eval: nothing to rematerialize
+
+    Matrix out_data;
+    {
+        NoGrad ng;
+        out_data = fn(x)->data;  // inner tape never exists
+    }
+    // requires_grad is set unconditionally: fn may capture parameters the
+    // segment's single recorded edge (x) cannot see, and under training
+    // they need the backward to fire.
+    Var out = make_var(std::move(out_data), true);
+    out->parents = {x};
+    Variable* self = out.get();
+    auto fn_copy = fn;
+    out->backward_fn = [self, fn_copy]() {
+        const Var& xin = self->parents[0];
+        // Recompute the segment on a detached leaf copy of the input.
+        Var x2 = make_var(xin->data, /*requires_grad=*/true);
+        Var y2 = fn_copy(x2);
+        if (y2->data.rows() != self->grad.rows() || y2->data.cols() != self->grad.cols()) {
+            throw std::runtime_error("checkpoint: recomputed output shape mismatch");
+        }
+        y2->accumulate(self->grad);
+        // Backprop through the fresh subgraph only. Parameters inside fn
+        // are shared with the real model, so their grads land in place.
+        std::vector<Variable*> order;
+        topo(y2, order);
+        for (auto it = order.rbegin(); it != order.rend(); ++it) {
+            if ((*it)->backward_fn && (*it)->grad.rows() != 0) (*it)->backward_fn();
+        }
+        if (xin->requires_grad && x2->grad.rows() != 0) xin->accumulate(x2->grad);
+    };
+    return out;
 }
 
 void zero_grad(const std::vector<Var>& vars) {

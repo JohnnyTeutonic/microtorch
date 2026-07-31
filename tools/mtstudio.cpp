@@ -50,6 +50,7 @@ struct Spec {
     int eval_every = 50, ckpt_every = 100;
     int batch = 1;           // sequences per FORWARD (stacked rows, one graph)
     int accum = 1;           // batches accumulated per optimizer step
+    bool ckpt_act = false;   // activation checkpointing per block
     int gradmap_every = 5;   // per-layer grad-norm event cadence
     size_t es_patience = 0;  // early stopping (0 = off)
     float es_min_delta = 0.0f;
@@ -109,6 +110,7 @@ Spec parse_spec(const std::string& path) {
     s.ckpt_every = tr.value("checkpoint_every", s.ckpt_every);
     s.batch = tr.value("batch", s.batch);
     s.accum = tr.value("accum", s.accum);
+    s.ckpt_act = tr.value("checkpoint_activations", s.ckpt_act);
     s.gradmap_every = tr.value("gradmap_every", s.gradmap_every);
     if (tr.contains("early_stopping")) {
         s.es_patience = tr["early_stopping"].value("patience", size_t(0));
@@ -220,9 +222,14 @@ int run(const Spec& s, bool plan_only) {
         lc.d_ff = 3 * s.d;
         lc.n_ctx = s.T;
         llama = std::make_shared<nn::Llama>(lc, 7);
+        llama->checkpoint_blocks = s.ckpt_act;
     } else {
         gpt = std::make_shared<parity::ParityLM>(attn_kind(s.attention), tokens.size(), s.d,
                                                  s.heads, s.T, 7);
+        if (s.ckpt_act) {
+            throw std::runtime_error(
+                "train.checkpoint_activations requires the llama family for now");
+        }
     }
     nn::Module& model_ref =
         llama ? static_cast<nn::Module&>(*llama) : static_cast<nn::Module&>(*gpt);

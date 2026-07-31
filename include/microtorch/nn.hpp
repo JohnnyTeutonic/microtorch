@@ -134,6 +134,9 @@ public:
     // -> logits [T, vocab] / [B*T, vocab]
     Var forward(const std::vector<int>& ids, size_t seq_len = 0) const;
     GPT2Config cfg;
+    // Activation checkpointing per transformer block: intermediates are
+    // rematerialized on backward instead of stored (see autograd.hpp).
+    bool checkpoint_blocks = false;
     std::shared_ptr<Embedding> wte, wpe;
     std::vector<std::shared_ptr<Block>> h;
     std::shared_ptr<LayerNorm> ln_f;

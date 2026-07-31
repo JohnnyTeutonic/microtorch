@@ -160,10 +160,18 @@ by leverage. Deliberately rejected framings are recorded too.
    0.0; 1.34x wall-clock on identical work at batch=4/T=128 (llama-tiny).
    Known cost: the stacked score matrix does B× redundant attention work;
    per-block row slicing is the follow-up if attention ever dominates.
-2. Gradient checkpointing (activation rematerialization) in the tape:
-   store activations at block boundaries, recompute inside blocks on the
-   backward. Not currently implemented ANYWHERE (audited 2026-07-30; the
-   in-repo README makes no claim). Prereq for the Fit-to-VRAM feature.
+2. Gradient checkpointing. DONE 2026-07-31: `microtorch::checkpoint(fn, x)`
+   runs the segment under NoGrad on forward and rematerializes it on
+   backward through a detached input copy; parameters captured by the
+   segment accumulate grads in place. Wired as `checkpoint_blocks` on
+   GPT2/Llama and `train.checkpoint_activations` in mtstudio (llama).
+   Receipts (tests/test_checkpointing.cpp): loss and every param grad
+   BIT-IDENTICAL with/without, alone and composed with batching; live
+   tape nodes between forward and backward 211->11 (gpt2) / 229->9
+   (llama) via the new live_variables() diagnostic — which is also the
+   probe the Fit-to-VRAM budgeter needs. Constraint documented in
+   autograd.hpp: segments must be recomputation-deterministic (Dropout's
+   per-forward seed counter is excluded).
 3. Fused operators: attention proj->scale->mask->softmax as one routine
    (cache behavior on CPU; kernel count on CUDA phase B).
 4. Safe in-place elementwise ops (relu/silu/gelu variants that reuse the

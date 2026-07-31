@@ -8,6 +8,7 @@
 // closure once. Ownership is one-directional -- children hold shared_ptrs
 // to parents, never the reverse -- so the graph is a DAG of shared_ptrs
 // with no cycles to leak.
+#include <atomic>
 #include <functional>
 #include <memory>
 #include <vector>
@@ -18,6 +19,10 @@ namespace microtorch {
 
 class Variable;
 using Var = std::shared_ptr<Variable>;
+
+namespace detail {
+extern std::atomic<size_t> g_live_vars;  // diagnostic; see live_variables()
+}
 
 class Variable {
 public:
@@ -32,11 +37,21 @@ public:
     std::vector<Var> parents;
     std::function<void()> backward_fn;
 
-    explicit Variable(Matrix d, bool rg = false) : data(std::move(d)), requires_grad(rg) {}
+    explicit Variable(Matrix d, bool rg = false) : data(std::move(d)), requires_grad(rg) {
+        ++detail::g_live_vars;
+    }
+    ~Variable() { --detail::g_live_vars; }
+    Variable(const Variable&) = delete;
+    Variable& operator=(const Variable&) = delete;
 
     bool is_leaf() const { return parents.empty(); }
     void accumulate(const Matrix& g);  // grad += g (sizing on first use)
 };
+
+// Diagnostic: Variables currently alive (tape nodes + leaves). The memory
+// receipt for activation checkpointing, and the raw signal a future
+// fit-to-memory budgeter needs.
+size_t live_variables();
 
 inline Var make_var(Matrix data, bool requires_grad = false) {
     return std::make_shared<Variable>(std::move(data), requires_grad);
@@ -48,6 +63,21 @@ inline Var make_var(Matrix data, bool requires_grad = false) {
 void backward(const Var& root);
 
 void zero_grad(const std::vector<Var>& vars);
+
+// Activation checkpointing (rematerialization). Runs fn(x) WITHOUT
+// recording the inner tape — only x and the output survive the forward.
+// On the backward pass the segment is re-run under grad on a detached
+// copy of x, the output gradient is pushed through that fresh subgraph
+// (parameters captured inside fn accumulate their grads exactly as in
+// the uncheckpointed case), and x receives its input gradient. Cost: one
+// extra forward per segment; saving: the segment's intermediate
+// activations never outlive the forward pass.
+//
+// fn must be RECOMPUTATION-DETERMINISTIC: calling it twice on the same
+// input must run the same ops on the same values. nn::Dropout draws a
+// fresh seed per forward and therefore must not appear inside a
+// checkpointed segment.
+Var checkpoint(const std::function<Var(const Var&)>& fn, const Var& x);
 
 // no_grad scope. Ops record no tape nodes while one of these is alive.
 bool grad_enabled();

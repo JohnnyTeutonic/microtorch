@@ -42,6 +42,8 @@ public:
     Var forward(const std::vector<int>& ids, size_t seq_len = 0) const;
 
     LlamaConfig cfg;
+    // Activation checkpointing per block (see autograd.hpp).
+    bool checkpoint_blocks = false;
     std::shared_ptr<Embedding> embed_tokens;
     std::vector<std::shared_ptr<LlamaBlock>> blocks;
     Var norm_w;                       // final RMSNorm gamma
