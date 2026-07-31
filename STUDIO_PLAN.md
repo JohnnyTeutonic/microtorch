@@ -189,10 +189,22 @@ by leverage. Deliberately rejected framings are recorded too.
    identical-work benchmark (llama-tiny, T=128) — 2.19x total against the
    pre-batching baseline. Elementwise fusion (gelu/silu chains) remains
    open under gap 4.
-4. Safe in-place elementwise ops (relu/silu/gelu variants that reuse the
-   buffer when the tape can recompute rather than store).
-5. Mixed precision: fp16/bf16 tape mode (transformer_cpp's CUDA path
-   already runs fp16; microtorch is fp32-only).
+4. Safe in-place elementwise ops. DONE 2026-08-01: relu_/sigmoid_/scale_
+   mutate the producer's buffer and interpose on its backward_fn
+   (grad *= f'(output), then the original chain) — chain tape nodes
+   3->1, bit-identical grads, FD ~1e-6. Eligibility is a two-clause
+   contract documented in ops.cpp: no other consumer of the input, and
+   the producer's backward must not read its own output — which is why
+   gelu/silu (input-dependent backwards) are excluded as mathematics,
+   not as TODO.
+5. Mixed precision: fp16/bf16 tape mode. DEFERRED 2026-08-01, on
+   purpose: microtorch's CPU kernels have no fp16 SIMD path, so a
+   half-precision tape on CPU would *cost* time (convert both ways
+   around every fp32 op) and only save memory that checkpointing
+   already reclaims 20x of. The honest value of fp16/bf16 arrives with
+   the CUDA phase (transformer_cpp's half_precision_kernels.cu already
+   exists to port — see PHASE0_KERNEL_AUDIT). Revisit as part of that
+   phase, not before.
 
 **Studio features unlocked by the above:**
 - Fit-to-VRAM budgeter: profile the parsed architecture, auto-place
