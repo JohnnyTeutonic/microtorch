@@ -64,8 +64,7 @@ Matrix KimiLinearAttention::cumsum_causal(const Matrix& x) {
 
 // Safe division: numerator / denominator with epsilon handling
 // Avoids division by zero, handles near-zero cases
-Matrix KimiLinearAttention::safe_divide(const Matrix& numerator,
-                                        const Matrix& denominator,
+Matrix KimiLinearAttention::safe_divide(const Matrix& numerator, const Matrix& denominator,
                                         float eps) {
     Matrix result = Matrix(numerator.rows(), numerator.cols());
     for (size_t i = 0; i < numerator.rows(); ++i) {
@@ -83,8 +82,8 @@ Matrix KimiLinearAttention::safe_divide(const Matrix& numerator,
 // Forward: Linear-time attention
 // Complexity: O(n * d²) where n = seq_len, d = head_dim
 // vs O(n² * d) for standard attention
-Matrix KimiLinearAttention::forward(const Matrix& q, const Matrix& k,
-                                     const Matrix& v, bool causal) {
+Matrix KimiLinearAttention::forward(const Matrix& q, const Matrix& k, const Matrix& v,
+                                    bool causal) {
     // Verify shapes: [batch*heads, seq, head_dim]
     // After attention ops, q/k/v should all be [seq, head_dim] per batch*head
     if (q.rows() != k.rows() || k.rows() != v.rows()) {
@@ -149,8 +148,8 @@ Matrix KimiLinearAttention::forward(const Matrix& q, const Matrix& k,
 // This is complex due to the cumulative sums and divisions
 // We use reverse-mode AD: propagate grad_out backward through each operation
 std::tuple<Matrix, Matrix, Matrix> KimiLinearAttention::backward(
-    const Matrix& grad_out, const Matrix& q, const Matrix& k,
-    const Matrix& v, const Matrix& attention_out) const {
+    const Matrix& grad_out, const Matrix& q, const Matrix& k, const Matrix& v,
+    const Matrix& attention_out) const {
     size_t seq_len = q.rows();
 
     // Recompute forward activations (needed for backward)
@@ -166,8 +165,7 @@ std::tuple<Matrix, Matrix, Matrix> KimiLinearAttention::backward(
     }
     for (size_t t = 1; t < seq_len; ++t) {
         for (size_t j = 0; j < head_dim_; ++j) {
-            numerator(t, j) =
-                numerator(t - 1, j) + phi_k(t, j) * v(t, j);
+            numerator(t, j) = numerator(t - 1, j) + phi_k(t, j) * v(t, j);
         }
     }
 
@@ -190,8 +188,7 @@ std::tuple<Matrix, Matrix, Matrix> KimiLinearAttention::backward(
             float denom_sq = denom * denom;
 
             // grad w.r.t. φ(q)
-            float grad_phi_q =
-                grad_out(t, j) * numerator(t, j) / denom;
+            float grad_phi_q = grad_out(t, j) * numerator(t, j) / denom;
 
             // grad w.r.t. φ(q) -> grad w.r.t. q
             grad_q(t, j) = grad_phi_q * phi_q_grad(t, j);
@@ -218,8 +215,7 @@ std::tuple<Matrix, Matrix, Matrix> KimiLinearAttention::backward(
             grad_numerator(t, j) = grad_out(t, j) * phi_q(t, j) / denom;
 
             // d(output[t,j])/d(denom[t,j]) = -φ(q[t,j]) * num / denom²
-            grad_denominator(t, j) =
-                -grad_out(t, j) * phi_q(t, j) * numerator(t, j) / denom_sq;
+            grad_denominator(t, j) = -grad_out(t, j) * phi_q(t, j) * numerator(t, j) / denom_sq;
         }
     }
 
@@ -238,15 +234,13 @@ std::tuple<Matrix, Matrix, Matrix> KimiLinearAttention::backward(
             }
 
             // grad_k contribution from denominator cumsum
-            grad_k(t, j) +=
-                grad_denominator(t, j) * phi_k_grad(t, j);
+            grad_k(t, j) += grad_denominator(t, j) * phi_k_grad(t, j);
 
             // grad_v contribution from numerator
             grad_v(t, j) += grad_numerator(t, j) * phi_k(t, j);
 
             // grad_k contribution from numerator (φ(k_t) * v_t term)
-            grad_k(t, j) +=
-                grad_numerator(t, j) * phi_k_grad(t, j) * v(t, j);
+            grad_k(t, j) += grad_numerator(t, j) * phi_k_grad(t, j) * v(t, j);
         }
     }
 

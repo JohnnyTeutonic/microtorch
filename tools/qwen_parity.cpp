@@ -27,8 +27,8 @@
 #include "microtorch/safetensors.hpp"
 
 using json = nlohmann::json;
-using microtorch::Var;
 using microtorch::make_var;
+using microtorch::Var;
 namespace ops = microtorch::ops;
 namespace nn = microtorch::nn;
 
@@ -71,9 +71,8 @@ int main(int argc, char** argv) {
 
     // For now, just check that we can load the config
     LlamaConfig cfg = load_config(argv[2]);
-    std::printf("loaded config: hidden=%zu, layers=%zu, heads=%zu, vocab=%zu\n",
-                cfg.hidden_size, cfg.num_hidden_layers, cfg.num_attention_heads,
-                cfg.vocab_size);
+    std::printf("loaded config: hidden=%zu, layers=%zu, heads=%zu, vocab=%zu\n", cfg.hidden_size,
+                cfg.num_hidden_layers, cfg.num_attention_heads, cfg.vocab_size);
 
     // Try to load the safetensors file (same as GPT-2, but Qwen's naming)
     try {
@@ -84,8 +83,7 @@ int main(int argc, char** argv) {
         int shown = 0;
         for (const auto& [name, tensor] : tensors) {
             if (shown < 10) {
-                std::printf("  %s [%zu, %zu]\n", name.c_str(), tensor.rows(),
-                           tensor.cols());
+                std::printf("  %s [%zu, %zu]\n", name.c_str(), tensor.rows(), tensor.cols());
                 shown++;
             }
         }

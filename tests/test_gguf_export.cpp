@@ -25,7 +25,7 @@
 
 #include "microtorch/gguf.hpp"
 
-#include "check.hpp"   // Release-proof CHECK (assert vanishes under -DNDEBUG)
+#include "check.hpp"  // Release-proof CHECK (assert vanishes under -DNDEBUG)
 
 using namespace microtorch;
 
@@ -34,9 +34,9 @@ namespace {
 // ---------- minimal spec-based GGUF reader ----------
 struct ParsedTensor {
     std::string name;
-    std::vector<uint64_t> dims;   // as stored in file
+    std::vector<uint64_t> dims;  // as stored in file
     uint32_t type;
-    uint64_t offset;              // relative to data-section start
+    uint64_t offset;  // relative to data-section start
 };
 
 struct ParsedGGUF {
@@ -45,8 +45,8 @@ struct ParsedGGUF {
     std::map<std::string, std::string> strings;
     std::vector<std::string> token_array;
     std::vector<ParsedTensor> tensors;
-    uint64_t data_start = 0;      // absolute file offset
-    std::vector<uint8_t> bytes;   // whole file
+    uint64_t data_start = 0;     // absolute file offset
+    std::vector<uint8_t> bytes;  // whole file
 };
 
 template <typename T>
@@ -70,11 +70,10 @@ ParsedGGUF parse_gguf(const std::string& path) {
     CHECK(f && "cannot open exported gguf");
     g.bytes.resize(static_cast<size_t>(f.tellg()));
     f.seekg(0);
-    f.read(reinterpret_cast<char*>(g.bytes.data()),
-           static_cast<std::streamsize>(g.bytes.size()));
+    f.read(reinterpret_cast<char*>(g.bytes.data()), static_cast<std::streamsize>(g.bytes.size()));
 
     size_t p = 0;
-    CHECK(rd<uint32_t>(g.bytes, p) == 0x46554747u);   // "GGUF"
+    CHECK(rd<uint32_t>(g.bytes, p) == 0x46554747u);  // "GGUF"
     CHECK(rd<uint32_t>(g.bytes, p) == 3u);
     const uint64_t n_tensors = rd<uint64_t>(g.bytes, p);
     const uint64_t n_meta = rd<uint64_t>(g.bytes, p);
@@ -83,10 +82,16 @@ ParsedGGUF parse_gguf(const std::string& path) {
         const std::string key = rd_str(g.bytes, p);
         const uint32_t vt = rd<uint32_t>(g.bytes, p);
         switch (vt) {
-            case 4: g.u32s[key] = rd<uint32_t>(g.bytes, p); break;      // UINT32
-            case 6: g.f32s[key] = rd<float>(g.bytes, p); break;         // FLOAT32
-            case 8: g.strings[key] = rd_str(g.bytes, p); break;         // STRING
-            case 9: {                                                   // ARRAY
+            case 4:
+                g.u32s[key] = rd<uint32_t>(g.bytes, p);
+                break;  // UINT32
+            case 6:
+                g.f32s[key] = rd<float>(g.bytes, p);
+                break;  // FLOAT32
+            case 8:
+                g.strings[key] = rd_str(g.bytes, p);
+                break;  // STRING
+            case 9: {   // ARRAY
                 const uint32_t et = rd<uint32_t>(g.bytes, p);
                 const uint64_t n = rd<uint64_t>(g.bytes, p);
                 for (uint64_t k = 0; k < n; ++k) {
@@ -101,7 +106,8 @@ ParsedGGUF parse_gguf(const std::string& path) {
                 }
                 break;
             }
-            default: CHECK(false && "unexpected metadata value type");
+            default:
+                CHECK(false && "unexpected metadata value type");
         }
     }
 
@@ -137,8 +143,8 @@ void expect_bytes(const ParsedGGUF& g, const std::string& name, const Matrix& sr
         uint64_t count = 1;
         for (auto d : t.dims) count *= d;
         CHECK(count == n);
-        CHECK(t.type == 0);   // F32
-        CHECK((t.offset % 32) == 0);   // every offset aligned
+        CHECK(t.type == 0);           // F32
+        CHECK((t.offset % 32) == 0);  // every offset aligned
         const uint8_t* file_bytes = g.bytes.data() + g.data_start + t.offset;
         CHECK(std::memcmp(file_bytes, &src(0, 0), n * sizeof(float)) == 0);
         return;
@@ -198,12 +204,11 @@ int main() {
     CHECK(g.strings.at("general.architecture") == "llama");
     CHECK(g.u32s.at("llama.embedding_length") == D);
     CHECK(g.u32s.at("llama.block_count") == L);
-    CHECK(g.u32s.at("llama.attention.head_count_kv") == H);   // MHA default
+    CHECK(g.u32s.at("llama.attention.head_count_kv") == H);  // MHA default
     CHECK(g.u32s.at("llama.rope.dimension_count") == D / H);
     CHECK(g.u32s.at("llama.vocab_size") == V);
     CHECK(g.token_array.size() == 7 && g.token_array[2] == "hello");
-    printf("  metadata ok (%zu u32 keys, %zu tokens)\n", g.u32s.size(),
-           g.token_array.size());
+    printf("  metadata ok (%zu u32 keys, %zu tokens)\n", g.u32s.size(), g.token_array.size());
 
     // 9 per layer * 2 + embed + final norm + lm_head = 21 tensors.
     CHECK(g.tensors.size() == 21);
@@ -214,10 +219,8 @@ int main() {
     // Byte-exact round trip for every mapped tensor (HF layout: no
     // transpose, so file bytes == source bytes).
     expect_bytes(g, "token_embd.weight", sd.at("model.embed_tokens.weight"));
-    expect_bytes(g, "blk.0.attn_q.weight",
-                 sd.at("model.layers.0.self_attn.q_proj.weight"));
-    expect_bytes(g, "blk.1.ffn_down.weight",
-                 sd.at("model.layers.1.mlp.down_proj.weight"));
+    expect_bytes(g, "blk.0.attn_q.weight", sd.at("model.layers.0.self_attn.q_proj.weight"));
+    expect_bytes(g, "blk.1.ffn_down.weight", sd.at("model.layers.1.mlp.down_proj.weight"));
     expect_bytes(g, "blk.1.ffn_norm.weight",
                  sd.at("model.layers.1.post_attention_layernorm.weight"));
     expect_bytes(g, "output_norm.weight", sd.at("model.norm.weight"));
@@ -225,8 +228,7 @@ int main() {
     printf("  tensor bytes identical through align-padded data section\n");
 
     // The bias must be reported, not silently dropped.
-    CHECK(unmapped.size() == 1 &&
-           unmapped[0] == "model.layers.0.self_attn.q_proj.bias");
+    CHECK(unmapped.size() == 1 && unmapped[0] == "model.layers.0.self_attn.q_proj.bias");
     printf("  unmapped tensor reported: %s\n", unmapped[0].c_str());
 
     // Transpose path: microtorch-layout [in, out] weights come out as

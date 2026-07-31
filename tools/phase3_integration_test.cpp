@@ -35,8 +35,8 @@ void demo_kimi_attention(size_t seq_len, size_t d_model, size_t n_heads) {
     Var x_var = make_var(x, true);
     Var out = attn->forward(x_var);
 
-    printf("  Kimi Linear Attention: [%zu, %zu] -> [%zu, %zu] (O(n*d²))\n",
-           seq_len, d_model, out->data.rows(), out->data.cols());
+    printf("  Kimi Linear Attention: [%zu, %zu] -> [%zu, %zu] (O(n*d²))\n", seq_len, d_model,
+           out->data.rows(), out->data.cols());
 }
 
 // Helper: demonstrate cerebellum gating
@@ -64,9 +64,10 @@ void demo_cerebellum_gating(size_t seq_len, size_t d_model) {
     }
     avg_gate /= gate_probs.rows();
 
-    printf("  Cerebellum Selective Gating: avg gate prob = %.4f (routing "
-           "computation)\n",
-           avg_gate);
+    printf(
+        "  Cerebellum Selective Gating: avg gate prob = %.4f (routing "
+        "computation)\n",
+        avg_gate);
 }
 
 // Helper: demonstrate mamba state-space
@@ -84,9 +85,10 @@ void demo_mamba_statespace(size_t seq_len, size_t d_model) {
     Var tokens_var = make_var(tokens, true);
     Var logits = mamba_model.forward(tokens_var);
 
-    printf("  Mamba State-Space: [%zu, 1] tokens -> [%zu, %zu] logits "
-           "(O(1) mem/step)\n",
-           seq_len, logits->data.rows(), logits->data.cols());
+    printf(
+        "  Mamba State-Space: [%zu, 1] tokens -> [%zu, %zu] logits "
+        "(O(1) mem/step)\n",
+        seq_len, logits->data.rows(), logits->data.cols());
 }
 
 int main() {

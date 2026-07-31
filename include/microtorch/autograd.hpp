@@ -22,7 +22,7 @@ using Var = std::shared_ptr<Variable>;
 class Variable {
 public:
     Matrix data;
-    Matrix grad;                    // sized+zeroed on first accumulate()
+    Matrix grad;  // sized+zeroed on first accumulate()
     bool requires_grad = false;
 
     // Tape node; empty for leaves. backward_fn reads this->grad and
@@ -32,11 +32,10 @@ public:
     std::vector<Var> parents;
     std::function<void()> backward_fn;
 
-    explicit Variable(Matrix d, bool rg = false)
-        : data(std::move(d)), requires_grad(rg) {}
+    explicit Variable(Matrix d, bool rg = false) : data(std::move(d)), requires_grad(rg) {}
 
     bool is_leaf() const { return parents.empty(); }
-    void accumulate(const Matrix& g);   // grad += g (sizing on first use)
+    void accumulate(const Matrix& g);  // grad += g (sizing on first use)
 };
 
 inline Var make_var(Matrix data, bool requires_grad = false) {

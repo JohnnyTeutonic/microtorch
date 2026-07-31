@@ -13,11 +13,11 @@
 #include <random>
 #include <vector>
 
-#include "microtorch/ops.hpp"
 #include "microtorch/device.hpp"
+#include "microtorch/ops.hpp"
 
-using microtorch::Var;
 using microtorch::make_var;
+using microtorch::Var;
 namespace ops = microtorch::ops;
 
 namespace {
@@ -40,8 +40,8 @@ Matrix randn(size_t r, size_t c, unsigned seed, float scale = 1.0f) {
 
 // Central finite differences on a scalar-valued rebuild of the graph. The
 // forward runs under NoGrad so FD never contaminates the tape under test.
-double fd_vs_analytic(const std::function<float()>& forward, Var leaf,
-                      const Matrix& analytic, float h = 1e-2f) {
+double fd_vs_analytic(const std::function<float()>& forward, Var leaf, const Matrix& analytic,
+                      float h = 1e-2f) {
     double worst = 0.0;
     for (size_t i = 0; i < leaf->data.rows(); ++i) {
         for (size_t j = 0; j < leaf->data.cols(); ++j) {
@@ -54,8 +54,7 @@ double fd_vs_analytic(const std::function<float()>& forward, Var leaf,
             leaf->data(i, j) = keep;
             const double fd = (static_cast<double>(up) - dn) / (2.0 * h);
             const double a = analytic(i, j);
-            const double err =
-                std::abs(a - fd) / (1.0 + std::max(std::abs(a), std::abs(fd)));
+            const double err = std::abs(a - fd) / (1.0 + std::max(std::abs(a), std::abs(fd)));
             worst = std::max(worst, err);
         }
     }
@@ -72,12 +71,11 @@ int main() {
     {
         Matrix A = randn(7, 13, 1), B = randn(13, 9, 2);
         Matrix C1 = matmul_optimized(A, B);
-        Matrix C2 = A * B;                       // naive operator*
+        Matrix C2 = A * B;  // naive operator*
         double worst = 0.0;
         for (size_t i = 0; i < C1.rows(); ++i)
             for (size_t j = 0; j < C1.cols(); ++j)
-                worst = std::max(worst,
-                                 static_cast<double>(std::abs(C1(i, j) - C2(i, j))));
+                worst = std::max(worst, static_cast<double>(std::abs(C1(i, j) - C2(i, j))));
         check(worst < 1e-4, "matmul_optimized == naive matmul", worst);
     }
 
@@ -88,7 +86,7 @@ int main() {
     Var W1 = make_var(randn(3, 5, 11, 0.7f), true);
     Var b = make_var(randn(1, 5, 12, 0.3f), true);
     Var W2 = make_var(randn(5, 3, 13, 0.7f), true);
-    Var M = make_var(randn(4, 3, 14));          // no grad: constant mask
+    Var M = make_var(randn(4, 3, 14));  // no grad: constant mask
 
     auto build = [&]() -> Var {
         Var h = ops::gelu(ops::add_bias(ops::matmul(X, W1), b));
@@ -100,7 +98,7 @@ int main() {
     Var loss = build();
     microtorch::backward(loss);
 
-    const double TOL = 5e-3;   // float32 forward + h=1e-2 central differences
+    const double TOL = 5e-3;  // float32 forward + h=1e-2 central differences
     check(fd_vs_analytic(forward, X, X->grad) < TOL, "dX vs finite differences",
           fd_vs_analytic(forward, X, X->grad));
     check(fd_vs_analytic(forward, W1, W1->grad) < TOL, "dW1 vs finite differences",
@@ -113,15 +111,14 @@ int main() {
     // ---- diamond: the same leaf reaches the root twice; grads must ADD ----
     {
         Var a = make_var(randn(3, 3, 20), true);
-        Var y = ops::mean(ops::mul(a, a));       // dy/da = 2a/N exactly
+        Var y = ops::mean(ops::mul(a, a));  // dy/da = 2a/N exactly
         microtorch::backward(y);
         double worst = 0.0;
         const float n = 9.0f;
         for (size_t i = 0; i < 3; ++i)
             for (size_t j = 0; j < 3; ++j)
-                worst = std::max(worst,
-                                 static_cast<double>(std::abs(
-                                     a->grad(i, j) - 2.0f * a->data(i, j) / n)));
+                worst = std::max(
+                    worst, static_cast<double>(std::abs(a->grad(i, j) - 2.0f * a->data(i, j) / n)));
         check(worst < 1e-6, "diamond accumulation: d(mean(a.*a)) == 2a/N", worst);
     }
 
@@ -135,9 +132,8 @@ int main() {
         for (size_t i = 0; i < 2; ++i)
             for (size_t j = 0; j < 4; ++j) {
                 float want = 2.0f * (p->data(i, j) - q->data(i, j)) / 8.0f;
-                worst = std::max(worst, static_cast<double>(
-                    std::abs(p->grad(i, j) - want) +
-                    std::abs(q->grad(i, j) + want)));
+                worst = std::max(worst, static_cast<double>(std::abs(p->grad(i, j) - want) +
+                                                            std::abs(q->grad(i, j) + want)));
             }
         check(worst < 1e-6, "sub: d(mean((p-q)^2)) signs on both branches", worst);
     }
@@ -155,12 +151,11 @@ int main() {
         double ours = fd_vs_analytic(gforward, x, x->grad);
         check(ours < TOL, "gelu backward (microtorch) vs FD", ours);
 
-        Matrix legacy(1, 64, 1.0f / 64.0f);      // upstream grad of mean
-        legacy.apply_gelu_derivative(x->data);   // the buggy in-place multiply
+        Matrix legacy(1, 64, 1.0f / 64.0f);     // upstream grad of mean
+        legacy.apply_gelu_derivative(x->data);  // the buggy in-place multiply
         double bug = 0.0;
         for (size_t j = 0; j < 64; ++j)
-            bug = std::max(bug, static_cast<double>(
-                std::abs(legacy(0, j) - x->grad(0, j))));
+            bug = std::max(bug, static_cast<double>(std::abs(legacy(0, j) - x->grad(0, j))));
         check(bug > 1e-4, "legacy apply_gelu_derivative disagrees (canary)", bug);
     }
 
@@ -168,9 +163,7 @@ int main() {
     {
         Var x = make_var(randn(3, 5, 40), true);
         Var r = make_var(randn(1, 5, 41), true);
-        auto f = [&]() -> float {
-            return ops::mean(ops::mul_row(ops::silu(x), r))->data(0, 0);
-        };
+        auto f = [&]() -> float { return ops::mean(ops::mul_row(ops::silu(x), r))->data(0, 0); };
         microtorch::backward(ops::mean(ops::mul_row(ops::silu(x), r)));
         check(fd_vs_analytic(f, x, x->grad) < TOL, "silu+mul_row: dx vs FD",
               fd_vs_analytic(f, x, x->grad));
@@ -182,9 +175,7 @@ int main() {
     {
         Var x = make_var(randn(4, 8, 60), true);
         Var w = make_var(randn(1, 8, 61), true);
-        auto f = [&]() -> float {
-            return ops::mean(ops::rmsnorm(x, w))->data(0, 0);
-        };
+        auto f = [&]() -> float { return ops::mean(ops::rmsnorm(x, w))->data(0, 0); };
         microtorch::backward(ops::mean(ops::rmsnorm(x, w)));
         check(fd_vs_analytic(f, x, x->grad) < TOL, "rmsnorm: dx vs FD",
               fd_vs_analytic(f, x, x->grad));
@@ -192,7 +183,7 @@ int main() {
               fd_vs_analytic(f, w, w->grad));
     }
     {
-        Var qk = make_var(randn(2, 12, 62), true);      // [T=2, d*3=12]
+        Var qk = make_var(randn(2, 12, 62), true);  // [T=2, d*3=12]
         std::vector<int> pos = {0, 1};
         auto f = [&]() -> float {
             return ops::mean(ops::apply_rope(qk, pos, 10000.0f, 4))->data(0, 0);
@@ -218,8 +209,7 @@ int main() {
         double worst = 0.0;
         for (size_t i = 0; i < first.rows(); ++i)
             for (size_t j = 0; j < first.cols(); ++j)
-                worst = std::max(worst, static_cast<double>(
-                    std::abs(first(i, j) - X->grad(i, j))));
+                worst = std::max(worst, static_cast<double>(std::abs(first(i, j) - X->grad(i, j))));
         check(worst == 0.0, "zero_grad + rebuild: bit-identical grads", worst);
     }
 

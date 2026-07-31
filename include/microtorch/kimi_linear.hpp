@@ -8,9 +8,9 @@
 // Core idea: Replace quadratic attention matrix with linear projection space
 // that preserves model expressiveness while breaking the n² scaling bottleneck.
 
-#include "microtorch/primitives.hpp"
 #include <cmath>
 #include <memory>
+#include "microtorch/primitives.hpp"
 
 namespace microtorch::kimi {
 
@@ -28,23 +28,21 @@ namespace microtorch::kimi {
 class KimiLinearAttention {
 public:
     // Initialize with head dimension
-    explicit KimiLinearAttention(size_t head_dim)
-        : head_dim_(head_dim) {}
+    explicit KimiLinearAttention(size_t head_dim) : head_dim_(head_dim) {}
 
     // Forward: linear-time attention
     // q, k, v: [batch*heads, seq, head_dim]
     // causal: if true, use causal mask (tokens can only attend to past)
     // Returns: attention output [batch*heads, seq, head_dim]
-    Matrix forward(const Matrix& q, const Matrix& k, const Matrix& v,
-                   bool causal = true);
+    Matrix forward(const Matrix& q, const Matrix& k, const Matrix& v, bool causal = true);
 
     // Backward: compute gradients w.r.t. q, k, v
     // grad_out: gradient from upstream [batch*heads, seq, head_dim]
     // q, k, v, attention_out: forward pass activations
     // Returns: (grad_q, grad_k, grad_v)
-    std::tuple<Matrix, Matrix, Matrix> backward(
-        const Matrix& grad_out, const Matrix& q, const Matrix& k,
-        const Matrix& v, const Matrix& attention_out) const;
+    std::tuple<Matrix, Matrix, Matrix> backward(const Matrix& grad_out, const Matrix& q,
+                                                const Matrix& k, const Matrix& v,
+                                                const Matrix& attention_out) const;
 
 private:
     size_t head_dim_;
@@ -65,8 +63,7 @@ private:
 
     // Elementwise division: safer than direct /
     // Handles near-zero denominators
-    static Matrix safe_divide(const Matrix& numerator,
-                              const Matrix& denominator,
+    static Matrix safe_divide(const Matrix& numerator, const Matrix& denominator,
                               float eps = 1e-8f);
 };
 

@@ -1,7 +1,7 @@
-#include "check.hpp"
 #include <cmath>
 #include <cstdio>
 #include <random>
+#include "check.hpp"
 
 #include "microtorch/kimi_linear.hpp"
 
@@ -12,20 +12,20 @@ namespace {
 
 // Finite difference gradient check
 // Compute numerical gradient and compare with analytical (backward)
-void gradient_check(const Matrix& x, const std::string& name,
-                    float (*forward_fn)(const Matrix&),
-                    const Matrix& analytical_grad, float eps = 1e-4f,
-                    float tol = 5e-3f) {
+void gradient_check(const Matrix& x, const std::string& name, float (*forward_fn)(const Matrix&),
+                    const Matrix& analytical_grad, float eps = 1e-4f, float tol = 5e-3f) {
     Matrix numerical_grad = Matrix(x.rows(), x.cols());
 
     for (size_t i = 0; i < x.rows(); ++i) {
         for (size_t j = 0; j < x.cols(); ++j) {
             // f(x + eps)
-            Matrix x_plus = x;            x_plus(i, j) += eps;
+            Matrix x_plus = x;
+            x_plus(i, j) += eps;
             float f_plus = forward_fn(x_plus);
 
             // f(x - eps)
-            Matrix x_minus = x;            x_minus(i, j) -= eps;
+            Matrix x_minus = x;
+            x_minus(i, j) -= eps;
             float f_minus = forward_fn(x_minus);
 
             // Centered difference
@@ -42,8 +42,8 @@ void gradient_check(const Matrix& x, const std::string& name,
         }
     }
 
-    printf("%-25s: max_diff=%8.2e vs tol=%8.2e %s\n", name.c_str(), max_diff,
-           tol, (max_diff < tol) ? "✓" : "✗");
+    printf("%-25s: max_diff=%8.2e vs tol=%8.2e %s\n", name.c_str(), max_diff, tol,
+           (max_diff < tol) ? "✓" : "✗");
 
     CHECK(max_diff < tol && "Gradient check failed");
 }
@@ -216,7 +216,8 @@ void test_kimi_gradient_check_simple() {
     for (size_t i = 0; i < seq_len; ++i) {
         for (size_t j = 0; j < head_dim; ++j) {
             // f(q + eps)
-            Matrix q_plus = q;            q_plus(i, j) += eps;
+            Matrix q_plus = q;
+            q_plus(i, j) += eps;
             Matrix out_plus = kimi.forward(q_plus, k, v, true);
             float loss_plus = 0.f;
             for (size_t ii = 0; ii < seq_len; ++ii) {
@@ -226,7 +227,8 @@ void test_kimi_gradient_check_simple() {
             }
 
             // f(q - eps)
-            Matrix q_minus = q;            q_minus(i, j) -= eps;
+            Matrix q_minus = q;
+            q_minus(i, j) -= eps;
             Matrix out_minus = kimi.forward(q_minus, k, v, true);
             float loss_minus = 0.f;
             for (size_t ii = 0; ii < seq_len; ++ii) {
@@ -301,12 +303,10 @@ void test_kimi_causal_masking() {
 
     float last_pos_diff = 0.f;
     for (size_t j = 0; j < head_dim; ++j) {
-        last_pos_diff += std::abs(output_causal(seq_len - 1, j) -
-                                   output_no_causal(seq_len - 1, j));
+        last_pos_diff += std::abs(output_causal(seq_len - 1, j) - output_no_causal(seq_len - 1, j));
     }
 
-    printf("First pos diff: %.6f (should be large due to mask)\n",
-           first_pos_diff);
+    printf("First pos diff: %.6f (should be large due to mask)\n", first_pos_diff);
     printf("Last pos diff:  %.6f (should be ~0)\n", last_pos_diff);
 
     // First position should have large difference (future masked out)

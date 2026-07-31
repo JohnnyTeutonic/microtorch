@@ -39,7 +39,7 @@ public:
     // first forward.
     Var gate() const { return last_gate_; }
 
-    std::shared_ptr<Linear> c_attn, c_proj;   // shared by both paths
+    std::shared_ptr<Linear> c_attn, c_proj;  // shared by both paths
     std::shared_ptr<cerebellum::RoutinePredictor> predictor;
     size_t H, dk;
 

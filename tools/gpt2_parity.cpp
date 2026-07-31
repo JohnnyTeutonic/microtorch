@@ -29,15 +29,17 @@ int main(int argc, char** argv) {
     // ---- load the checkpoint onto the module tree, strictly ----
     std::map<std::string, std::string> skipped;
     auto sd = microtorch::load_safetensors(argv[1], &skipped);
-    std::printf("loaded %zu tensors (%zu skipped by rank)\n", sd.size(),
-                skipped.size());
+    std::printf("loaded %zu tensors (%zu skipped by rank)\n", sd.size(), skipped.size());
     nn::GPT2 model{nn::GPT2Config{}};
     model.load_state_dict(sd, /*strict=*/true);
     model.eval();
 
     // ---- reference ----
     std::ifstream rf(argv[2]);
-    if (!rf) { std::fprintf(stderr, "cannot open %s\n", argv[2]); return 2; }
+    if (!rf) {
+        std::fprintf(stderr, "cannot open %s\n", argv[2]);
+        return 2;
+    }
     const auto ref = nlohmann::json::parse(rf);
     const std::vector<int> tokens = ref.at("tokens").get<std::vector<int>>();
     const size_t R = ref.at("rows").get<size_t>();
@@ -67,8 +69,8 @@ int main(int argc, char** argv) {
         }
         argmax_hits += (am_ref == am_our);
     }
-    std::printf("logits: max abs diff %.3e, max rel diff %.3e, argmax %zu/%zu\n",
-                worst, worst_rel, argmax_hits, R);
+    std::printf("logits: max abs diff %.3e, max rel diff %.3e, argmax %zu/%zu\n", worst, worst_rel,
+                argmax_hits, R);
     const bool parity = worst < 5e-2 && argmax_hits == R;
     std::printf("[%s] HF logit parity\n", parity ? "ok" : "FAIL");
 
@@ -92,15 +94,15 @@ int main(int argc, char** argv) {
         microtorch::backward(loss);
         sgd.step();
     }
-    {   // the held-out step: did the last update help too?
+    {  // the held-out step: did the last update help too?
         microtorch::NoGrad ng;
         Var loss = ops::cross_entropy(model.forward(in), tgt);
         std::printf("  after step 2:     loss %.4f\n", loss->data(0, 0));
         last = loss->data(0, 0);
     }
     const bool learns = last < first;
-    std::printf("[%s] fine-tune: loss %.4f -> %.4f through the tape\n",
-                learns ? "ok" : "FAIL", first, last);
+    std::printf("[%s] fine-tune: loss %.4f -> %.4f through the tape\n", learns ? "ok" : "FAIL",
+                first, last);
 
     if (parity && learns) {
         std::printf("\nPHASE 1C SUCCESS TEST PASSED\n");

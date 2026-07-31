@@ -13,11 +13,11 @@ namespace nn {
 
 struct LlamaConfig {
     size_t vocab = 4096, d = 128, n_layers = 2, n_heads = 4;
-    size_t d_ff = 512;                 // SwiGLU intermediate
+    size_t d_ff = 512;  // SwiGLU intermediate
     size_t n_ctx = 256;
     float rms_eps = 1e-6f;
     float rope_theta = 10000.0f;
-    bool tie_embeddings = true;        // lm_head shares embed_tokens
+    bool tie_embeddings = true;  // lm_head shares embed_tokens
 };
 
 class LlamaBlock : public Module {
@@ -25,7 +25,7 @@ public:
     LlamaBlock(const LlamaConfig& cfg, unsigned seed);
     Var forward(const Var& x, const std::vector<int>& positions) const;
 
-    Var ln1_w, ln2_w;                  // input/post_attention layernorm gammas
+    Var ln1_w, ln2_w;  // input/post_attention layernorm gammas
     std::shared_ptr<Linear> q_proj, k_proj, v_proj, o_proj;
     std::shared_ptr<Linear> gate_proj, up_proj, down_proj;
     size_t H, dk;
@@ -40,8 +40,8 @@ public:
     LlamaConfig cfg;
     std::shared_ptr<Embedding> embed_tokens;
     std::vector<std::shared_ptr<LlamaBlock>> blocks;
-    Var norm_w;                        // final RMSNorm gamma
-    std::shared_ptr<Linear> lm_head;   // null when tied
+    Var norm_w;                       // final RMSNorm gamma
+    std::shared_ptr<Linear> lm_head;  // null when tied
 };
 
 }  // namespace nn

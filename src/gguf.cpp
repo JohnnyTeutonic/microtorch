@@ -3,7 +3,7 @@
 #include <memory>
 #include <stdexcept>
 
-#include "gguf_export.hpp"   // transformer_cpp's verified writer
+#include "gguf_export.hpp"  // transformer_cpp's verified writer
 
 namespace microtorch {
 namespace gguf {
@@ -25,12 +25,10 @@ const Matrix* find(const std::map<std::string, Matrix>& sd, const std::string& k
 
 }  // namespace
 
-void export_gguf_llama(const std::string& path,
-                       const std::map<std::string, Matrix>& state_dict,
-                       const LlamaExportConfig& cfg,
-                       std::vector<std::string>* unmapped) {
-    if (cfg.embedding_length == 0 || cfg.block_count == 0 ||
-        cfg.feed_forward_length == 0 || cfg.head_count == 0 || cfg.vocab_size == 0) {
+void export_gguf_llama(const std::string& path, const std::map<std::string, Matrix>& state_dict,
+                       const LlamaExportConfig& cfg, std::vector<std::string>* unmapped) {
+    if (cfg.embedding_length == 0 || cfg.block_count == 0 || cfg.feed_forward_length == 0 ||
+        cfg.head_count == 0 || cfg.vocab_size == 0) {
         throw std::runtime_error(
             "export_gguf_llama: embedding_length, block_count, feed_forward_length, "
             "head_count and vocab_size must all be set");
@@ -59,8 +57,8 @@ void export_gguf_llama(const std::string& path,
     if (!cfg.tokens.empty()) {
         writer.write_metadata_string("tokenizer.ggml.model", cfg.tokenizer_model);
         writer.write_metadata_string_array("tokenizer.ggml.tokens", cfg.tokens);
-        writer.write_metadata_float_array(
-            "tokenizer.ggml.scores", std::vector<float>(cfg.tokens.size(), 0.0f));
+        writer.write_metadata_float_array("tokenizer.ggml.scores",
+                                          std::vector<float>(cfg.tokens.size(), 0.0f));
         writer.write_metadata_uint32("tokenizer.ggml.bos_token_id", cfg.bos_token_id);
         writer.write_metadata_uint32("tokenizer.ggml.eos_token_id", cfg.eos_token_id);
         writer.write_metadata_uint32("tokenizer.ggml.unknown_token_id", cfg.unk_token_id);
@@ -72,7 +70,7 @@ void export_gguf_llama(const std::string& path,
     // until finalize(), so every temporary must outlive it (the same
     // `owned` idiom as transformer_cpp's exporter).
     std::vector<std::unique_ptr<std::vector<float>>> owned;
-    std::vector<std::string> mapped_keys;   // dict keys we consumed
+    std::vector<std::string> mapped_keys;  // dict keys we consumed
 
     // 2-D projection in llama layout [out][in] row-major, ne = {in, out}.
     auto add_proj = [&](const Matrix& w, const std::string& gguf_name) {
@@ -81,7 +79,7 @@ void export_gguf_llama(const std::string& path,
         info.name = gguf_name;
         if (cfg.weights_in_out) {
             // microtorch layout [in][out] -> transpose to [out][in]
-            const size_t R = w.rows(), C = w.cols();   // R=in, C=out
+            const size_t R = w.rows(), C = w.cols();  // R=in, C=out
             auto buf = std::make_unique<std::vector<float>>(R * C);
             for (size_t i = 0; i < R; ++i)
                 for (size_t j = 0; j < C; ++j) (*buf)[j * R + i] = w(i, j);
@@ -92,7 +90,7 @@ void export_gguf_llama(const std::string& path,
         } else {
             // HF layout rows=[out], cols=[in] is already llama's byte order.
             info.shape = {static_cast<uint64_t>(w.cols()),
-                          static_cast<uint64_t>(w.rows())};                     // ne={in,out}
+                          static_cast<uint64_t>(w.rows())};  // ne={in,out}
             info.data = &w(0, 0);
             info.num_elements = w.rows() * w.cols();
         }

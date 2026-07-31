@@ -55,7 +55,7 @@ std::vector<int> make_seq(size_t T, std::mt19937& rng) {
     std::uniform_int_distribution<int> fill(FILL0, FILL0 + NFILL - 1);
     std::vector<int> keys(g_nkeys);
     for (int i = 0; i < g_nkeys; ++i) keys[i] = i;
-    std::shuffle(keys.begin(), keys.end(), rng);   // distinct keys per seq
+    std::shuffle(keys.begin(), keys.end(), rng);  // distinct keys per seq
 
     std::vector<int> seq(T + 1);
     seq[0] = fill(rng);
@@ -69,7 +69,7 @@ std::vector<int> make_seq(size_t T, std::mt19937& rng) {
     const int j = rng() % g_npairs;
     seq[T - 2] = QUERY;
     seq[T - 1] = KEY0 + keys[j];
-    seq[T] = val_of[j];                     // the answer
+    seq[T] = val_of[j];  // the answer
     return seq;
 }
 
@@ -79,8 +79,10 @@ struct Lane {
     nn::AdamW opt;
     bool is_srd;
     Lane(const char* n, AttnKind k, size_t T, size_t d, unsigned seed, float lr)
-        : name(n), model(k, VOCAB, d, /*heads=*/4, T, seed),
-          opt(model.parameters(), lr), is_srd(k == AttnKind::SRD) {}
+        : name(n),
+          model(k, VOCAB, d, /*heads=*/4, T, seed),
+          opt(model.parameters(), lr),
+          is_srd(k == AttnKind::SRD) {}
 };
 
 }  // namespace
@@ -123,17 +125,15 @@ int main(int argc, char** argv) {
         if (st >> start_step && start_step > 0) {
             std::printf("resuming from step %d\n", start_step);
             for (auto& lane : lanes)
-                lane.model.load_state_dict(load_safetensors(
-                    ckpt_dir + "/" + lane.name + ".safetensors"));
+                lane.model.load_state_dict(
+                    load_safetensors(ckpt_dir + "/" + lane.name + ".safetensors"));
         } else {
             start_step = 0;
         }
     }
 
-    std::ofstream train_csv(prefix + "_train.csv",
-                            start_step ? std::ios::app : std::ios::out);
-    std::ofstream probe_csv(prefix + "_probe.csv",
-                            start_step ? std::ios::app : std::ios::out);
+    std::ofstream train_csv(prefix + "_train.csv", start_step ? std::ios::app : std::ios::out);
+    std::ofstream probe_csv(prefix + "_probe.csv", start_step ? std::ios::app : std::ios::out);
     if (!start_step) {
         train_csv << "step,exact,kimi,srd,srd_f\n";
         probe_csv << "step,lane,answer_ce,answer_acc,tail_gate,fill_gate\n";
@@ -145,8 +145,7 @@ int main(int argc, char** argv) {
     auto save_ckpt = [&](int step_done) {
         std::system(("mkdir -p " + ckpt_dir).c_str());
         for (auto& lane : lanes)
-            save_safetensors(ckpt_dir + "/" + lane.name + ".safetensors",
-                             lane.model.state_dict());
+            save_safetensors(ckpt_dir + "/" + lane.name + ".safetensors", lane.model.state_dict());
         std::ofstream st(ckpt_dir + "/state.txt");
         st << step_done << "\n";
     };
@@ -162,11 +161,9 @@ int main(int argc, char** argv) {
                 // Softmax CE at the final position only.
                 const size_t last = T - 1;
                 float mx = -1e30f;
-                for (int v = 0; v < VOCAB; ++v)
-                    mx = std::max(mx, logits->data(last, v));
+                for (int v = 0; v < VOCAB; ++v) mx = std::max(mx, logits->data(last, v));
                 double z = 0;
-                for (int v = 0; v < VOCAB; ++v)
-                    z += std::exp(logits->data(last, v) - mx);
+                for (int v = 0; v < VOCAB; ++v) z += std::exp(logits->data(last, v) - mx);
                 const int ans = seq[T];
                 ce += -(logits->data(last, ans) - mx - std::log(z));
                 int arg = 0;
@@ -179,31 +176,24 @@ int main(int argc, char** argv) {
                     tail_g += 0.5 * (g->data(T - 2, 0) + g->data(T - 1, 0));
                     double fg = 0;
                     size_t n = 0;
-                    for (size_t t = 20; t < T - 10; ++t, ++n)
-                        fg += g->data(t, 0);
+                    for (size_t t = 20; t < T - 10; ++t, ++n) fg += g->data(t, 0);
                     fill_g += fg / static_cast<double>(n);
                 }
             }
             const double N = probes.size();
-            probe_csv << step << ',' << lane.name << ',' << ce / N << ','
-                      << acc / N << ',' << tail_g / N << ',' << fill_g / N
-                      << '\n';
-            std::printf("  probe %-5s: answer_ce %.4f acc %.3f", lane.name,
-                        ce / N, acc / N);
-            if (lane.is_srd)
-                std::printf("  tail_gate %.3f fill_gate %.3f", tail_g / N,
-                            fill_g / N);
+            probe_csv << step << ',' << lane.name << ',' << ce / N << ',' << acc / N << ','
+                      << tail_g / N << ',' << fill_g / N << '\n';
+            std::printf("  probe %-5s: answer_ce %.4f acc %.3f", lane.name, ce / N, acc / N);
+            if (lane.is_srd) std::printf("  tail_gate %.3f fill_gate %.3f", tail_g / N, fill_g / N);
             std::printf("\n");
             lane.model.train();
         }
         probe_csv.flush();
     };
 
-    std::printf("batch=%d npairs=%d nkeys=%d seed=%u (uniform-CE floor %.4f)\n",
-                B, g_npairs, g_nkeys, seed,
-                std::log(static_cast<double>(g_nkeys)));
-    std::printf("%5s %9s %9s %9s %9s\n", "step", "exact", "kimi", "srd",
-                "srd_f");
+    std::printf("batch=%d npairs=%d nkeys=%d seed=%u (uniform-CE floor %.4f)\n", B, g_npairs,
+                g_nkeys, seed, std::log(static_cast<double>(g_nkeys)));
+    std::printf("%5s %9s %9s %9s %9s\n", "step", "exact", "kimi", "srd", "srd_f");
     for (int step = start_step + 1; step <= steps; ++step) {
         std::vector<std::vector<int>> batch;
         for (int b = 0; b < B; ++b) batch.push_back(make_seq(T, batch_rng));
@@ -218,11 +208,9 @@ int main(int argc, char** argv) {
                 std::vector<int> y(seq.begin() + 1, seq.end());
                 Var logits = lane.model.forward(x);
                 Var task = ops::cross_entropy(logits, y);
-                Var loss =
-                    lane.is_srd
-                        ? ops::add(task, ops::scale(lane.model.mean_gate(),
-                                                    lambda_gate))
-                        : task;
+                Var loss = lane.is_srd
+                               ? ops::add(task, ops::scale(lane.model.mean_gate(), lambda_gate))
+                               : task;
                 backward(ops::scale(loss, 1.0f / static_cast<float>(B)));
                 task_sum += task->data(0, 0);
             }
@@ -230,11 +218,11 @@ int main(int argc, char** argv) {
             lane.opt.step();
             losses[li] = static_cast<float>(task_sum / B);
         }
-        train_csv << step << ',' << losses[0] << ',' << losses[1] << ','
-                  << losses[2] << ',' << losses[3] << '\n';
+        train_csv << step << ',' << losses[0] << ',' << losses[1] << ',' << losses[2] << ','
+                  << losses[3] << '\n';
         if (step % 10 == 0)
-            std::printf("%5d %9.4f %9.4f %9.4f %9.4f\n", step, losses[0],
-                        losses[1], losses[2], losses[3]);
+            std::printf("%5d %9.4f %9.4f %9.4f %9.4f\n", step, losses[0], losses[1], losses[2],
+                        losses[3]);
         if (step % PROBE_EVERY == 0) {
             std::printf("-- probe @ %d --\n", step);
             probe_eval(step);
@@ -242,7 +230,6 @@ int main(int argc, char** argv) {
         std::fflush(stdout);
     }
     save_ckpt(steps);
-    std::printf("done through %d; wrote %s_{train,probe}.csv\n", steps,
-                prefix.c_str());
+    std::printf("done through %d; wrote %s_{train,probe}.csv\n", steps, prefix.c_str());
     return 0;
 }

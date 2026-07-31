@@ -30,8 +30,7 @@ public:
     // strict: every entry must land on a parameter and every parameter must
     // be hit -- loading a frontier checkpoint should fail loudly, not
     // half-load (missing_ok lists names allowed to stay untouched).
-    void load_state_dict(const std::map<std::string, Matrix>& sd,
-                         bool strict = true,
+    void load_state_dict(const std::map<std::string, Matrix>& sd, bool strict = true,
                          const std::vector<std::string>& missing_ok = {});
 
     void train() { set_training(true); }
@@ -39,7 +38,7 @@ public:
     bool training() const { return training_; }
 
 protected:
-    Var reg(const std::string& name, Matrix init);            // register param
+    Var reg(const std::string& name, Matrix init);  // register param
     template <typename M, typename... A>
     std::shared_ptr<M> mod(const std::string& name, A&&... a) {  // register child
         auto m = std::make_shared<M>(std::forward<A>(a)...);
@@ -48,8 +47,7 @@ protected:
     }
 
 private:
-    void collect(const std::string& prefix,
-                 std::vector<std::pair<std::string, Var>>& out) const;
+    void collect(const std::string& prefix, std::vector<std::pair<std::string, Var>>& out) const;
     void set_training(bool t);
     std::vector<std::pair<std::string, Var>> params_;
     std::vector<std::pair<std::string, std::shared_ptr<Module>>> children_;
@@ -62,7 +60,7 @@ public:
     // storage order, so its checkpoints load without transposition.
     Linear(size_t in, size_t out, bool bias = true, unsigned seed = 0);
     Var forward(const Var& x) const;
-    Var W, b;   // b empty when bias=false
+    Var W, b;  // b empty when bias=false
 };
 
 class LayerNorm : public Module {
@@ -86,9 +84,8 @@ public:
 // -1e9 mask; DiT passes false, since patches attend bidirectionally.
 class CausalSelfAttention : public Module {
 public:
-    CausalSelfAttention(size_t d, size_t n_heads, unsigned seed = 0,
-                        bool causal = true);
-    Var forward(const Var& x) const;   // x: [T, d]
+    CausalSelfAttention(size_t d, size_t n_heads, unsigned seed = 0, bool causal = true);
+    Var forward(const Var& x) const;  // x: [T, d]
     std::shared_ptr<Linear> c_attn, c_proj;
     size_t H, dk;
     bool causal;
@@ -96,9 +93,8 @@ public:
 
 class KimiLinearAttention : public Module {  // Phase 3a: O(n*d²) linear-time attention
 public:
-    KimiLinearAttention(size_t d, size_t n_heads, unsigned seed = 0,
-                        bool causal = true);
-    Var forward(const Var& x) const;   // x: [T, d] -> [T, d]
+    KimiLinearAttention(size_t d, size_t n_heads, unsigned seed = 0, bool causal = true);
+    Var forward(const Var& x) const;  // x: [T, d] -> [T, d]
     std::shared_ptr<Linear> c_attn, c_proj;
     size_t H, dk;
     bool causal;
@@ -114,7 +110,7 @@ public:
     std::shared_ptr<Linear> c_fc, c_proj;
 };
 
-class Block : public Module {   // pre-LN transformer block, GPT-2 wiring
+class Block : public Module {  // pre-LN transformer block, GPT-2 wiring
 public:
     Block(size_t d, size_t n_heads, unsigned seed = 0);
     Var forward(const Var& x) const;
@@ -130,7 +126,7 @@ struct GPT2Config {
 class GPT2 : public Module {
 public:
     explicit GPT2(const GPT2Config& cfg, unsigned seed = 0);
-    Var forward(const std::vector<int>& ids) const;   // -> logits [T, vocab]
+    Var forward(const std::vector<int>& ids) const;  // -> logits [T, vocab]
     GPT2Config cfg;
     std::shared_ptr<Embedding> wte, wpe;
     std::vector<std::shared_ptr<Block>> h;
@@ -153,8 +149,8 @@ private:
 
 class AdamW {
 public:
-    AdamW(std::vector<Var> params, float lr = 1e-3f, float beta1 = 0.9f,
-          float beta2 = 0.999f, float eps = 1e-8f, float weight_decay = 0.01f);
+    AdamW(std::vector<Var> params, float lr = 1e-3f, float beta1 = 0.9f, float beta2 = 0.999f,
+          float eps = 1e-8f, float weight_decay = 0.01f);
     void step();
     void zero_grad();
     float lr;
@@ -172,8 +168,7 @@ private:
 // get independent masks but a fixed module seed keeps runs reproducible.
 class Dropout : public Module {
 public:
-    explicit Dropout(float p, unsigned long long seed = 0)
-        : p_(p), next_seed_(seed) {}
+    explicit Dropout(float p, unsigned long long seed = 0) : p_(p), next_seed_(seed) {}
     Var forward(const Var& x) const;
 
 private:
@@ -190,8 +185,7 @@ template <typename Opt>
 class CosineWarmupLR {
 public:
     CosineWarmupLR(Opt& opt, size_t warmup, size_t total, float min_lr = 0.0f)
-        : opt_(opt), base_lr_(opt.lr), warmup_(warmup), total_(total),
-          min_lr_(min_lr) {}
+        : opt_(opt), base_lr_(opt.lr), warmup_(warmup), total_(total), min_lr_(min_lr) {}
     void step() {
         ++t_;
         if (warmup_ > 0 && t_ <= warmup_) {
@@ -199,12 +193,10 @@ public:
             return;
         }
         const float progress =
-            total_ > warmup_
-                ? static_cast<float>(t_ - warmup_) / (total_ - warmup_)
-                : 1.0f;
+            total_ > warmup_ ? static_cast<float>(t_ - warmup_) / (total_ - warmup_) : 1.0f;
         const float clamped = progress > 1.0f ? 1.0f : progress;
-        opt_.lr = min_lr_ + 0.5f * (base_lr_ - min_lr_) *
-                                (1.0f + std::cos(3.14159265358979f * clamped));
+        opt_.lr =
+            min_lr_ + 0.5f * (base_lr_ - min_lr_) * (1.0f + std::cos(3.14159265358979f * clamped));
     }
     size_t current_step() const { return t_; }
 

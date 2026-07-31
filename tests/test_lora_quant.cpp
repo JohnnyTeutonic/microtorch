@@ -11,8 +11,8 @@
 #include <random>
 
 #include "check.hpp"
-#include "microtorch/quant.hpp"
 #include "microtorch/device.hpp"
+#include "microtorch/quant.hpp"
 
 using namespace microtorch;
 
@@ -30,14 +30,13 @@ Matrix randm(size_t r, size_t c, unsigned seed, float scale = 1.0f) {
 float max_abs_diff(const Matrix& a, const Matrix& b) {
     float md = 0;
     for (size_t i = 0; i < a.rows(); ++i)
-        for (size_t j = 0; j < a.cols(); ++j)
-            md = std::max(md, std::fabs(a(i, j) - b(i, j)));
+        for (size_t j = 0; j < a.cols(); ++j) md = std::max(md, std::fabs(a(i, j) - b(i, j)));
     return md;
 }
 
 void test_quantize_roundtrip() {
     printf("=== int8 blockwise quantization ===\n");
-    Matrix W = randm(64, 96, 1);           // cols not a multiple of block
+    Matrix W = randm(64, 96, 1);  // cols not a multiple of block
     QuantizedTensor t = quantize_int8(W, 64);
     Matrix W2 = dequantize(t);
 
@@ -49,10 +48,9 @@ void test_quantize_roundtrip() {
             const float s = t.scales[i * blocks_per_row + j / t.block];
             CHECK(std::fabs(W(i, j) - W2(i, j)) <= 0.5f * s + 1e-7f);
         }
-    const float ratio = static_cast<float>(t.nbytes()) /
-                        (W.rows() * W.cols() * sizeof(float));
+    const float ratio = static_cast<float>(t.nbytes()) / (W.rows() * W.cols() * sizeof(float));
     printf("  error within half-step everywhere; memory %.2fx of fp32\n", ratio);
-    CHECK(ratio < 0.30f);   // ~4x smaller (int8 + per-block scales)
+    CHECK(ratio < 0.30f);  // ~4x smaller (int8 + per-block scales)
 }
 
 void test_qlinear_matches_linear() {
@@ -65,8 +63,7 @@ void test_qlinear_matches_linear() {
     Var y_q = q.forward(make_var(x));
 
     // fp32 reference: x W + b
-    Var y_ref = ops::add_bias(ops::matmul(make_var(x), make_var(W)),
-                              make_var(b));
+    Var y_ref = ops::add_bias(ops::matmul(make_var(x), make_var(W)), make_var(b));
 
     // Worst-case per-output error: sum over 32 inner terms of |x| * step/2.
     const float md = max_abs_diff(y_q->data, y_ref->data);
@@ -83,7 +80,7 @@ void test_lora_identity_at_init() {
     Var y = lora.forward(make_var(x));
     Var y_base = ops::matmul(make_var(x), make_var(W));
 
-    CHECK(max_abs_diff(y->data, y_base->data) == 0.0f);   // B=0 -> exact
+    CHECK(max_abs_diff(y->data, y_base->data) == 0.0f);  // B=0 -> exact
     printf("  output identical to frozen base (B initialized to zero)\n");
 }
 
@@ -108,8 +105,7 @@ void test_lora_trains_adapters_only() {
     CHECK(lora.B->grad.rows() != 0);
     float bnorm = 0;
     for (size_t i = 0; i < lora.B->grad.rows(); ++i)
-        for (size_t j = 0; j < lora.B->grad.cols(); ++j)
-            bnorm += std::fabs(lora.B->grad(i, j));
+        for (size_t j = 0; j < lora.B->grad.cols(); ++j) bnorm += std::fabs(lora.B->grad(i, j));
     CHECK(bnorm > 0.0f);
     printf("  dB nonzero at step 0 (dA zero by B=0, as in the paper)\n");
 
@@ -149,10 +145,9 @@ void test_qlora_end_to_end() {
 
     nn::QLoRALinear qlora(W, Matrix(), /*rank=*/8, /*alpha=*/16.0f);
     qlora.train();
-    CHECK(qlora.parameters().size() == 2);   // adapters only
+    CHECK(qlora.parameters().size() == 2);  // adapters only
     printf("  base stored at %.2fx fp32 bytes\n",
-           static_cast<float>(qlora.base_nbytes()) /
-               (W.rows() * W.cols() * sizeof(float)));
+           static_cast<float>(qlora.base_nbytes()) / (W.rows() * W.cols() * sizeof(float)));
 
     nn::AdamW opt(qlora.parameters(), 1e-2f);
     Var out0 = qlora.forward(make_var(x));
@@ -165,8 +160,7 @@ void test_qlora_end_to_end() {
     Var out1 = qlora.forward(make_var(x));
     CHECK(max_abs_diff(out0->data, out1->data) > 0.0f);
     for (size_t i = 0; i < out1->data.rows(); ++i)
-        for (size_t j = 0; j < out1->data.cols(); ++j)
-            CHECK(std::isfinite(out1->data(i, j)));
+        for (size_t j = 0; j < out1->data.cols(); ++j) CHECK(std::isfinite(out1->data(i, j)));
     printf("  3 AdamW steps trained the adapters, outputs finite\n");
 }
 

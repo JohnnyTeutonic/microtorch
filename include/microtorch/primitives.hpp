@@ -23,5 +23,5 @@
 // so the CPU and GPU training paths of transformer_cpp currently disagree;
 // microtorch::ops implements the correct derivative itself and the
 // gradcheck test measures both against finite differences.
-#include "matrix.hpp"
 #include "matmul_optimized.hpp"
+#include "matrix.hpp"

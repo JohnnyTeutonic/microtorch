@@ -22,7 +22,7 @@ enum class Device { CPU, CUDA };
 // build without MICROTORCH_CUDA throws rather than silently running CPU.
 Device get();
 void set(Device d);
-bool cuda_compiled();   // true iff built with -DMICROTORCH_CUDA=ON
+bool cuda_compiled();  // true iff built with -DMICROTORCH_CUDA=ON
 
 // Honor MICROTORCH_DEVICE=cuda|cpu if present (no-op otherwise). Test mains
 // call this so the Colab CUDA validation reruns the same suites on GPU.

@@ -62,10 +62,8 @@ struct LlamaExportConfig {
 // match the map (e.g. Qwen's attention biases, rotary caches) are collected
 // into `unmapped` if given, and skipped -- fail loudly by checking it.
 // Throws std::runtime_error on missing required tensors or config fields.
-void export_gguf_llama(const std::string& path,
-                       const std::map<std::string, Matrix>& state_dict,
-                       const LlamaExportConfig& cfg,
-                       std::vector<std::string>* unmapped = nullptr);
+void export_gguf_llama(const std::string& path, const std::map<std::string, Matrix>& state_dict,
+                       const LlamaExportConfig& cfg, std::vector<std::string>* unmapped = nullptr);
 
 }  // namespace gguf
 }  // namespace microtorch

@@ -55,8 +55,7 @@ std::map<std::string, Matrix> Module::state_dict() const {
     return sd;
 }
 
-void Module::load_state_dict(const std::map<std::string, Matrix>& sd,
-                             bool strict,
+void Module::load_state_dict(const std::map<std::string, Matrix>& sd, bool strict,
                              const std::vector<std::string>& missing_ok) {
     auto named = named_parameters();
     std::map<std::string, Var> byname(named.begin(), named.end());
@@ -118,8 +117,7 @@ Var Embedding::forward(const std::vector<int>& ids) const {
     return ops::embedding(weight, ids);
 }
 
-CausalSelfAttention::CausalSelfAttention(size_t d, size_t n_heads, unsigned seed,
-                                         bool causal_)
+CausalSelfAttention::CausalSelfAttention(size_t d, size_t n_heads, unsigned seed, bool causal_)
     : H(n_heads), dk(d / n_heads), causal(causal_) {
     if (d % n_heads != 0) {
         throw std::runtime_error("attention: d must divide by n_heads");
@@ -130,7 +128,7 @@ CausalSelfAttention::CausalSelfAttention(size_t d, size_t n_heads, unsigned seed
 
 Var CausalSelfAttention::forward(const Var& x) const {
     const size_t T = x->data.rows(), d = H * dk;
-    Var qkv = c_attn->forward(x);                       // [T, 3d]
+    Var qkv = c_attn->forward(x);  // [T, 3d]
     // Additive causal mask, no-grad constant: 0 on/below the diagonal,
     // -1e9 above. exp(-1e9 - max) underflows to exactly 0 in float32, so
     // this equals a hard mask. Bidirectional callers (DiT) skip it.
@@ -147,8 +145,8 @@ Var CausalSelfAttention::forward(const Var& x) const {
         Var q = ops::slice_cols(qkv, h * dk, (h + 1) * dk);
         Var k = ops::slice_cols(qkv, d + h * dk, d + (h + 1) * dk);
         Var v = ops::slice_cols(qkv, 2 * d + h * dk, 2 * d + (h + 1) * dk);
-        Var s = ops::scale(ops::matmul(q, ops::transpose(k)),
-                           1.0f / std::sqrt(static_cast<float>(dk)));
+        Var s =
+            ops::scale(ops::matmul(q, ops::transpose(k)), 1.0f / std::sqrt(static_cast<float>(dk)));
         Var a = ops::softmax_row(mask ? ops::add(s, mask) : s);
         heads.push_back(ops::matmul(a, v));
     }
@@ -156,8 +154,7 @@ Var CausalSelfAttention::forward(const Var& x) const {
 }
 
 // Phase 3a: Kimi Linear Attention (O(n*d²) vs O(n²*d) standard attention)
-KimiLinearAttention::KimiLinearAttention(size_t d, size_t n_heads, unsigned seed,
-                                         bool causal_)
+KimiLinearAttention::KimiLinearAttention(size_t d, size_t n_heads, unsigned seed, bool causal_)
     : H(n_heads), dk(d / n_heads), causal(causal_) {
     if (d % n_heads != 0) {
         throw std::runtime_error("attention: d must divide by n_heads");
@@ -256,10 +253,11 @@ void SGD::step() {
     }
 }
 
-void SGD::zero_grad() { microtorch::zero_grad(params_); }
+void SGD::zero_grad() {
+    microtorch::zero_grad(params_);
+}
 
-AdamW::AdamW(std::vector<Var> params, float lr_, float b1, float b2, float eps,
-             float wd)
+AdamW::AdamW(std::vector<Var> params, float lr_, float b1, float b2, float eps, float wd)
     : lr(lr_), params_(std::move(params)), b1_(b1), b2_(b2), eps_(eps), wd_(wd) {
     for (const auto& p : params_) {
         m_.emplace_back(p->data.rows(), p->data.cols());
@@ -289,10 +287,12 @@ void AdamW::step() {
     }
 }
 
-void AdamW::zero_grad() { microtorch::zero_grad(params_); }
+void AdamW::zero_grad() {
+    microtorch::zero_grad(params_);
+}
 
 Var Dropout::forward(const Var& x) const {
-    if (!training() || p_ == 0.0f) return x;   // eval mode: identity
+    if (!training() || p_ == 0.0f) return x;  // eval mode: identity
     return ops::dropout(x, p_, next_seed_++);
 }
 

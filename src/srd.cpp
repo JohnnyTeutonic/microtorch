@@ -8,8 +8,7 @@
 namespace microtorch {
 namespace nn {
 
-SurpriseRoutedAttention::SurpriseRoutedAttention(size_t d, size_t n_heads,
-                                                 unsigned seed)
+SurpriseRoutedAttention::SurpriseRoutedAttention(size_t d, size_t n_heads, unsigned seed)
     : H(n_heads), dk(d / n_heads) {
     if (d % n_heads != 0) {
         throw std::runtime_error("srd: d must divide by n_heads");
@@ -41,14 +40,14 @@ Var SurpriseRoutedAttention::forward(const Var& x) const {
     }
     Var predicted = predictor->forward(pred_in);
     Var residual = ops::sub(pred_in, predicted);
-    Var g = ops::sigmoid(ops::add_scalar(
-        ops::scale(ops::rms_row(residual), GATE_SCALE), GATE_BIAS));  // [T,1]
+    Var g = ops::sigmoid(
+        ops::add_scalar(ops::scale(ops::rms_row(residual), GATE_SCALE), GATE_BIAS));  // [T,1]
     last_gate_ = g;
     // 1 - g for the linear path's share.
     Var g_inv = ops::add_scalar(ops::scale(g, -1.0f), 1.0f);
 
     // ---- shared qkv ----
-    Var qkv = c_attn->forward(x);   // [T, 3d]
+    Var qkv = c_attn->forward(x);  // [T, 3d]
 
     // Additive causal mask (no-grad constant), as in CausalSelfAttention.
     Matrix maskm(T, T);
@@ -64,8 +63,8 @@ Var SurpriseRoutedAttention::forward(const Var& x) const {
         Var v = ops::slice_cols(qkv, 2 * d + h * dk, 2 * d + (h + 1) * dk);
 
         // Exact path: masked softmax attention.
-        Var s = ops::scale(ops::matmul(q, ops::transpose(k)),
-                           1.0f / std::sqrt(static_cast<float>(dk)));
+        Var s =
+            ops::scale(ops::matmul(q, ops::transpose(k)), 1.0f / std::sqrt(static_cast<float>(dk)));
         Var exact = ops::matmul(ops::softmax_row(ops::add(s, mask)), v);
 
         // Cheap path: Kimi linear attention on the SAME q, k, v.
@@ -74,8 +73,7 @@ Var SurpriseRoutedAttention::forward(const Var& x) const {
         // Per-query blend: surprising queries lean exact, routine lean
         // linear. mul_col keeps the blend differentiable in both paths
         // AND in g (so the predictor trains from the task loss).
-        heads.push_back(ops::add(ops::mul_col(exact, g),
-                                 ops::mul_col(linear, g_inv)));
+        heads.push_back(ops::add(ops::mul_col(exact, g), ops::mul_col(linear, g_inv)));
     }
     return c_proj->forward(ops::concat_cols(heads));
 }

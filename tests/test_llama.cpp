@@ -17,8 +17,12 @@ using namespace microtorch;
 int main() {
     device::set_from_env();
     nn::LlamaConfig cfg;
-    cfg.vocab = 96; cfg.d = 32; cfg.n_layers = 2; cfg.n_heads = 4;
-    cfg.d_ff = 64; cfg.n_ctx = 16;
+    cfg.vocab = 96;
+    cfg.d = 32;
+    cfg.n_layers = 2;
+    cfg.n_heads = 4;
+    cfg.d_ff = 64;
+    cfg.n_ctx = 16;
     nn::Llama model(cfg, 42);
     model.train();
 
@@ -47,10 +51,8 @@ int main() {
     CHECK(logits->data.rows() == ids.size());
     CHECK(logits->data.cols() == cfg.vocab);
     for (size_t i = 0; i < logits->data.rows(); ++i)
-        for (size_t j = 0; j < logits->data.cols(); ++j)
-            CHECK(std::isfinite(logits->data(i, j)));
-    printf("  [%zu, %zu] logits finite\n", logits->data.rows(),
-           logits->data.cols());
+        for (size_t j = 0; j < logits->data.cols(); ++j) CHECK(std::isfinite(logits->data(i, j)));
+    printf("  [%zu, %zu] logits finite\n", logits->data.rows(), logits->data.cols());
 
     printf("=== module-level FD gradcheck ===\n");
     // d mean(logits) / d embed_tokens.weight at sampled entries, central
@@ -75,9 +77,8 @@ int main() {
             E->data(i, j) = keep;
         }
         const float fd = (fp - fm) / (2 * eps), an = E->grad(i, j);
-        worst = std::max(worst, std::fabs(fd - an) /
-                                    std::max({std::fabs(fd), std::fabs(an),
-                                              1e-4f}));
+        worst =
+            std::max(worst, std::fabs(fd - an) / std::max({std::fabs(fd), std::fabs(an), 1e-4f}));
     }
     printf("  d mean(logits)/d embed rel err %.2e\n", worst);
     CHECK(worst < 1e-2f);

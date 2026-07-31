@@ -38,8 +38,8 @@ namespace {
 struct Spec {
     std::string name = "run";
     // arch
-    std::string family = "gpt2";         // gpt2 | llama
-    std::string attention = "exact";     // exact | kimi | srd (gpt2 family)
+    std::string family = "gpt2";      // gpt2 | llama
+    std::string attention = "exact";  // exact | kimi | srd (gpt2 family)
     size_t d = 128, layers = 2, heads = 4, T = 128;
     // data
     std::string corpus, vocab_gguf;
@@ -48,9 +48,9 @@ struct Spec {
     int steps = 500;
     float lr = 3e-3f, clip = 1.0f, lambda_gate = 0.05f;
     int eval_every = 50, ckpt_every = 100;
-    int accum = 1;                       // sequences per optimizer step
-    int gradmap_every = 5;               // per-layer grad-norm event cadence
-    size_t es_patience = 0;              // early stopping (0 = off)
+    int accum = 1;           // sequences per optimizer step
+    int gradmap_every = 5;   // per-layer grad-norm event cadence
+    size_t es_patience = 0;  // early stopping (0 = off)
     float es_min_delta = 0.0f;
     // export/serve
     bool exp_safetensors = true, exp_gguf = false;
@@ -61,10 +61,8 @@ struct Spec {
 // Known presets; "custom" reads arch.custom.* instead.
 const std::map<std::string, std::array<size_t, 4>> PRESETS = {
     // name -> {d, layers, heads, T}
-    {"gpt2-nano", {128, 2, 4, 128}},
-    {"llama-tiny", {128, 2, 4, 128}},
-    {"gpt2-small", {256, 4, 8, 256}},
-    {"kimi-tiny", {128, 2, 4, 128}},
+    {"gpt2-nano", {128, 2, 4, 128}},  {"llama-tiny", {128, 2, 4, 128}},
+    {"gpt2-small", {256, 4, 8, 256}}, {"kimi-tiny", {128, 2, 4, 128}},
     {"srd-tiny", {128, 2, 4, 128}},
 };
 
@@ -80,8 +78,10 @@ Spec parse_spec(const std::string& path) {
         const std::string p = arch["preset"];
         auto it = PRESETS.find(p);
         if (it == PRESETS.end()) throw std::runtime_error("unknown preset " + p);
-        s.d = it->second[0]; s.layers = it->second[1];
-        s.heads = it->second[2]; s.T = it->second[3];
+        s.d = it->second[0];
+        s.layers = it->second[1];
+        s.heads = it->second[2];
+        s.T = it->second[3];
         if (p.rfind("kimi", 0) == 0) s.attention = "kimi";
         if (p.rfind("srd", 0) == 0) s.attention = "srd";
         if (p.rfind("llama", 0) == 0) s.family = "llama";
@@ -138,8 +138,7 @@ struct Events {
 
 // GGUF vocab reader + word tokenizer (the srd_parity path).
 std::vector<std::string> read_gguf_vocab(const std::string& path);
-std::vector<int> tokenize(const std::string& text,
-                          const std::map<std::string, int>& vocab,
+std::vector<int> tokenize(const std::string& text, const std::map<std::string, int>& vocab,
                           size_t max_tokens);
 
 parity::AttnKind attn_kind(const std::string& s) {
@@ -156,8 +155,7 @@ json grad_map(const nn::Module& m) {
     for (const auto& [name, p] : m.named_parameters()) {
         if (p->grad.rows() == 0) continue;
         const auto cut = name.find('.');
-        const std::string group =
-            cut == std::string::npos ? name : name.substr(0, cut);
+        const std::string group = cut == std::string::npos ? name : name.substr(0, cut);
         double acc = 0;
         for (size_t i = 0; i < p->grad.rows(); ++i)
             for (size_t j = 0; j < p->grad.cols(); ++j)
@@ -171,16 +169,14 @@ json grad_map(const nn::Module& m) {
 
 int run(const Spec& s, bool plan_only) {
     std::printf("== mtstudio: %s ==\n", s.name.c_str());
-    std::printf("arch: %s d=%zu layers=%zu heads=%zu | T=%zu vocab_cap=%zu\n",
-                s.attention.c_str(), s.d, s.layers, s.heads, s.T, s.vocab_cap);
-    std::printf("train: %d steps lr=%g clip=%g eval_every=%d ckpt_every=%d "
-                "early_stop(patience=%zu, min_delta=%g)\n",
-                s.steps, s.lr, s.clip, s.eval_every, s.ckpt_every,
-                s.es_patience, s.es_min_delta);
-    std::printf("export: %s%s | serve: %s | out: %s\n",
-                s.exp_safetensors ? "safetensors " : "",
-                s.exp_gguf ? "gguf" : "", s.serve ? "yes" : "no",
-                s.out_dir.c_str());
+    std::printf("arch: %s d=%zu layers=%zu heads=%zu | T=%zu vocab_cap=%zu\n", s.attention.c_str(),
+                s.d, s.layers, s.heads, s.T, s.vocab_cap);
+    std::printf(
+        "train: %d steps lr=%g clip=%g eval_every=%d ckpt_every=%d "
+        "early_stop(patience=%zu, min_delta=%g)\n",
+        s.steps, s.lr, s.clip, s.eval_every, s.ckpt_every, s.es_patience, s.es_min_delta);
+    std::printf("export: %s%s | serve: %s | out: %s\n", s.exp_safetensors ? "safetensors " : "",
+                s.exp_gguf ? "gguf" : "", s.serve ? "yes" : "no", s.out_dir.c_str());
     if (plan_only) return 0;
     if (s.corpus.empty() || s.vocab_gguf.empty())
         throw std::runtime_error("spec needs data.corpus and data.vocab");
@@ -195,17 +191,17 @@ int run(const Spec& s, bool plan_only) {
     auto tokens = read_gguf_vocab(s.vocab_gguf);
     if (s.vocab_cap > 0 && s.vocab_cap < tokens.size()) tokens.resize(s.vocab_cap);
     std::map<std::string, int> vocab;
-    for (size_t i = 0; i < tokens.size(); ++i)
-        vocab.emplace(tokens[i], static_cast<int>(i));
+    for (size_t i = 0; i < tokens.size(); ++i) vocab.emplace(tokens[i], static_cast<int>(i));
     std::ifstream cf(s.corpus);
     if (!cf) throw std::runtime_error("cannot open corpus " + s.corpus);
-    std::string text((std::istreambuf_iterator<char>(cf)),
-                     std::istreambuf_iterator<char>());
+    std::string text((std::istreambuf_iterator<char>(cf)), std::istreambuf_iterator<char>());
     auto ids = tokenize(text, vocab, 400000);
     // Hold out the tail 5% for validation (early stopping's signal).
     const size_t val_start = ids.size() - ids.size() / 20;
-    ev.emit({{"event", "data"}, {"tokens", ids.size()},
-             {"vocab", tokens.size()}, {"val_tokens", ids.size() - val_start}});
+    ev.emit({{"event", "data"},
+             {"tokens", ids.size()},
+             {"vocab", tokens.size()},
+             {"val_tokens", ids.size() - val_start}});
 
     // Model + optimizer (+ resume). Two families behind one seam: the
     // gpt2 parity model (exact/kimi/srd attention) or nn::Llama (RMSNorm/
@@ -214,15 +210,19 @@ int run(const Spec& s, bool plan_only) {
     std::shared_ptr<nn::Llama> llama;
     if (s.family == "llama") {
         nn::LlamaConfig lc;
-        lc.vocab = tokens.size(); lc.d = s.d; lc.n_layers = s.layers;
-        lc.n_heads = s.heads; lc.d_ff = 3 * s.d; lc.n_ctx = s.T;
+        lc.vocab = tokens.size();
+        lc.d = s.d;
+        lc.n_layers = s.layers;
+        lc.n_heads = s.heads;
+        lc.d_ff = 3 * s.d;
+        lc.n_ctx = s.T;
         llama = std::make_shared<nn::Llama>(lc, 7);
     } else {
-        gpt = std::make_shared<parity::ParityLM>(
-            attn_kind(s.attention), tokens.size(), s.d, s.heads, s.T, 7);
+        gpt = std::make_shared<parity::ParityLM>(attn_kind(s.attention), tokens.size(), s.d,
+                                                 s.heads, s.T, 7);
     }
-    nn::Module& model_ref = llama ? static_cast<nn::Module&>(*llama)
-                                  : static_cast<nn::Module&>(*gpt);
+    nn::Module& model_ref =
+        llama ? static_cast<nn::Module&>(*llama) : static_cast<nn::Module&>(*gpt);
     auto fwd = [&](const std::vector<int>& ids) {
         return llama ? llama->forward(ids) : gpt->forward(ids);
     };
@@ -236,7 +236,8 @@ int run(const Spec& s, bool plan_only) {
         if (st >> start_step && start_step > 0) {
             model_ref.load_state_dict(load_safetensors(ckpt));
             ev.emit({{"event", "resume"}, {"step", start_step}});
-        } else start_step = 0;
+        } else
+            start_step = 0;
     }
 
     std::mt19937 rng(123);
@@ -262,31 +263,24 @@ int run(const Spec& s, bool plan_only) {
         for (int k = 0; k < s.accum; ++k) {
             const size_t at = rng() % lim;
             std::vector<int> x(ids.begin() + at, ids.begin() + at + s.T);
-            std::vector<int> y(ids.begin() + at + 1,
-                               ids.begin() + at + s.T + 1);
+            std::vector<int> y(ids.begin() + at + 1, ids.begin() + at + s.T + 1);
             Var logits = fwd(x);
             Var task = ops::cross_entropy(logits, y);
             Var loss = task;
-            if (is_srd)
-                loss = ops::add(task, ops::scale(gpt->mean_gate(),
-                                                 s.lambda_gate));
+            if (is_srd) loss = ops::add(task, ops::scale(gpt->mean_gate(), s.lambda_gate));
             backward(ops::scale(loss, 1.0f / static_cast<float>(s.accum)));
             task_mean += task->data(0, 0) / static_cast<float>(s.accum);
-            if (is_srd)
-                gate_mean += gpt->mean_gate()->data(0, 0) /
-                             static_cast<float>(s.accum);
+            if (is_srd) gate_mean += gpt->mean_gate()->data(0, 0) / static_cast<float>(s.accum);
         }
         // Per-module grad norms BEFORE clipping: this is the true signal
         // the glow UI wants (clipping would mask explosions).
         json gm;
-        if (s.gradmap_every > 0 && step % s.gradmap_every == 0)
-            gm = grad_map(model_ref);
-        const float total_norm =
-            ops::clip_grad_norm(model_ref.parameters(), s.clip);
+        if (s.gradmap_every > 0 && step % s.gradmap_every == 0) gm = grad_map(model_ref);
+        const float total_norm = ops::clip_grad_norm(model_ref.parameters(), s.clip);
         opt.step();
 
-        json e = {{"event", "step"}, {"step", step}, {"loss", task_mean},
-                  {"grad_norm", total_norm}};
+        json e = {
+            {"event", "step"}, {"step", step}, {"loss", task_mean}, {"grad_norm", total_norm}};
         if (is_srd) e["gate"] = gate_mean;
         if (!gm.is_null()) e["grads"] = gm;
         ev.emit(e);
@@ -298,11 +292,9 @@ int run(const Spec& s, bool plan_only) {
             const int NV = 8;
             std::mt19937 vrng(999);
             for (int k = 0; k < NV; ++k) {
-                const size_t va = val_start +
-                    vrng() % (ids.size() - val_start - s.T - 1);
+                const size_t va = val_start + vrng() % (ids.size() - val_start - s.T - 1);
                 std::vector<int> vx(ids.begin() + va, ids.begin() + va + s.T);
-                std::vector<int> vy(ids.begin() + va + 1,
-                                    ids.begin() + va + s.T + 1);
+                std::vector<int> vy(ids.begin() + va + 1, ids.begin() + va + s.T + 1);
                 vl += ops::cross_entropy(fwd(vx), vy)->data(0, 0);
             }
             vl /= NV;
@@ -313,11 +305,11 @@ int run(const Spec& s, bool plan_only) {
                     best_val = static_cast<float>(vl);
                     evals_flat = 0;
                 } else if (++evals_flat >= s.es_patience) {
-                    ev.emit({{"event", "early_stop"}, {"step", step},
-                             {"best_val", best_val}});
+                    ev.emit({{"event", "early_stop"}, {"step", step}, {"best_val", best_val}});
                     stopped_early = true;
                 }
-            } else if (vl < best_val) best_val = static_cast<float>(vl);
+            } else if (vl < best_val)
+                best_val = static_cast<float>(vl);
         }
         if (step % s.ckpt_every == 0 || stopped_early || step == s.steps) {
             save(step);
@@ -327,8 +319,7 @@ int run(const Spec& s, bool plan_only) {
 
     // Export.
     if (s.exp_safetensors) {
-        save_safetensors(s.out_dir + "/" + s.name + ".safetensors",
-                         model_ref.state_dict());
+        save_safetensors(s.out_dir + "/" + s.name + ".safetensors", model_ref.state_dict());
         ev.emit({{"event", "export"}, {"format", "safetensors"}});
     }
     if (s.exp_gguf) {
@@ -353,31 +344,31 @@ int run(const Spec& s, bool plan_only) {
             gc.vocab_size = (uint32_t)tokens.size();
             gc.context_length = (uint32_t)s.T;
             gc.rms_eps = 1e-6f;
-            gc.weights_in_out = true;   // microtorch Linear is [in, out]
+            gc.weights_in_out = true;  // microtorch Linear is [in, out]
             gc.tokens = tokens;
             const std::string gpath = s.out_dir + "/" + s.name + ".gguf";
             gguf::export_gguf_llama(gpath, sd2, gc);
-            ev.emit({{"event", "export"}, {"format", "gguf"},
-                     {"path", gpath}});
+            ev.emit({{"event", "export"}, {"format", "gguf"}, {"path", gpath}});
         } else {
-            ev.emit({{"event", "export_skipped"}, {"format", "gguf"},
+            ev.emit({{"event", "export_skipped"},
+                     {"format", "gguf"},
                      {"reason", "gpt2-family blocks are not llama-shaped"}});
         }
     }
-    ev.emit({{"event", "done"}, {"best_val", best_val},
-             {"early_stopped", stopped_early}});
+    ev.emit({{"event", "done"}, {"best_val", best_val}, {"early_stopped", stopped_early}});
 
     if (s.serve) {
         if (llama && s.exp_gguf) {
-            std::printf("serve: tinyllama %s/%s.gguf %s/%s.gguf 4 prompt "
-                        "\"once upon a time\" --max-tokens 40 -ngl 0 "
-                        "--top-k 1 --raw-prompt\n",
-                        s.out_dir.c_str(), s.name.c_str(), s.out_dir.c_str(),
-                        s.name.c_str());
+            std::printf(
+                "serve: tinyllama %s/%s.gguf %s/%s.gguf 4 prompt "
+                "\"once upon a time\" --max-tokens 40 -ngl 0 "
+                "--top-k 1 --raw-prompt\n",
+                s.out_dir.c_str(), s.name.c_str(), s.out_dir.c_str(), s.name.c_str());
         } else {
-            std::printf("serve: exported to %s/%s.safetensors (gguf serving "
-                        "needs family=llama + gguf export)\n",
-                        s.out_dir.c_str(), s.name.c_str());
+            std::printf(
+                "serve: exported to %s/%s.safetensors (gguf serving "
+                "needs family=llama + gguf export)\n",
+                s.out_dir.c_str(), s.name.c_str());
         }
     }
     return 0;
@@ -389,12 +380,16 @@ int run(const Spec& s, bool plan_only) {
 namespace {
 template <typename T>
 T rd(const std::vector<uint8_t>& b, size_t& p) {
-    T v; std::memcpy(&v, b.data() + p, sizeof(T)); p += sizeof(T); return v;
+    T v;
+    std::memcpy(&v, b.data() + p, sizeof(T));
+    p += sizeof(T);
+    return v;
 }
 std::string rd_str(const std::vector<uint8_t>& b, size_t& p) {
     const uint64_t n = rd<uint64_t>(b, p);
     std::string s(reinterpret_cast<const char*>(b.data() + p), n);
-    p += n; return s;
+    p += n;
+    return s;
 }
 std::vector<std::string> read_gguf_vocab(const std::string& path) {
     std::ifstream f(path, std::ios::binary | std::ios::ate);
@@ -404,37 +399,47 @@ std::vector<std::string> read_gguf_vocab(const std::string& path) {
     f.read(reinterpret_cast<char*>(b.data()), static_cast<std::streamsize>(b.size()));
     size_t p = 0;
     if (rd<uint32_t>(b, p) != 0x46554747u) throw std::runtime_error("not GGUF");
-    rd<uint32_t>(b, p); rd<uint64_t>(b, p);
+    rd<uint32_t>(b, p);
+    rd<uint64_t>(b, p);
     const uint64_t n_meta = rd<uint64_t>(b, p);
     std::vector<std::string> tokens;
     for (uint64_t i = 0; i < n_meta; ++i) {
         const std::string key = rd_str(b, p);
         const uint32_t vt = rd<uint32_t>(b, p);
         switch (vt) {
-            case 4: rd<uint32_t>(b, p); break;
-            case 5: rd<int32_t>(b, p); break;
-            case 6: rd<float>(b, p); break;
-            case 8: rd_str(b, p); break;
+            case 4:
+                rd<uint32_t>(b, p);
+                break;
+            case 5:
+                rd<int32_t>(b, p);
+                break;
+            case 6:
+                rd<float>(b, p);
+                break;
+            case 8:
+                rd_str(b, p);
+                break;
             case 9: {
                 const uint32_t et = rd<uint32_t>(b, p);
                 const uint64_t n = rd<uint64_t>(b, p);
                 for (uint64_t k = 0; k < n; ++k) {
                     if (et == 8) {
                         std::string t = rd_str(b, p);
-                        if (key == "tokenizer.ggml.tokens")
-                            tokens.push_back(std::move(t));
-                    } else if (et == 6) rd<float>(b, p);
-                    else throw std::runtime_error("bad array");
+                        if (key == "tokenizer.ggml.tokens") tokens.push_back(std::move(t));
+                    } else if (et == 6)
+                        rd<float>(b, p);
+                    else
+                        throw std::runtime_error("bad array");
                 }
                 break;
             }
-            default: throw std::runtime_error("bad meta");
+            default:
+                throw std::runtime_error("bad meta");
         }
     }
     return tokens;
 }
-std::vector<int> tokenize(const std::string& text,
-                          const std::map<std::string, int>& vocab,
+std::vector<int> tokenize(const std::string& text, const std::map<std::string, int>& vocab,
                           size_t max_tokens) {
     std::vector<int> ids;
     std::string cur;
@@ -479,21 +484,21 @@ namespace {
 std::string slurp(const std::string& path) {
     std::ifstream f(path, std::ios::binary);
     if (!f) return "";
-    return std::string((std::istreambuf_iterator<char>(f)),
-                       std::istreambuf_iterator<char>());
+    return std::string((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
 }
 
 int serve_ui(const std::string& out_dir, int port, const std::string& ui_path) {
 #ifdef _WIN32
-    std::fprintf(stderr, "mtstudio serve: POSIX-only for now (run under "
-                         "WSL); Windows needs a winsock port.\n");
-    (void)out_dir; (void)port; (void)ui_path;
+    std::fprintf(stderr,
+                 "mtstudio serve: POSIX-only for now (run under "
+                 "WSL); Windows needs a winsock port.\n");
+    (void)out_dir;
+    (void)port;
+    (void)ui_path;
     return 1;
 #else
     const std::string ui = slurp(ui_path);
-    if (ui.empty())
-        throw std::runtime_error("cannot read UI at " + ui_path +
-                                 " (set MTSTUDIO_UI)");
+    if (ui.empty()) throw std::runtime_error("cannot read UI at " + ui_path + " (set MTSTUDIO_UI)");
     int fd = ::socket(AF_INET, SOCK_STREAM, 0);
     if (fd < 0) throw std::runtime_error("socket failed");
     int one = 1;
@@ -505,17 +510,17 @@ int serve_ui(const std::string& out_dir, int port, const std::string& ui_path) {
     if (::bind(fd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) < 0)
         throw std::runtime_error("bind failed (port in use?)");
     if (::listen(fd, 8) < 0) throw std::runtime_error("listen failed");
-    std::printf("mtstudio serve: http://localhost:%d/  (events from %s, "
-                "Ctrl-C to stop)\n", port, out_dir.c_str());
+    std::printf(
+        "mtstudio serve: http://localhost:%d/  (events from %s, "
+        "Ctrl-C to stop)\n",
+        port, out_dir.c_str());
 
-    auto respond = [](int c, const char* status, const char* ctype,
-                      const std::string& body) {
+    auto respond = [](int c, const char* status, const char* ctype, const std::string& body) {
         char head[256];
-        const int n = std::snprintf(
-            head, sizeof(head),
-            "HTTP/1.1 %s\r\nContent-Type: %s\r\nContent-Length: %zu\r\n"
-            "Cache-Control: no-store\r\nConnection: close\r\n\r\n",
-            status, ctype, body.size());
+        const int n = std::snprintf(head, sizeof(head),
+                                    "HTTP/1.1 %s\r\nContent-Type: %s\r\nContent-Length: %zu\r\n"
+                                    "Cache-Control: no-store\r\nConnection: close\r\n\r\n",
+                                    status, ctype, body.size());
         (void)!::write(c, head, n);
         (void)!::write(c, body.data(), body.size());
     };
@@ -527,10 +532,8 @@ int serve_ui(const std::string& out_dir, int port, const std::string& ui_path) {
         const ssize_t r = ::read(c, req, sizeof(req) - 1);
         std::string line = r > 0 ? std::string(req) : "";
         if (line.rfind("GET /events.jsonl", 0) == 0) {
-            respond(c, "200 OK", "application/jsonl",
-                    slurp(out_dir + "/events.jsonl"));
-        } else if (line.rfind("GET / ", 0) == 0 ||
-                   line.rfind("GET /index.html", 0) == 0) {
+            respond(c, "200 OK", "application/jsonl", slurp(out_dir + "/events.jsonl"));
+        } else if (line.rfind("GET / ", 0) == 0 || line.rfind("GET /index.html", 0) == 0) {
             respond(c, "200 OK", "text/html; charset=utf-8", ui);
         } else {
             respond(c, "404 Not Found", "text/plain", "404");

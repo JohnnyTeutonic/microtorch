@@ -23,9 +23,8 @@ struct BenchmarkResult {
 
 // Benchmark a single forward+backward pass
 template <typename AttentionModule>
-BenchmarkResult benchmark_attention(const std::string& name, size_t seq_len,
-                                     size_t d_model, size_t n_heads,
-                                     int iterations = 5) {
+BenchmarkResult benchmark_attention(const std::string& name, size_t seq_len, size_t d_model,
+                                    size_t n_heads, int iterations = 5) {
     AttentionModule attn(d_model, n_heads, 42);
     attn.train();
 
@@ -66,12 +65,9 @@ BenchmarkResult benchmark_attention(const std::string& name, size_t seq_len,
         backward(loss);
         auto t_backward = std::chrono::high_resolution_clock::now();
 
-        result.forward_ms += std::chrono::duration<double, std::milli>(
-                                 t_forward - t_start)
-                                 .count();
-        result.backward_ms += std::chrono::duration<double, std::milli>(
-                                  t_backward - t_forward)
-                                  .count();
+        result.forward_ms += std::chrono::duration<double, std::milli>(t_forward - t_start).count();
+        result.backward_ms +=
+            std::chrono::duration<double, std::milli>(t_backward - t_forward).count();
     }
 
     result.forward_ms /= iterations;
@@ -87,23 +83,21 @@ int main() {
 
     // Test configurations
     std::vector<std::tuple<size_t, size_t, size_t>> configs = {
-        {16, 256, 4},    // seq_len=16, d=256, heads=4
-        {32, 512, 8},    // seq_len=32, d=512, heads=8
-        {64, 768, 12},   // seq_len=64, d=768, heads=12
+        {16, 256, 4},   // seq_len=16, d=256, heads=4
+        {32, 512, 8},   // seq_len=32, d=512, heads=8
+        {64, 768, 12},  // seq_len=64, d=768, heads=12
     };
 
-    printf("%10s | %6s | %7s | %10s | %10s | %10s | %s\n", "Config", "Seq", "Dim",
-           "Fwd (ms)", "Bwd (ms)", "Total (ms)", "Speedup");
+    printf("%10s | %6s | %7s | %10s | %10s | %10s | %s\n", "Config", "Seq", "Dim", "Fwd (ms)",
+           "Bwd (ms)", "Total (ms)", "Speedup");
     printf("%s\n", std::string(85, '-').c_str());
 
     for (const auto& [seq, d, heads] : configs) {
         // Benchmark standard attention
-        auto standard = benchmark_attention<nn::CausalSelfAttention>(
-            "Standard", seq, d, heads, 3);
+        auto standard = benchmark_attention<nn::CausalSelfAttention>("Standard", seq, d, heads, 3);
 
         // Benchmark Kimi Linear
-        auto kimi = benchmark_attention<nn::KimiLinearAttention>(
-            "KimiLinear", seq, d, heads, 3);
+        auto kimi = benchmark_attention<nn::KimiLinearAttention>("KimiLinear", seq, d, heads, 3);
 
         printf("Config [%2zu, %3zu, %2zu]:\n", seq, d, heads);
         printf("  Standard Attention: Forward %6.2fms | Backward %6.2fms | Total %6.2fms\n",
@@ -127,10 +121,8 @@ int main() {
     printf("Output norms (for sanity check):\n");
 
     for (const auto& [seq, d, heads] : configs) {
-        auto standard = benchmark_attention<nn::CausalSelfAttention>(
-            "Standard", seq, d, heads, 1);
-        auto kimi = benchmark_attention<nn::KimiLinearAttention>(
-            "Kimi", seq, d, heads, 1);
+        auto standard = benchmark_attention<nn::CausalSelfAttention>("Standard", seq, d, heads, 1);
+        auto kimi = benchmark_attention<nn::KimiLinearAttention>("Kimi", seq, d, heads, 1);
 
         printf("  [%zu, %zu, %zu] Standard: %.6f  Kimi: %.6f\n", seq, d, heads,
                standard.output_norm, kimi.output_norm);

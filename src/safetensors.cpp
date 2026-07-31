@@ -9,13 +9,13 @@
 
 namespace microtorch {
 
-std::map<std::string, Matrix> load_safetensors(
-    const std::string& path, std::map<std::string, std::string>* skipped) {
+std::map<std::string, Matrix> load_safetensors(const std::string& path,
+                                               std::map<std::string, std::string>* skipped) {
     std::ifstream f(path, std::ios::binary);
     if (!f) throw std::runtime_error("safetensors: cannot open " + path);
 
     std::uint64_t hlen = 0;
-    f.read(reinterpret_cast<char*>(&hlen), 8);      // little-endian, like x86
+    f.read(reinterpret_cast<char*>(&hlen), 8);  // little-endian, like x86
     if (!f || hlen == 0 || hlen > (1u << 26)) {
         throw std::runtime_error("safetensors: implausible header length");
     }
@@ -33,7 +33,7 @@ std::map<std::string, Matrix> load_safetensors(
         const auto shape = meta.at("shape").get<std::vector<std::uint64_t>>();
         const auto offs = meta.at("data_offsets").get<std::vector<std::uint64_t>>();
 
-        if (shape.size() > 2) {                     // rank-skip, see header
+        if (shape.size() > 2) {  // rank-skip, see header
             if (skipped) (*skipped)[name] = "rank " + std::to_string(shape.size());
             continue;
         }
@@ -43,24 +43,21 @@ std::map<std::string, Matrix> load_safetensors(
                                      "; this loader is F32-only (phase 1c)");
         }
         const size_t rows = shape.size() == 2 ? shape[0] : 1;
-        const size_t cols = shape.size() == 2 ? shape[1]
-                            : (shape.empty() ? 1 : shape[0]);
+        const size_t cols = shape.size() == 2 ? shape[1] : (shape.empty() ? 1 : shape[0]);
         Matrix m(rows, cols);
         const std::uint64_t nbytes = offs.at(1) - offs.at(0);
         if (nbytes != rows * cols * 4) {
             throw std::runtime_error("safetensors: size mismatch at " + name);
         }
         f.seekg(base + static_cast<std::streamoff>(offs.at(0)));
-        f.read(reinterpret_cast<char*>(m.data()),
-               static_cast<std::streamsize>(nbytes));
+        f.read(reinterpret_cast<char*>(m.data()), static_cast<std::streamsize>(nbytes));
         if (!f) throw std::runtime_error("safetensors: short read at " + name);
         out.emplace(std::move(name), std::move(m));
     }
     return out;
 }
 
-void save_safetensors(const std::string& path,
-                      const std::map<std::string, Matrix>& tensors) {
+void save_safetensors(const std::string& path, const std::map<std::string, Matrix>& tensors) {
     // Build the JSON header first; offsets are relative to the byte
     // region after the header, per the format spec.
     nlohmann::json header;

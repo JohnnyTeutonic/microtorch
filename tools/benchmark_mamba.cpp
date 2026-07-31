@@ -61,8 +61,7 @@ Timing time_mamba(const Config& cfg, int runs = 3) {
                 sum += logits->data(i, j);
             }
         }
-        Var loss = make_var(Matrix(1, 1, sum / (logits->data.rows() *
-                                                 logits->data.cols())));
+        Var loss = make_var(Matrix(1, 1, sum / (logits->data.rows() * logits->data.cols())));
 
         // Backward
         auto t2 = std::chrono::high_resolution_clock::now();
@@ -77,8 +76,7 @@ Timing time_mamba(const Config& cfg, int runs = 3) {
 }
 
 Timing time_kimi(const Config& cfg, int runs = 3) {
-    auto attn = std::make_shared<nn::KimiLinearAttention>(cfg.d_model,
-                                                          cfg.n_heads, 42);
+    auto attn = std::make_shared<nn::KimiLinearAttention>(cfg.d_model, cfg.n_heads, 42);
     auto model = std::make_shared<nn::MLP>(cfg.d_model, cfg.d_model * 4, 42);
 
     attn->train();
@@ -112,8 +110,7 @@ Timing time_kimi(const Config& cfg, int runs = 3) {
                 sum += out->data(i, j);
             }
         }
-        Var loss = make_var(Matrix(1, 1, sum / (out->data.rows() *
-                                                 out->data.cols())));
+        Var loss = make_var(Matrix(1, 1, sum / (out->data.rows() * out->data.cols())));
 
         // Backward
         auto t2 = std::chrono::high_resolution_clock::now();
@@ -128,8 +125,7 @@ Timing time_kimi(const Config& cfg, int runs = 3) {
 }
 
 Timing time_standard_attention(const Config& cfg, int runs = 3) {
-    auto attn = std::make_shared<nn::CausalSelfAttention>(cfg.d_model,
-                                                          cfg.n_heads, 42);
+    auto attn = std::make_shared<nn::CausalSelfAttention>(cfg.d_model, cfg.n_heads, 42);
     auto model = std::make_shared<nn::MLP>(cfg.d_model, cfg.d_model * 4, 42);
 
     attn->train();
@@ -163,8 +159,7 @@ Timing time_standard_attention(const Config& cfg, int runs = 3) {
                 sum += out->data(i, j);
             }
         }
-        Var loss = make_var(Matrix(1, 1, sum / (out->data.rows() *
-                                                 out->data.cols())));
+        Var loss = make_var(Matrix(1, 1, sum / (out->data.rows() * out->data.cols())));
 
         // Backward
         auto t2 = std::chrono::high_resolution_clock::now();
@@ -180,8 +175,9 @@ Timing time_standard_attention(const Config& cfg, int runs = 3) {
 
 int main() {
     printf("=== Phase 3c: Mamba vs Kimi Linear vs Standard Attention ===\n");
-    printf("Benchmarking O(1) memory (Mamba) vs O(n*d²) (Kimi) vs O(n²*d) "
-           "(Standard)\n\n");
+    printf(
+        "Benchmarking O(1) memory (Mamba) vs O(n*d²) (Kimi) vs O(n²*d) "
+        "(Standard)\n\n");
 
     // Test configurations: seq_len, d_model, n_layers, n_heads, d_state
     std::vector<Config> configs = {
@@ -191,10 +187,8 @@ int main() {
         {128, 256, 2, 4, 64},
     };
 
-    printf("%-8s %-12s %-12s %-12s\n", "Seq Len", "Mamba (ms)",
-           "Kimi (ms)", "Standard (ms)");
-    printf("%-8s %-12s %-12s %-12s\n", "--------", "-----", "-----",
-           "-----");
+    printf("%-8s %-12s %-12s %-12s\n", "Seq Len", "Mamba (ms)", "Kimi (ms)", "Standard (ms)");
+    printf("%-8s %-12s %-12s %-12s\n", "--------", "-----", "-----", "-----");
 
     for (const auto& cfg : configs) {
         Timing mamba_time = time_mamba(cfg);
@@ -205,24 +199,27 @@ int main() {
         float kimi_total = kimi_time.total();
         float standard_total = standard_time.total();
 
-        printf("%8zu | Fwd: %.2f Bwd: %.2f | Fwd: %.2f Bwd: %.2f | Fwd: "
-               "%.2f Bwd: %.2f\n",
-               cfg.seq_len, mamba_time.forward_ms, mamba_time.backward_ms,
-               kimi_time.forward_ms, kimi_time.backward_ms,
-               standard_time.forward_ms, standard_time.backward_ms);
+        printf(
+            "%8zu | Fwd: %.2f Bwd: %.2f | Fwd: %.2f Bwd: %.2f | Fwd: "
+            "%.2f Bwd: %.2f\n",
+            cfg.seq_len, mamba_time.forward_ms, mamba_time.backward_ms, kimi_time.forward_ms,
+            kimi_time.backward_ms, standard_time.forward_ms, standard_time.backward_ms);
 
-        printf("         | Total: %.2f ms  | Total: %.2f ms  | Total: %.2f "
-               "ms\n\n",
-               mamba_total, kimi_total, standard_total);
+        printf(
+            "         | Total: %.2f ms  | Total: %.2f ms  | Total: %.2f "
+            "ms\n\n",
+            mamba_total, kimi_total, standard_total);
     }
 
     printf("\nKey Insights:\n");
     printf("- Mamba O(1) memory enables longer sequences efficiently\n");
     printf("- Kimi Linear O(n*d²) is faster than standard O(n²*d) attention\n");
-    printf("- Mamba slower in small-seq regime (overhead dominates), faster "
-           "at scale\n");
-    printf("- State-space recurrence (Mamba) vs causally-masked attention "
-           "(Kimi/Standard)\n");
+    printf(
+        "- Mamba slower in small-seq regime (overhead dominates), faster "
+        "at scale\n");
+    printf(
+        "- State-space recurrence (Mamba) vs causally-masked attention "
+        "(Kimi/Standard)\n");
 
     return 0;
 }

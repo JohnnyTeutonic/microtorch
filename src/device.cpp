@@ -20,7 +20,9 @@ namespace {
 Device g_device = Device::CPU;
 }
 
-Device get() { return g_device; }
+Device get() {
+    return g_device;
+}
 
 bool cuda_compiled() {
 #ifdef MICROTORCH_CUDA
@@ -32,8 +34,7 @@ bool cuda_compiled() {
 
 void set(Device d) {
     if (d == Device::CUDA && !cuda_compiled()) {
-        throw std::runtime_error(
-            "device::set(CUDA): built without -DMICROTORCH_CUDA=ON");
+        throw std::runtime_error("device::set(CUDA): built without -DMICROTORCH_CUDA=ON");
     }
     g_device = d;
 }
@@ -41,9 +42,12 @@ void set(Device d) {
 void set_from_env() {
     const char* v = std::getenv("MICROTORCH_DEVICE");
     if (!v) return;
-    if (std::strcmp(v, "cuda") == 0) set(Device::CUDA);
-    else if (std::strcmp(v, "cpu") == 0) set(Device::CPU);
-    else throw std::runtime_error("MICROTORCH_DEVICE must be cpu or cuda");
+    if (std::strcmp(v, "cuda") == 0)
+        set(Device::CUDA);
+    else if (std::strcmp(v, "cpu") == 0)
+        set(Device::CPU);
+    else
+        throw std::runtime_error("MICROTORCH_DEVICE must be cpu or cuda");
 }
 
 Matrix matmul(const Matrix& a, const Matrix& b) {

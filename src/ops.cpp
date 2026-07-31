@@ -14,8 +14,7 @@ namespace {
 // Attach a tape node to `out` unless grad is globally off or no input
 // requires it. The closure convention throughout: read out->grad, guard
 // each parent on requires_grad, accumulate.
-Var record(Matrix result, std::vector<Var> parents,
-           std::function<void(Variable*)> bw) {
+Var record(Matrix result, std::vector<Var> parents, std::function<void(Variable*)> bw) {
     bool needs = false;
     if (grad_enabled()) {
         for (const auto& p : parents) needs = needs || p->requires_grad;
@@ -85,10 +84,10 @@ Var add_bias(const Var& x, const Var& b) {
         const Var& b = self->parents[1];
         if (x->requires_grad) x->accumulate(self->grad);
         if (b->requires_grad) {
-            Matrix db(1, b->data.cols());          // column-sum, the same
+            Matrix db(1, b->data.cols());                       // column-sum, the same
             for (size_t i = 0; i < self->grad.rows(); ++i)      // contract as
                 for (size_t j = 0; j < self->grad.cols(); ++j)  // compute_bias_
-                    db(0, j) += self->grad(i, j);  // gradients_kernel
+                    db(0, j) += self->grad(i, j);               // gradients_kernel
             b->accumulate(db);
         }
     });
@@ -185,8 +184,7 @@ Var slice_cols(const Var& x, size_t j0, size_t j1) {
         if (!x->requires_grad) return;
         Matrix dx(x->data.rows(), x->data.cols());
         for (size_t i = 0; i < self->grad.rows(); ++i)
-            for (size_t j = 0; j < self->grad.cols(); ++j)
-                dx(i, j0 + j) = self->grad(i, j);
+            for (size_t j = 0; j < self->grad.cols(); ++j) dx(i, j0 + j) = self->grad(i, j);
         x->accumulate(dx);
     });
 }
@@ -204,8 +202,7 @@ Var concat_cols(const std::vector<Var>& xs) {
     size_t off = 0;
     for (const auto& x : xs) {
         for (size_t i = 0; i < rows; ++i)
-            for (size_t j = 0; j < x->data.cols(); ++j)
-                out(i, off + j) = x->data(i, j);
+            for (size_t j = 0; j < x->data.cols(); ++j) out(i, off + j) = x->data(i, j);
         off += x->data.cols();
     }
     return record(std::move(out), xs, [](Variable* self) {
@@ -225,8 +222,8 @@ Var concat_cols(const std::vector<Var>& xs) {
 
 Var layernorm(const Var& x, const Var& gamma, const Var& beta, float eps) {
     const size_t R = x->data.rows(), C = x->data.cols();
-    if (gamma->data.rows() != 1 || gamma->data.cols() != C ||
-        beta->data.rows() != 1 || beta->data.cols() != C) {
+    if (gamma->data.rows() != 1 || gamma->data.cols() != C || beta->data.rows() != 1 ||
+        beta->data.cols() != C) {
         throw std::runtime_error("layernorm: gamma/beta must be [1, cols(x)]");
     }
     // Cache xhat and 1/std for the backward -- same normalisation the
@@ -252,8 +249,7 @@ Var layernorm(const Var& x, const Var& gamma, const Var& beta, float eps) {
             out(i, j) = gamma->data(0, j) * xh + beta->data(0, j);
         }
     }
-    return record(std::move(out), {x, gamma, beta},
-                  [xhat, rstd](Variable* self) {
+    return record(std::move(out), {x, gamma, beta}, [xhat, rstd](Variable* self) {
         const Var& x = self->parents[0];
         const Var& g = self->parents[1];
         const Var& b = self->parents[2];
@@ -307,8 +303,7 @@ Var embedding(const Var& table, const std::vector<int>& ids) {
         // -- 154 MB for GPT-2's wte -- for a handful of touched rows.
         if (t->grad.rows() == 0) t->grad = Matrix(t->data.rows(), t->data.cols());
         for (size_t i = 0; i < ids.size(); ++i)
-            for (size_t j = 0; j < t->grad.cols(); ++j)
-                t->grad(ids[i], j) += self->grad(i, j);
+            for (size_t j = 0; j < t->grad.cols(); ++j) t->grad(ids[i], j) += self->grad(i, j);
     });
 }
 
@@ -403,8 +398,7 @@ Var rmsnorm(const Var& x, const Var& w) {
         for (size_t j = 0; j < C; ++j) rms_sq += x->data(i, j) * x->data(i, j);
         rms_sq /= static_cast<float>(C);
         (*rms_inv)[i] = 1.0f / std::sqrt(rms_sq + eps);
-        for (size_t j = 0; j < C; ++j)
-            out(i, j) = x->data(i, j) * (*rms_inv)[i] * w->data(0, j);
+        for (size_t j = 0; j < C; ++j) out(i, j) = x->data(i, j) * (*rms_inv)[i] * w->data(0, j);
     }
     return record(std::move(out), {x, w}, [rms_inv](Variable* self) {
         const Var& x = self->parents[0];
@@ -423,20 +417,18 @@ Var rmsnorm(const Var& x, const Var& w) {
         Matrix dx(R, C);
         for (size_t i = 0; i < R; ++i) {
             float term = 0.0f;
-            for (size_t j = 0; j < C; ++j)
-                term += self->grad(i, j) * w->data(0, j) * x->data(i, j);
+            for (size_t j = 0; j < C; ++j) term += self->grad(i, j) * w->data(0, j) * x->data(i, j);
             const float ri2 = (*rms_inv)[i] * (*rms_inv)[i];
             const float n_inv = 1.0f / static_cast<float>(C);
             for (size_t j = 0; j < C; ++j)
-                dx(i, j) = (*rms_inv)[i] * (self->grad(i, j) * w->data(0, j) -
-                    x->data(i, j) * ri2 * term * n_inv);
+                dx(i, j) = (*rms_inv)[i] *
+                           (self->grad(i, j) * w->data(0, j) - x->data(i, j) * ri2 * term * n_inv);
         }
         x->accumulate(dx);
     });
 }
 
-Var apply_rope(const Var& qk, const std::vector<int>& pos, float theta_base,
-               size_t head_dim) {
+Var apply_rope(const Var& qk, const std::vector<int>& pos, float theta_base, size_t head_dim) {
     const size_t T = qk->data.rows(), d3 = qk->data.cols();
     if (d3 % 3 != 0) {
         throw std::runtime_error("apply_rope: cols must be divisible by 3");
@@ -455,8 +447,8 @@ Var apply_rope(const Var& qk, const std::vector<int>& pos, float theta_base,
         // Apply to q (cols 0..d) and k (cols d..2d); skip v (cols 2d..3d)
         for (size_t start = 0; start < 2 * d; start += d) {
             for (size_t dim = 0; dim < head_dim; dim += 2) {
-                const float inv_freq = 1.0f / std::pow(theta_base,
-                    static_cast<float>(dim) / head_dim);
+                const float inv_freq =
+                    1.0f / std::pow(theta_base, static_cast<float>(dim) / head_dim);
                 const float theta = m * inv_freq;
                 const float cos_t = std::cos(theta);
                 const float sin_t = std::sin(theta);
@@ -468,8 +460,7 @@ Var apply_rope(const Var& qk, const std::vector<int>& pos, float theta_base,
             }
         }
     }
-    return record(std::move(out), {qk}, [pos_cache, theta_base, head_dim,
-                                        d3](Variable* self) {
+    return record(std::move(out), {qk}, [pos_cache, theta_base, head_dim, d3](Variable* self) {
         const Var& qk = self->parents[0];
         if (!qk->requires_grad) return;
         const size_t T = self->grad.rows(), d = d3 / 3;
@@ -479,9 +470,9 @@ Var apply_rope(const Var& qk, const std::vector<int>& pos, float theta_base,
             const float m = static_cast<float>((*pos_cache)[i]);
             for (size_t start = 0; start < 2 * d; start += d) {
                 for (size_t dim = 0; dim < head_dim; dim += 2) {
-                    const float inv_freq = 1.0f / std::pow(theta_base,
-                        static_cast<float>(dim) / head_dim);
-                    const float theta = -m * inv_freq;   // Negative for inverse
+                    const float inv_freq =
+                        1.0f / std::pow(theta_base, static_cast<float>(dim) / head_dim);
+                    const float theta = -m * inv_freq;  // Negative for inverse
                     const float cos_t = std::cos(theta);
                     const float sin_t = std::sin(theta);
                     const float dy0 = dqk(i, start + dim);
@@ -502,8 +493,7 @@ Var kimi_attention(const Var& q, const Var& k, const Var& v, bool causal) {
     // The class backward recomputes CAUSAL prefix sums; a non-causal
     // forward under grad would get silently wrong gradients. Fail loudly
     // until the full-sum backward exists.
-    if (!causal && grad_enabled() &&
-        (q->requires_grad || k->requires_grad || v->requires_grad)) {
+    if (!causal && grad_enabled() && (q->requires_grad || k->requires_grad || v->requires_grad)) {
         throw std::runtime_error(
             "kimi_attention: non-causal backward not implemented; wrap in "
             "NoGrad for inference or use causal=true");
@@ -526,8 +516,8 @@ Var kimi_attention(const Var& q, const Var& k, const Var& v, bool causal) {
         }
 
         // Backward through Kimi Linear: compute gradients
-        auto [grad_q, grad_k, grad_v] = kimi.backward(
-            self->grad, q_var->data, k_var->data, v_var->data, self->data);
+        auto [grad_q, grad_k, grad_v] =
+            kimi.backward(self->grad, q_var->data, k_var->data, v_var->data, self->data);
 
         if (q_var->requires_grad) q_var->accumulate(grad_q);
         if (k_var->requires_grad) k_var->accumulate(grad_k);
@@ -535,13 +525,10 @@ Var kimi_attention(const Var& q, const Var& k, const Var& v, bool causal) {
     });
 }
 
-Var ssm_scan(const Var& u, const Var& A, const Var& B, const Var& C,
-             const Var& D) {
+Var ssm_scan(const Var& u, const Var& A, const Var& B, const Var& C, const Var& D) {
     const size_t T = u->data.rows(), n = u->data.cols();
-    if (A->data.rows() != n || A->data.cols() != n ||
-        B->data.rows() != n || B->data.cols() != 1 ||
-        C->data.rows() != 1 || C->data.cols() != n ||
-        D->data.rows() != 1 || D->data.cols() != 1) {
+    if (A->data.rows() != n || A->data.cols() != n || B->data.rows() != n || B->data.cols() != 1 ||
+        C->data.rows() != 1 || C->data.cols() != n || D->data.rows() != 1 || D->data.cols() != 1) {
         throw std::runtime_error("ssm_scan: shape mismatch");
     }
 
@@ -580,14 +567,12 @@ Var ssm_scan(const Var& u, const Var& A, const Var& B, const Var& C,
         for (size_t t = T; t-- > 0;) {
             for (size_t i = 0; i < n; ++i) {
                 float v = C->data(0, i) * dY(t, i);
-                for (size_t j = 0; j < n; ++j)
-                    v += A->data(j, i) * ds_next[j];   // A^T
+                for (size_t j = 0; j < n; ++j) v += A->data(j, i) * ds_next[j];  // A^T
                 ds[i] = v;
             }
             for (size_t i = 0; i < n; ++i) {
                 if (t > 0) {
-                    for (size_t j = 0; j < n; ++j)
-                        dA(i, j) += ds[i] * S(t - 1, j);
+                    for (size_t j = 0; j < n; ++j) dA(i, j) += ds[i] * S(t - 1, j);
                 }
                 dB(i, 0) += ds[i] * u->data(t, i);
                 dC(0, i) += dY(t, i) * S(t, i);
@@ -624,8 +609,7 @@ Var mul_col(const Var& x, const Var& c) {
             Matrix dc(c->data.rows(), 1);
             for (size_t i = 0; i < dc.rows(); ++i) {
                 float s = 0;
-                for (size_t j = 0; j < x->data.cols(); ++j)
-                    s += self->grad(i, j) * x->data(i, j);
+                for (size_t j = 0; j < x->data.cols(); ++j) s += self->grad(i, j) * x->data(i, j);
                 dc(i, 0) = s;
             }
             c->accumulate(dc);
@@ -649,8 +633,7 @@ Var rms_row(const Var& x, float eps) {
         Matrix dx(R, C);
         for (size_t i = 0; i < R; ++i) {
             const float denom = static_cast<float>(C) * self->data(i, 0);
-            for (size_t j = 0; j < C; ++j)
-                dx(i, j) = self->grad(i, 0) * x->data(i, j) / denom;
+            for (size_t j = 0; j < C; ++j) dx(i, j) = self->grad(i, 0) * x->data(i, j) / denom;
         }
         x->accumulate(dx);
     });
@@ -659,8 +642,7 @@ Var rms_row(const Var& x, float eps) {
 Var sigmoid(const Var& x) {
     Matrix out = x->data;
     for (size_t i = 0; i < out.rows(); ++i)
-        for (size_t j = 0; j < out.cols(); ++j)
-            out(i, j) = 1.0f / (1.0f + std::exp(-out(i, j)));
+        for (size_t j = 0; j < out.cols(); ++j) out(i, j) = 1.0f / (1.0f + std::exp(-out(i, j)));
     return record(std::move(out), {x}, [](Variable* self) {
         const Var& x = self->parents[0];
         if (!x->requires_grad) return;
@@ -679,8 +661,7 @@ Var add_scalar(const Var& x, float s) {
     for (size_t i = 0; i < out.rows(); ++i)
         for (size_t j = 0; j < out.cols(); ++j) out(i, j) += s;
     return record(std::move(out), {x}, [](Variable* self) {
-        if (self->parents[0]->requires_grad)
-            self->parents[0]->accumulate(self->grad);
+        if (self->parents[0]->requires_grad) self->parents[0]->accumulate(self->grad);
     });
 }
 
@@ -716,10 +697,9 @@ float clip_grad_norm(const std::vector<Var>& params, float max_norm) {
     double sq = 0.0;
     for (const auto& p : params) {
         const Matrix& g = p->grad;
-        if (g.rows() == 0) continue;   // never accumulated
+        if (g.rows() == 0) continue;  // never accumulated
         for (size_t i = 0; i < g.rows(); ++i)
-            for (size_t j = 0; j < g.cols(); ++j)
-                sq += static_cast<double>(g(i, j)) * g(i, j);
+            for (size_t j = 0; j < g.cols(); ++j) sq += static_cast<double>(g(i, j)) * g(i, j);
     }
     const float total = static_cast<float>(std::sqrt(sq));
     if (total > max_norm && total > 0.0f) {
@@ -727,8 +707,7 @@ float clip_grad_norm(const std::vector<Var>& params, float max_norm) {
         for (const auto& p : params) {
             Matrix& g = p->grad;
             for (size_t i = 0; i < g.rows(); ++i)
-                for (size_t j = 0; j < g.cols(); ++j)
-                    g(i, j) *= scale;
+                for (size_t j = 0; j < g.cols(); ++j) g(i, j) *= scale;
         }
     }
     return total;

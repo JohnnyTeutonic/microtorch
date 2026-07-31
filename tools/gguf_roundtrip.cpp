@@ -27,7 +27,7 @@ using namespace microtorch;
 namespace {
 
 struct RawTensor {
-    std::vector<uint64_t> dims;   // file order (writer emits outer-first)
+    std::vector<uint64_t> dims;  // file order (writer emits outer-first)
     uint32_t type = 0;
     uint64_t offset = 0;
 };
@@ -63,8 +63,7 @@ GGUFFile parse(const std::string& path) {
     if (!f) throw std::runtime_error("cannot open " + path);
     g.bytes.resize(static_cast<size_t>(f.tellg()));
     f.seekg(0);
-    f.read(reinterpret_cast<char*>(g.bytes.data()),
-           static_cast<std::streamsize>(g.bytes.size()));
+    f.read(reinterpret_cast<char*>(g.bytes.data()), static_cast<std::streamsize>(g.bytes.size()));
 
     size_t p = 0;
     if (rd<uint32_t>(g.bytes, p) != 0x46554747u)
@@ -78,18 +77,25 @@ GGUFFile parse(const std::string& path) {
         const std::string key = rd_str(g.bytes, p);
         const uint32_t vt = rd<uint32_t>(g.bytes, p);
         switch (vt) {
-            case 4: g.u32s[key] = rd<uint32_t>(g.bytes, p); break;
-            case 5: g.u32s[key] = static_cast<uint32_t>(rd<int32_t>(g.bytes, p)); break;
-            case 6: g.f32s[key] = rd<float>(g.bytes, p); break;
-            case 8: g.strings[key] = rd_str(g.bytes, p); break;
+            case 4:
+                g.u32s[key] = rd<uint32_t>(g.bytes, p);
+                break;
+            case 5:
+                g.u32s[key] = static_cast<uint32_t>(rd<int32_t>(g.bytes, p));
+                break;
+            case 6:
+                g.f32s[key] = rd<float>(g.bytes, p);
+                break;
+            case 8:
+                g.strings[key] = rd_str(g.bytes, p);
+                break;
             case 9: {
                 const uint32_t et = rd<uint32_t>(g.bytes, p);
                 const uint64_t n = rd<uint64_t>(g.bytes, p);
                 for (uint64_t k = 0; k < n; ++k) {
                     if (et == 8) {
                         std::string tok = rd_str(g.bytes, p);
-                        if (key == "tokenizer.ggml.tokens")
-                            g.tokens.push_back(std::move(tok));
+                        if (key == "tokenizer.ggml.tokens") g.tokens.push_back(std::move(tok));
                     } else if (et == 6) {
                         rd<float>(g.bytes, p);
                     } else {
@@ -99,8 +105,8 @@ GGUFFile parse(const std::string& path) {
                 break;
             }
             default:
-                throw std::runtime_error("unexpected metadata type " +
-                                         std::to_string(vt) + " for " + key);
+                throw std::runtime_error("unexpected metadata type " + std::to_string(vt) +
+                                         " for " + key);
         }
     }
 
@@ -108,8 +114,7 @@ GGUFFile parse(const std::string& path) {
         const std::string name = rd_str(g.bytes, p);
         RawTensor t;
         const uint32_t nd = rd<uint32_t>(g.bytes, p);
-        for (uint32_t d = 0; d < nd; ++d)
-            t.dims.push_back(rd<uint64_t>(g.bytes, p));
+        for (uint32_t d = 0; d < nd; ++d) t.dims.push_back(rd<uint64_t>(g.bytes, p));
         t.type = rd<uint32_t>(g.bytes, p);
         t.offset = rd<uint64_t>(g.bytes, p);
         g.tensors.emplace(name, std::move(t));
@@ -125,13 +130,11 @@ GGUFFile parse(const std::string& path) {
 // HF/llama [out, in] layout export_gguf_llama re-emits unchanged.
 Matrix to_matrix(const GGUFFile& g, const std::string& name) {
     const RawTensor& t = g.tensors.at(name);
-    if (t.type != 0)
-        throw std::runtime_error(name + ": only F32 GGUFs supported");
+    if (t.type != 0) throw std::runtime_error(name + ": only F32 GGUFs supported");
     const size_t rows = t.dims.size() == 2 ? t.dims[0] : 1;
     const size_t cols = t.dims.size() == 2 ? t.dims[1] : t.dims[0];
     Matrix m(rows, cols);
-    std::memcpy(&m(0, 0), g.bytes.data() + g.data_start + t.offset,
-                rows * cols * sizeof(float));
+    std::memcpy(&m(0, 0), g.bytes.data() + g.data_start + t.offset, rows * cols * sizeof(float));
     return m;
 }
 
@@ -149,12 +152,10 @@ int main(int argc, char** argv) {
     GGUFFile g = parse(in_path);
 
     gguf::LlamaExportConfig cfg;
-    const std::string arch = g.strings.count("general.architecture")
-                                 ? g.strings.at("general.architecture")
-                                 : "llama";
+    const std::string arch =
+        g.strings.count("general.architecture") ? g.strings.at("general.architecture") : "llama";
     cfg.architecture = arch;
-    cfg.name = g.strings.count("general.name") ? g.strings.at("general.name")
-                                               : "roundtrip";
+    cfg.name = g.strings.count("general.name") ? g.strings.at("general.name") : "roundtrip";
     auto u32_or = [&](const std::string& k, uint32_t d) {
         return g.u32s.count(k) ? g.u32s.at(k) : d;
     };
@@ -177,11 +178,11 @@ int main(int argc, char** argv) {
     cfg.unk_token_id = u32_or("tokenizer.ggml.unknown_token_id", 0);
     cfg.pad_token_id = u32_or("tokenizer.ggml.padding_token_id", 0);
 
-    std::printf("read %s: %s, d=%u layers=%u heads=%u ff=%u vocab=%u "
-                "tokens=%zu tensors=%zu\n",
-                in_path.c_str(), arch.c_str(), cfg.embedding_length,
-                cfg.block_count, cfg.head_count, cfg.feed_forward_length,
-                cfg.vocab_size, g.tokens.size(), g.tensors.size());
+    std::printf(
+        "read %s: %s, d=%u layers=%u heads=%u ff=%u vocab=%u "
+        "tokens=%zu tensors=%zu\n",
+        in_path.c_str(), arch.c_str(), cfg.embedding_length, cfg.block_count, cfg.head_count,
+        cfg.feed_forward_length, cfg.vocab_size, g.tokens.size(), g.tensors.size());
 
     // GGUF names -> HF-Llama names (the exporter's map, reversed).
     std::map<std::string, Matrix> sd;
@@ -200,8 +201,7 @@ int main(int argc, char** argv) {
         sd.emplace(hf + "mlp.gate_proj.weight", to_matrix(g, gg + "ffn_gate.weight"));
         sd.emplace(hf + "mlp.up_proj.weight", to_matrix(g, gg + "ffn_up.weight"));
         sd.emplace(hf + "mlp.down_proj.weight", to_matrix(g, gg + "ffn_down.weight"));
-        sd.emplace(hf + "post_attention_layernorm.weight",
-                   to_matrix(g, gg + "ffn_norm.weight"));
+        sd.emplace(hf + "post_attention_layernorm.weight", to_matrix(g, gg + "ffn_norm.weight"));
     }
 
     std::vector<std::string> unmapped;
@@ -217,9 +217,8 @@ int main(int argc, char** argv) {
         // (SafeTensorsLoader::load_model_config_from_json).
         const std::string st_path(argv[3]);
         const size_t slash = st_path.find_last_of("/\\");
-        const std::string dir = slash == std::string::npos
-                                    ? std::string(".")
-                                    : st_path.substr(0, slash);
+        const std::string dir =
+            slash == std::string::npos ? std::string(".") : st_path.substr(0, slash);
         std::ofstream cj(dir + "/config.json");
         cj << "{\n"
            << "  \"architectures\": [\"LlamaForCausalLM\"],\n"

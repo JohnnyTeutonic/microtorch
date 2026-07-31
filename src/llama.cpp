@@ -7,10 +7,8 @@ namespace microtorch {
 namespace nn {
 
 LlamaBlock::LlamaBlock(const LlamaConfig& cfg, unsigned seed)
-    : H(cfg.n_heads), dk(cfg.d / cfg.n_heads),
-      rope_theta_(cfg.rope_theta), rms_eps_(cfg.rms_eps) {
-    if (cfg.d % cfg.n_heads != 0)
-        throw std::runtime_error("llama: d must divide by n_heads");
+    : H(cfg.n_heads), dk(cfg.d / cfg.n_heads), rope_theta_(cfg.rope_theta), rms_eps_(cfg.rms_eps) {
+    if (cfg.d % cfg.n_heads != 0) throw std::runtime_error("llama: d must divide by n_heads");
     // HF names throughout; Linear registers its matrix as "weight", so the
     // collected dotted paths match LlamaForCausalLM exactly.
     ln1_w = reg("input_layernorm.weight", Matrix(1, cfg.d, 1.0f));
@@ -60,19 +58,17 @@ Var LlamaBlock::forward(const Var& x, const std::vector<int>& pos) const {
 
     // ---- SwiGLU FFN sublayer ----
     Var h2 = ops::rmsnorm(x1, ln2_w);
-    Var ffn = down_proj->forward(
-        ops::mul(ops::silu(gate_proj->forward(h2)), up_proj->forward(h2)));
+    Var ffn = down_proj->forward(ops::mul(ops::silu(gate_proj->forward(h2)), up_proj->forward(h2)));
     return ops::add(x1, ffn);
 }
 
 Llama::Llama(const LlamaConfig& cfg_, unsigned seed) : cfg(cfg_) {
     embed_tokens = mod<Embedding>("embed_tokens", cfg.vocab, cfg.d, seed + 11);
     for (size_t i = 0; i < cfg.n_layers; ++i)
-        blocks.push_back(mod<LlamaBlock>("layers." + std::to_string(i), cfg,
-                                         seed + 100 * (unsigned)(i + 1)));
+        blocks.push_back(
+            mod<LlamaBlock>("layers." + std::to_string(i), cfg, seed + 100 * (unsigned)(i + 1)));
     norm_w = reg("norm.weight", Matrix(1, cfg.d, 1.0f));
-    if (!cfg.tie_embeddings)
-        lm_head = mod<Linear>("lm_head", cfg.d, cfg.vocab, false, seed + 12);
+    if (!cfg.tie_embeddings) lm_head = mod<Linear>("lm_head", cfg.d, cfg.vocab, false, seed + 12);
 }
 
 Var Llama::forward(const std::vector<int>& ids) const {

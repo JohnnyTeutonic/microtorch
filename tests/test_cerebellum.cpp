@@ -1,7 +1,7 @@
-#include "check.hpp"
 #include <cmath>
 #include <cstdio>
 #include <random>
+#include "check.hpp"
 
 #include "microtorch/cerebellum.hpp"
 #include "microtorch/nn.hpp"
@@ -41,8 +41,7 @@ void test_routine_predictor() {
         }
     }
 
-    printf("✓ Output shape correct: [%zu, %zu]\n", predicted->data.rows(),
-           predicted->data.cols());
+    printf("✓ Output shape correct: [%zu, %zu]\n", predicted->data.rows(), predicted->data.cols());
     printf("✓ Outputs finite\n");
 }
 
@@ -78,8 +77,7 @@ void test_selective_gate() {
         CHECK(gate_prob >= 0.0f && gate_prob <= 1.0f);
     }
 
-    printf("✓ Output shape correct: [%zu, %zu]\n", gated_out->data.rows(),
-           gated_out->data.cols());
+    printf("✓ Output shape correct: [%zu, %zu]\n", gated_out->data.rows(), gated_out->data.cols());
     printf("✓ Gate probabilities in [0, 1]\n");
     printf("✓ Gate logits (surprise signal): ");
     for (size_t t = 0; t < std::min(size_t(3), gates.rows()); ++t) {
@@ -119,8 +117,7 @@ void test_gated_block() {
         }
     }
 
-    printf("✓ Output shape correct: [%zu, %zu]\n", out->data.rows(),
-           out->data.cols());
+    printf("✓ Output shape correct: [%zu, %zu]\n", out->data.rows(), out->data.cols());
     printf("✓ Block forward pass successful\n");
     printf("✓ Pre-LN + gated attention + gated MLP integrated\n");
 }
@@ -160,14 +157,12 @@ void test_gating_mechanism() {
     gate.forward(surprising_var);
     const Matrix& surprising_gates = gate.last_gate_logits();
 
-    printf("Routine input (1e-4): gate prob = %.4f (should be low)\n",
-           routine_gates(0, 0));
-    printf("Surprising input (0.5): gate prob = %.4f (should be high)\n",
-           surprising_gates(0, 0));
+    printf("Routine input (1e-4): gate prob = %.4f (should be low)\n", routine_gates(0, 0));
+    printf("Surprising input (0.5): gate prob = %.4f (should be high)\n", surprising_gates(0, 0));
 
     // Verify mechanism works
-    CHECK(routine_gates(0, 0) < 0.5f);       // Routine should have low gate
-    CHECK(surprising_gates(0, 0) > 0.5f);    // Surprising should have high gate
+    CHECK(routine_gates(0, 0) < 0.5f);     // Routine should have low gate
+    CHECK(surprising_gates(0, 0) > 0.5f);  // Surprising should have high gate
     CHECK(surprising_gates(0, 0) > routine_gates(0, 0));
 
     printf("✓ Gating mechanism works: high residual → high gate prob\n");

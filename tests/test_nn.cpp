@@ -8,11 +8,11 @@
 #include <functional>
 #include <random>
 
-#include "microtorch/nn.hpp"
 #include "microtorch/device.hpp"
+#include "microtorch/nn.hpp"
 
-using microtorch::Var;
 using microtorch::make_var;
+using microtorch::Var;
 namespace ops = microtorch::ops;
 namespace nn = microtorch::nn;
 
@@ -34,8 +34,8 @@ Matrix randn(size_t r, size_t c, unsigned seed, float s = 1.0f) {
     return m;
 }
 
-double fd_vs_analytic(const std::function<float()>& forward, Var leaf,
-                      const Matrix& analytic, float h = 1e-2f) {
+double fd_vs_analytic(const std::function<float()>& forward, Var leaf, const Matrix& analytic,
+                      float h = 1e-2f) {
     double worst = 0.0;
     for (size_t i = 0; i < leaf->data.rows(); ++i) {
         for (size_t j = 0; j < leaf->data.cols(); ++j) {
@@ -48,8 +48,7 @@ double fd_vs_analytic(const std::function<float()>& forward, Var leaf,
             leaf->data(i, j) = keep;
             const double fd = (static_cast<double>(up) - dn) / (2.0 * h);
             const double a = analytic(i, j);
-            const double err =
-                std::abs(a - fd) / (1.0 + std::max(std::abs(a), std::abs(fd)));
+            const double err = std::abs(a - fd) / (1.0 + std::max(std::abs(a), std::abs(fd)));
             worst = std::max(worst, err);
         }
     }
@@ -69,7 +68,11 @@ int main() {
     // logits, cross-entropy), so this single check exercises the entire 1b
     // surface end to end.
     nn::GPT2Config cfg;
-    cfg.vocab = 11; cfg.n_ctx = 8; cfg.d = 12; cfg.n_layers = 1; cfg.n_heads = 3;
+    cfg.vocab = 11;
+    cfg.n_ctx = 8;
+    cfg.d = 12;
+    cfg.n_layers = 1;
+    cfg.n_heads = 3;
     nn::GPT2 model(cfg, /*seed=*/7);
     std::vector<int> ids{3, 1, 4, 1, 5}, tgt{1, 4, 1, 5, 9};
 
@@ -93,7 +96,7 @@ int main() {
     {
         auto sd = model.state_dict();
         float before = forward();
-        for (auto& p : model.parameters()) p->data.fill(0.123f);   // wreck
+        for (auto& p : model.parameters()) p->data.fill(0.123f);  // wreck
         model.load_state_dict(sd);
         float after = forward();
         check(before == after, "state_dict round trip: bit-identical loss",
@@ -105,12 +108,20 @@ int main() {
         auto sd = model.state_dict();
         sd.erase("ln_f.weight");
         bool threw = false;
-        try { model.load_state_dict(sd); } catch (const std::exception&) { threw = true; }
+        try {
+            model.load_state_dict(sd);
+        } catch (const std::exception&) {
+            threw = true;
+        }
         check(threw, "strict load: missing key throws", 0.0);
         sd = model.state_dict();
         sd.emplace("h.9.imaginary.weight", Matrix(1, 1));
         threw = false;
-        try { model.load_state_dict(sd); } catch (const std::exception&) { threw = true; }
+        try {
+            model.load_state_dict(sd);
+        } catch (const std::exception&) {
+            threw = true;
+        }
         check(threw, "strict load: unexpected key throws", 0.0);
     }
 
@@ -125,13 +136,18 @@ int main() {
             Var loss = ops::cross_entropy(m2.forward(ids), tgt);
             if (it == 0) first = loss->data(0, 0);
             last = loss->data(0, 0);
-            if (which == 0) sgd.zero_grad(); else adamw.zero_grad();
+            if (which == 0)
+                sgd.zero_grad();
+            else
+                adamw.zero_grad();
             microtorch::backward(loss);
-            if (which == 0) sgd.step(); else adamw.step();
+            if (which == 0)
+                sgd.step();
+            else
+                adamw.step();
         }
         check(last < 0.15f * first,
-              which == 0 ? "SGD+momentum overfits one batch"
-                         : "AdamW overfits one batch",
+              which == 0 ? "SGD+momentum overfits one batch" : "AdamW overfits one batch",
               static_cast<double>(last / first));
     }
 
@@ -140,14 +156,13 @@ int main() {
         nn::GPT2 m3(cfg, /*seed=*/13);
         microtorch::NoGrad ng;
         Var l1 = m3.forward({3, 1, 4, 1, 5});
-        Var l2 = m3.forward({3, 1, 4, 2, 9});    // change tokens 3..4 only
+        Var l2 = m3.forward({3, 1, 4, 2, 9});  // change tokens 3..4 only
         double drift = 0.0;
         for (size_t j = 0; j < cfg.vocab; ++j)
             for (size_t i = 0; i < 3; ++i)
-                drift = std::max(drift, static_cast<double>(
-                    std::abs(l1->data(i, j) - l2->data(i, j))));
-        check(drift == 0.0, "causal mask: past logits untouched by future edit",
-              drift);
+                drift =
+                    std::max(drift, static_cast<double>(std::abs(l1->data(i, j) - l2->data(i, j))));
+        check(drift == 0.0, "causal mask: past logits untouched by future edit", drift);
     }
 
     if (g_failures == 0) {

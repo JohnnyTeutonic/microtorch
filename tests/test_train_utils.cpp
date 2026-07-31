@@ -1,10 +1,10 @@
 // Training-utility tests: dropout (forward/backward mask agreement,
 // eval-mode identity), clip_grad_norm, LR schedulers, and the
 // save_safetensors -> load_safetensors round trip.
-#include "check.hpp"
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include "check.hpp"
 
 #include "microtorch/nn.hpp"
 #include "microtorch/safetensors.hpp"
@@ -63,14 +63,16 @@ void test_clip_grad_norm() {
     Var a = make_var(Matrix(1, 4), true);
     Var b = make_var(Matrix(1, 4), true);
     Matrix ga(1, 4), gb(1, 4);
-    ga.fill(0); gb.fill(0);
-    ga(0, 0) = 3.0f; gb(0, 0) = 4.0f;
-    a->accumulate(ga); b->accumulate(gb);
+    ga.fill(0);
+    gb.fill(0);
+    ga(0, 0) = 3.0f;
+    gb(0, 0) = 4.0f;
+    a->accumulate(ga);
+    b->accumulate(gb);
 
     const float pre = ops::clip_grad_norm({a, b}, 1.0f);
     CHECK(std::fabs(pre - 5.0f) < 1e-5f);
-    const float post = std::sqrt(a->grad(0, 0) * a->grad(0, 0) +
-                                 b->grad(0, 0) * b->grad(0, 0));
+    const float post = std::sqrt(a->grad(0, 0) * a->grad(0, 0) + b->grad(0, 0) * b->grad(0, 0));
     CHECK(std::fabs(post - 1.0f) < 1e-5f);
     printf("  norm 5.0 clipped to %.5f\n", post);
 }
@@ -82,13 +84,13 @@ void test_schedulers() {
 
     nn::CosineWarmupLR<nn::AdamW> sched(opt, /*warmup=*/10, /*total=*/110);
     for (int i = 0; i < 5; ++i) sched.step();
-    CHECK(std::fabs(opt.lr - 0.5f) < 1e-5f);         // mid-warmup: t/warmup
+    CHECK(std::fabs(opt.lr - 0.5f) < 1e-5f);  // mid-warmup: t/warmup
     for (int i = 0; i < 5; ++i) sched.step();
-    CHECK(std::fabs(opt.lr - 1.0f) < 1e-5f);         // warmup done
-    for (int i = 0; i < 50; ++i) sched.step();        // halfway through decay
-    CHECK(std::fabs(opt.lr - 0.5f) < 1e-3f);         // cos(pi/2) midpoint
+    CHECK(std::fabs(opt.lr - 1.0f) < 1e-5f);    // warmup done
+    for (int i = 0; i < 50; ++i) sched.step();  // halfway through decay
+    CHECK(std::fabs(opt.lr - 0.5f) < 1e-3f);    // cos(pi/2) midpoint
     for (int i = 0; i < 50; ++i) sched.step();
-    CHECK(opt.lr < 1e-3f);                           // fully decayed
+    CHECK(opt.lr < 1e-3f);  // fully decayed
     printf("  cosine-warmup checkpoints correct\n");
 
     nn::AdamW opt2({w}, /*lr=*/1.0f);
@@ -105,8 +107,7 @@ void test_safetensors_roundtrip() {
     std::map<std::string, Matrix> dict;
     Matrix a(3, 5), b(1, 7);
     for (size_t i = 0; i < a.rows(); ++i)
-        for (size_t j = 0; j < a.cols(); ++j)
-            a(i, j) = 0.31f * static_cast<float>(i) - 1.7f * j;
+        for (size_t j = 0; j < a.cols(); ++j) a(i, j) = 0.31f * static_cast<float>(i) - 1.7f * j;
     for (size_t j = 0; j < b.cols(); ++j) b(0, j) = std::sqrt(1.0f + j);
     dict.emplace("layer.weight", a);
     dict.emplace("layer.bias", b);
@@ -121,8 +122,7 @@ void test_safetensors_roundtrip() {
         const Matrix& got = loaded.at(name);
         CHECK(got.rows() == orig.rows() && got.cols() == orig.cols());
         for (size_t i = 0; i < got.rows(); ++i)
-            for (size_t j = 0; j < got.cols(); ++j)
-                CHECK(got(i, j) == orig(i, j));   // bit-exact
+            for (size_t j = 0; j < got.cols(); ++j) CHECK(got(i, j) == orig(i, j));  // bit-exact
     }
     printf("  2 tensors round-tripped bit-exact\n");
 }

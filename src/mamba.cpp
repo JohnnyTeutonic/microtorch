@@ -84,16 +84,15 @@ Var MambaBlock::forward(const Var& x) const {
 }
 
 // MambaModel: Stack of Mamba blocks with embedding and output projection
-MambaModel::MambaModel(size_t vocab_size, size_t d_model, size_t n_layers,
-                       size_t d_state, unsigned seed) {
+MambaModel::MambaModel(size_t vocab_size, size_t d_model, size_t n_layers, size_t d_state,
+                       unsigned seed) {
     embed = mod<nn::Embedding>("embed", vocab_size, d_model);
     norm_final = mod<nn::LayerNorm>("norm_final", d_model);
     lm_head = mod<nn::Linear>("lm_head", d_model, vocab_size, true, seed + 21);
 
     for (size_t i = 0; i < n_layers; ++i) {
         blocks.push_back(
-            mod<MambaBlock>("block_" + std::to_string(i), d_model, d_state,
-                           seed + 30 + i));
+            mod<MambaBlock>("block_" + std::to_string(i), d_model, d_state, seed + 30 + i));
     }
 }
 

@@ -44,12 +44,16 @@ namespace {
 // ---- minimal GGUF metadata reader (vocab only; tensors skipped) ----
 template <typename T>
 T rd(const std::vector<uint8_t>& b, size_t& p) {
-    T v; std::memcpy(&v, b.data() + p, sizeof(T)); p += sizeof(T); return v;
+    T v;
+    std::memcpy(&v, b.data() + p, sizeof(T));
+    p += sizeof(T);
+    return v;
 }
 std::string rd_str(const std::vector<uint8_t>& b, size_t& p) {
     const uint64_t n = rd<uint64_t>(b, p);
     std::string s(reinterpret_cast<const char*>(b.data() + p), n);
-    p += n; return s;
+    p += n;
+    return s;
 }
 
 std::vector<std::string> read_gguf_vocab(const std::string& path) {
@@ -60,18 +64,26 @@ std::vector<std::string> read_gguf_vocab(const std::string& path) {
     f.read(reinterpret_cast<char*>(b.data()), static_cast<std::streamsize>(b.size()));
     size_t p = 0;
     if (rd<uint32_t>(b, p) != 0x46554747u) throw std::runtime_error("not GGUF");
-    rd<uint32_t>(b, p);                       // version
-    rd<uint64_t>(b, p);                       // tensor count
+    rd<uint32_t>(b, p);  // version
+    rd<uint64_t>(b, p);  // tensor count
     const uint64_t n_meta = rd<uint64_t>(b, p);
     std::vector<std::string> tokens;
     for (uint64_t i = 0; i < n_meta; ++i) {
         const std::string key = rd_str(b, p);
         const uint32_t vt = rd<uint32_t>(b, p);
         switch (vt) {
-            case 4: rd<uint32_t>(b, p); break;
-            case 5: rd<int32_t>(b, p); break;
-            case 6: rd<float>(b, p); break;
-            case 8: rd_str(b, p); break;
+            case 4:
+                rd<uint32_t>(b, p);
+                break;
+            case 5:
+                rd<int32_t>(b, p);
+                break;
+            case 6:
+                rd<float>(b, p);
+                break;
+            case 8:
+                rd_str(b, p);
+                break;
             case 9: {
                 const uint32_t et = rd<uint32_t>(b, p);
                 const uint64_t n = rd<uint64_t>(b, p);
@@ -79,12 +91,15 @@ std::vector<std::string> read_gguf_vocab(const std::string& path) {
                     if (et == 8) {
                         std::string t = rd_str(b, p);
                         if (key == "tokenizer.ggml.tokens") tokens.push_back(std::move(t));
-                    } else if (et == 6) rd<float>(b, p);
-                    else throw std::runtime_error("bad array");
+                    } else if (et == 6)
+                        rd<float>(b, p);
+                    else
+                        throw std::runtime_error("bad array");
                 }
                 break;
             }
-            default: throw std::runtime_error("bad meta type");
+            default:
+                throw std::runtime_error("bad meta type");
         }
     }
     if (tokens.empty()) throw std::runtime_error("no vocab in " + path);
@@ -93,8 +108,7 @@ std::vector<std::string> read_gguf_vocab(const std::string& path) {
 
 // Word-level tokenizer matching transformer_cpp: lowercase words, single
 // punctuation marks as their own tokens, <unk>=0 fallback.
-std::vector<int> tokenize(const std::string& text,
-                          const std::map<std::string, int>& vocab,
+std::vector<int> tokenize(const std::string& text, const std::map<std::string, int>& vocab,
                           size_t max_tokens) {
     std::vector<int> ids;
     std::string cur;
@@ -129,8 +143,7 @@ enum class AttnKind { EXACT, KIMI, SRD };
 
 class ParityLM : public nn::Module {
 public:
-    ParityLM(AttnKind kind, size_t vocab, size_t d, size_t n_heads,
-             size_t n_ctx, unsigned seed)
+    ParityLM(AttnKind kind, size_t vocab, size_t d, size_t n_heads, size_t n_ctx, unsigned seed)
         : kind_(kind) {
         wte = mod<nn::Embedding>("wte", vocab, d, seed + 1);
         wpe = mod<nn::Embedding>("wpe", n_ctx, d, seed + 2);
@@ -141,16 +154,16 @@ public:
             mlp.push_back(mod<nn::MLP>("mlp_" + std::to_string(b), d, 4 * d, s + 3));
             switch (kind) {
                 case AttnKind::EXACT:
-                    exact.push_back(mod<nn::CausalSelfAttention>(
-                        "attn_" + std::to_string(b), d, n_heads, s));
+                    exact.push_back(
+                        mod<nn::CausalSelfAttention>("attn_" + std::to_string(b), d, n_heads, s));
                     break;
                 case AttnKind::KIMI:
-                    kimi.push_back(mod<nn::KimiLinearAttention>(
-                        "attn_" + std::to_string(b), d, n_heads, s));
+                    kimi.push_back(
+                        mod<nn::KimiLinearAttention>("attn_" + std::to_string(b), d, n_heads, s));
                     break;
                 case AttnKind::SRD:
-                    srd.push_back(mod<nn::SurpriseRoutedAttention>(
-                        "attn_" + std::to_string(b), d, n_heads, s));
+                    srd.push_back(mod<nn::SurpriseRoutedAttention>("attn_" + std::to_string(b), d,
+                                                                   n_heads, s));
                     break;
             }
         }
@@ -166,9 +179,15 @@ public:
             Var a;
             Var n1 = ln1[b]->forward(h);
             switch (kind_) {
-                case AttnKind::EXACT: a = exact[b]->forward(n1); break;
-                case AttnKind::KIMI: a = kimi[b]->forward(n1); break;
-                case AttnKind::SRD: a = srd[b]->forward(n1); break;
+                case AttnKind::EXACT:
+                    a = exact[b]->forward(n1);
+                    break;
+                case AttnKind::KIMI:
+                    a = kimi[b]->forward(n1);
+                    break;
+                case AttnKind::SRD:
+                    a = srd[b]->forward(n1);
+                    break;
             }
             h = ops::add(h, a);
             h = ops::add(h, mlp[b]->forward(ln2[b]->forward(h)));
@@ -178,9 +197,7 @@ public:
 
     // SRD-only: mean gate over both blocks (tape Var for the aux loss).
     Var mean_gate() const {
-        return ops::scale(
-            ops::add(ops::mean(srd[0]->gate()), ops::mean(srd[1]->gate())),
-            0.5f);
+        return ops::scale(ops::add(ops::mean(srd[0]->gate()), ops::mean(srd[1]->gate())), 0.5f);
     }
     void set_falsifier(bool on) {
         for (auto& s : srd) s->shuffle_predictor = on;
@@ -202,10 +219,12 @@ struct Lane {
     ParityLM model;
     nn::AdamW opt;
     bool is_srd;
-    Lane(const char* n, AttnKind k, size_t vocab, size_t d, size_t heads,
-         size_t n_ctx, unsigned seed, float lr)
-        : name(n), model(k, vocab, d, heads, n_ctx, seed),
-          opt(model.parameters(), lr), is_srd(k == AttnKind::SRD) {}
+    Lane(const char* n, AttnKind k, size_t vocab, size_t d, size_t heads, size_t n_ctx,
+         unsigned seed, float lr)
+        : name(n),
+          model(k, vocab, d, heads, n_ctx, seed),
+          opt(model.parameters(), lr),
+          is_srd(k == AttnKind::SRD) {}
 };
 
 }  // namespace
@@ -234,19 +253,22 @@ int main(int argc, char** argv) {
     auto tokens = read_gguf_vocab(gguf_path);
     if (vocab_cap > 0 && vocab_cap < tokens.size()) tokens.resize(vocab_cap);
     std::map<std::string, int> vocab;
-    for (size_t i = 0; i < tokens.size(); ++i)
-        vocab.emplace(tokens[i], static_cast<int>(i));
+    for (size_t i = 0; i < tokens.size(); ++i) vocab.emplace(tokens[i], static_cast<int>(i));
     std::ifstream cf(corpus_path);
-    if (!cf) { std::fprintf(stderr, "no corpus\n"); return 2; }
-    std::string text((std::istreambuf_iterator<char>(cf)),
-                     std::istreambuf_iterator<char>());
+    if (!cf) {
+        std::fprintf(stderr, "no corpus\n");
+        return 2;
+    }
+    std::string text((std::istreambuf_iterator<char>(cf)), std::istreambuf_iterator<char>());
     auto ids = tokenize(text, vocab, 120000);
     size_t unk = 0;
     for (int t : ids) unk += (t == 0);
-    std::printf("vocab %zu | corpus %zu tokens | unk rate %.2f%%\n",
-                tokens.size(), ids.size(),
+    std::printf("vocab %zu | corpus %zu tokens | unk rate %.2f%%\n", tokens.size(), ids.size(),
                 100.0 * static_cast<double>(unk) / ids.size());
-    if (ids.size() < 10 * T) { std::fprintf(stderr, "corpus too small\n"); return 2; }
+    if (ids.size() < 10 * T) {
+        std::fprintf(stderr, "corpus too small\n");
+        return 2;
+    }
 
     // Four lanes, identical init seeds for the shared components.
     std::vector<Lane> lanes;
@@ -272,8 +294,7 @@ int main(int argc, char** argv) {
             std::printf("resuming from step %d\n", start_step);
             for (auto& lane : lanes) {
                 lane.model.load_state_dict(
-                    load_safetensors(ckpt_dir + "/" + lane.name +
-                                     ".safetensors"));
+                    load_safetensors(ckpt_dir + "/" + lane.name + ".safetensors"));
             }
         } else {
             start_step = 0;
@@ -283,21 +304,20 @@ int main(int argc, char** argv) {
     std::ofstream csv(csv_path, start_step > 0 ? std::ios::app : std::ios::out);
     if (start_step == 0) csv << "step,exact,kimi,srd,srd_f,srd_gate,srdf_gate\n";
 
-    std::mt19937 batch_rng(123);   // ONE stream: identical windows per lane
-    for (int s = 0; s < start_step; ++s) batch_rng();   // fast-forward
+    std::mt19937 batch_rng(123);                       // ONE stream: identical windows per lane
+    for (int s = 0; s < start_step; ++s) batch_rng();  // fast-forward
 
     auto save_ckpt = [&](int step_done) {
         std::system(("mkdir -p " + ckpt_dir).c_str());
         for (auto& lane : lanes) {
-            save_safetensors(ckpt_dir + "/" + lane.name + ".safetensors",
-                             lane.model.state_dict());
+            save_safetensors(ckpt_dir + "/" + lane.name + ".safetensors", lane.model.state_dict());
         }
         std::ofstream st(ckpt_dir + "/state.txt");
         st << step_done << "\n";
     };
 
-    std::printf("%5s %9s %9s %9s %9s %7s %7s\n", "step", "exact", "kimi",
-                "srd", "srd_f", "gate", "gate_f");
+    std::printf("%5s %9s %9s %9s %9s %7s %7s\n", "step", "exact", "kimi", "srd", "srd_f", "gate",
+                "gate_f");
     for (int step = start_step + 1; step <= steps; ++step) {
         const size_t start = batch_rng() % (ids.size() - T - 1);
         std::vector<int> x(ids.begin() + start, ids.begin() + start + T);
@@ -310,23 +330,20 @@ int main(int argc, char** argv) {
             Var task = ops::cross_entropy(logits, y);
             Var loss = task;
             if (lane.is_srd) {
-                loss = ops::add(task, ops::scale(lane.model.mean_gate(),
-                                                 lambda_gate));
+                loss = ops::add(task, ops::scale(lane.model.mean_gate(), lambda_gate));
                 gates[li - 2] = lane.model.mean_gate()->data(0, 0);
             }
             lane.opt.zero_grad();
             backward(loss);
             ops::clip_grad_norm(lane.model.parameters(), 1.0f);
             lane.opt.step();
-            losses[li] = task->data(0, 0);   // task loss only, comparable
+            losses[li] = task->data(0, 0);  // task loss only, comparable
         }
-        csv << step << ',' << losses[0] << ',' << losses[1] << ','
-            << losses[2] << ',' << losses[3] << ',' << gates[0] << ','
-            << gates[1] << '\n';
+        csv << step << ',' << losses[0] << ',' << losses[1] << ',' << losses[2] << ',' << losses[3]
+            << ',' << gates[0] << ',' << gates[1] << '\n';
         if (step % 10 == 0 || step == 1) {
-            std::printf("%5d %9.4f %9.4f %9.4f %9.4f %7.3f %7.3f\n", step,
-                        losses[0], losses[1], losses[2], losses[3], gates[0],
-                        gates[1]);
+            std::printf("%5d %9.4f %9.4f %9.4f %9.4f %7.3f %7.3f\n", step, losses[0], losses[1],
+                        losses[2], losses[3], gates[0], gates[1]);
             std::fflush(stdout);
         }
     }

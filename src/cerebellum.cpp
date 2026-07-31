@@ -19,8 +19,7 @@ Var RoutinePredictor::forward(const Var& x) const {
 
 // SelectiveGate: Wraps computation with residual-based gating
 SelectiveGate::SelectiveGate(ForwardFn layer_fn, size_t d_model, unsigned seed)
-    : layer_fn_(layer_fn), predictor_(std::make_shared<RoutinePredictor>(
-                                 d_model, seed)) {}
+    : layer_fn_(layer_fn), predictor_(std::make_shared<RoutinePredictor>(d_model, seed)) {}
 
 Var SelectiveGate::forward(const Var& x) const {
     // 1. Predict routine features

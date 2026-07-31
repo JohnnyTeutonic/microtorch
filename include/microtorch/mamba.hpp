@@ -50,9 +50,9 @@ private:
     size_t d_model_, d_state_;
 
     // State-space matrices
-    std::shared_ptr<nn::Linear> proj_in;    // d_model → d_state
-    std::shared_ptr<nn::Linear> proj_out;   // d_state → d_model
-    Var A, B, C, D;                         // State-space parameters
+    std::shared_ptr<nn::Linear> proj_in;   // d_model → d_state
+    std::shared_ptr<nn::Linear> proj_out;  // d_state → d_model
+    Var A, B, C, D;                        // State-space parameters
 
     // Gating
     std::shared_ptr<nn::Linear> gate_proj;  // d_model → d_model
@@ -75,8 +75,8 @@ private:
 // MambaModel: Stack of Mamba blocks (baseline for comparison)
 class MambaModel : public nn::Module {
 public:
-    MambaModel(size_t vocab_size, size_t d_model, size_t n_layers,
-               size_t d_state = 64, unsigned seed = 0);
+    MambaModel(size_t vocab_size, size_t d_model, size_t n_layers, size_t d_state = 64,
+               unsigned seed = 0);
 
     Var forward(const Var& x) const;  // [T, d_model]
 

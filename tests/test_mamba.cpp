@@ -1,6 +1,6 @@
-#include "check.hpp"
 #include <cmath>
 #include <cstdio>
+#include "check.hpp"
 
 #include "microtorch/mamba.hpp"
 
@@ -36,8 +36,7 @@ void test_s4_layer() {
         }
     }
 
-    printf("✓ Output shape correct: [%zu, %zu]\n", out->data.rows(),
-           out->data.cols());
+    printf("✓ Output shape correct: [%zu, %zu]\n", out->data.rows(), out->data.cols());
     printf("✓ Outputs finite\n");
 }
 
@@ -61,8 +60,7 @@ void test_mamba_block() {
     // Verify shape
     CHECK(out->data.rows() == 8 && out->data.cols() == 256);
 
-    printf("✓ Output shape correct: [%zu, %zu]\n", out->data.rows(),
-           out->data.cols());
+    printf("✓ Output shape correct: [%zu, %zu]\n", out->data.rows(), out->data.cols());
     printf("✓ MambaBlock forward pass successful\n");
 }
 
@@ -96,8 +94,7 @@ void test_mamba_model() {
         }
     }
 
-    printf("✓ Logit shape correct: [%zu, %zu]\n", logits->data.rows(),
-           logits->data.cols());
+    printf("✓ Logit shape correct: [%zu, %zu]\n", logits->data.rows(), logits->data.cols());
     printf("✓ Model stacking and output projection working\n");
 }
 
@@ -151,16 +148,18 @@ void test_ssm_scan_gradcheck() {
             for (size_t j = 0; j < c; ++j) m(i, j) = dist(rng);
         return m;
     };
-    Matrix u0 = rmat(T, n), A0 = rmat(n, n), B0 = rmat(n, 1),
-           C0 = rmat(1, n), D0 = rmat(1, 1);
+    Matrix u0 = rmat(T, n), A0 = rmat(n, n), B0 = rmat(n, 1), C0 = rmat(1, n), D0 = rmat(1, 1);
 
     Var u = make_var(u0, true), A = make_var(A0, true), B = make_var(B0, true),
         C = make_var(C0, true), D = make_var(D0, true);
     backward(ops::mean(ops::ssm_scan(u, A, B, C, D)));
 
-    struct Probe { const char* name; Matrix* m0; Var v; };
-    Probe probes[] = {{"u", &u0, u}, {"A", &A0, A}, {"B", &B0, B},
-                      {"C", &C0, C}, {"D", &D0, D}};
+    struct Probe {
+        const char* name;
+        Matrix* m0;
+        Var v;
+    };
+    Probe probes[] = {{"u", &u0, u}, {"A", &A0, A}, {"B", &B0, B}, {"C", &C0, C}, {"D", &D0, D}};
     const float eps = 1e-3f;
     for (auto& p : probes) {
         float worst = 0;
@@ -182,9 +181,8 @@ void test_ssm_scan_gradcheck() {
                 fd = (eval(eps) - eval(-eps)) / (2 * eps);
             }
             an = p.v->grad(i, j);
-            worst = std::max(worst, std::fabs(fd - an) /
-                                        std::max({std::fabs(fd),
-                                                  std::fabs(an), 1e-4f}));
+            worst = std::max(worst,
+                             std::fabs(fd - an) / std::max({std::fabs(fd), std::fabs(an), 1e-4f}));
         }
         printf("  d/d%s rel err %.2e\n", p.name, worst);
         CHECK(worst < 5e-3f);

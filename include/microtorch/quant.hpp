@@ -29,10 +29,10 @@
 namespace microtorch {
 
 struct QuantizedTensor {
-    std::vector<int8_t> q;        // rows*cols values, row-major
-    std::vector<float> scales;    // one per block
+    std::vector<int8_t> q;      // rows*cols values, row-major
+    std::vector<float> scales;  // one per block
     size_t rows = 0, cols = 0;
-    size_t block = 64;            // block length along a row
+    size_t block = 64;  // block length along a row
 
     size_t nbytes() const { return q.size() + scales.size() * sizeof(float); }
 };
@@ -48,8 +48,7 @@ public:
     // with rank-r adapters. Only A and B are registered parameters, so
     // parameters()/state_dict() see the adapters alone -- an adapter
     // checkpoint, the LoRA convention.
-    LoRALinear(Matrix W, Matrix b, size_t rank, float alpha,
-               unsigned seed = 0);
+    LoRALinear(Matrix W, Matrix b, size_t rank, float alpha, unsigned seed = 0);
     LoRALinear(Matrix W, size_t rank, float alpha, unsigned seed = 0);
 
     Var forward(const Var& x) const;
@@ -59,12 +58,12 @@ public:
     Matrix merged_weight() const;
 
     size_t rank() const { return r_; }
-    Var A, B;                     // trainable
+    Var A, B;  // trainable
 
 protected:
-    Matrix W_, b_;                // frozen base (b_ empty if no bias)
+    Matrix W_, b_;  // frozen base (b_ empty if no bias)
     size_t r_;
-    float scaling_;               // alpha / r
+    float scaling_;  // alpha / r
 };
 
 class QLinear : public Module {
@@ -79,19 +78,19 @@ public:
 
 private:
     QuantizedTensor Wq_;
-    Matrix Wdq_;                  // cached dequantized weight
-    Matrix b_;                    // empty if no bias
+    Matrix Wdq_;  // cached dequantized weight
+    Matrix b_;    // empty if no bias
 };
 
 class QLoRALinear : public Module {
 public:
     // Quantized frozen base + LoRA adapters: the QLoRA recipe.
-    QLoRALinear(const Matrix& W, Matrix b, size_t rank, float alpha,
-                size_t block = 64, unsigned seed = 0);
+    QLoRALinear(const Matrix& W, Matrix b, size_t rank, float alpha, size_t block = 64,
+                unsigned seed = 0);
 
     Var forward(const Var& x) const;
     size_t base_nbytes() const { return Wq_.nbytes(); }
-    Var A, B;                     // trainable
+    Var A, B;  // trainable
 
 private:
     QuantizedTensor Wq_;

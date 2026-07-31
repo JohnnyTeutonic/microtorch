@@ -23,14 +23,13 @@ QuantizedTensor quantize_int8(const Matrix& m, size_t block) {
             const size_t j0 = bidx * block;
             const size_t j1 = std::min(j0 + block, t.cols);
             float absmax = 0.0f;
-            for (size_t j = j0; j < j1; ++j)
-                absmax = std::max(absmax, std::fabs(m(i, j)));
+            for (size_t j = j0; j < j1; ++j) absmax = std::max(absmax, std::fabs(m(i, j)));
             const float s = absmax > 0.0f ? absmax / 127.0f : 1.0f;
             t.scales[i * blocks_per_row + bidx] = s;
             for (size_t j = j0; j < j1; ++j) {
                 const float v = m(i, j) / s;
-                t.q[i * t.cols + j] = static_cast<int8_t>(
-                    std::lround(std::max(-127.0f, std::min(127.0f, v))));
+                t.q[i * t.cols + j] =
+                    static_cast<int8_t>(std::lround(std::max(-127.0f, std::min(127.0f, v))));
             }
         }
     }
@@ -61,13 +60,11 @@ Matrix lora_a_init(size_t in, size_t r, unsigned seed) {
 }
 }  // namespace
 
-LoRALinear::LoRALinear(Matrix W, Matrix b, size_t rank, float alpha,
-                       unsigned seed)
-    : W_(std::move(W)), b_(std::move(b)), r_(rank),
-      scaling_(alpha / static_cast<float>(rank)) {
+LoRALinear::LoRALinear(Matrix W, Matrix b, size_t rank, float alpha, unsigned seed)
+    : W_(std::move(W)), b_(std::move(b)), r_(rank), scaling_(alpha / static_cast<float>(rank)) {
     if (rank == 0) throw std::runtime_error("LoRALinear: rank must be > 0");
     A = reg("lora_A", lora_a_init(W_.rows(), r_, seed));
-    B = reg("lora_B", Matrix(r_, W_.cols()));   // zeros: delta starts at 0
+    B = reg("lora_B", Matrix(r_, W_.cols()));  // zeros: delta starts at 0
 }
 
 LoRALinear::LoRALinear(Matrix W, size_t rank, float alpha, unsigned seed)
@@ -87,16 +84,14 @@ Matrix LoRALinear::merged_weight() const {
     // W += scaling * A B
     Matrix AB = device::matmul(A->data, B->data);
     for (size_t i = 0; i < merged.rows(); ++i)
-        for (size_t j = 0; j < merged.cols(); ++j)
-            merged(i, j) += scaling_ * AB(i, j);
+        for (size_t j = 0; j < merged.cols(); ++j) merged(i, j) += scaling_ * AB(i, j);
     return merged;
 }
 
 QLinear::QLinear(const Matrix& W, Matrix b, size_t block)
     : Wq_(quantize_int8(W, block)), Wdq_(dequantize(Wq_)), b_(std::move(b)) {}
 
-QLinear::QLinear(const Matrix& W, size_t block)
-    : QLinear(W, Matrix(), block) {}
+QLinear::QLinear(const Matrix& W, size_t block) : QLinear(W, Matrix(), block) {}
 
 Var QLinear::forward(const Var& x) const {
     Var y = ops::matmul(x, make_var(Wdq_));
@@ -104,10 +99,13 @@ Var QLinear::forward(const Var& x) const {
     return y;
 }
 
-QLoRALinear::QLoRALinear(const Matrix& W, Matrix b, size_t rank, float alpha,
-                         size_t block, unsigned seed)
-    : Wq_(quantize_int8(W, block)), Wdq_(dequantize(Wq_)), b_(std::move(b)),
-      r_(rank), scaling_(alpha / static_cast<float>(rank)) {
+QLoRALinear::QLoRALinear(const Matrix& W, Matrix b, size_t rank, float alpha, size_t block,
+                         unsigned seed)
+    : Wq_(quantize_int8(W, block)),
+      Wdq_(dequantize(Wq_)),
+      b_(std::move(b)),
+      r_(rank),
+      scaling_(alpha / static_cast<float>(rank)) {
     if (rank == 0) throw std::runtime_error("QLoRALinear: rank must be > 0");
     A = reg("lora_A", lora_a_init(W.rows(), r_, seed));
     B = reg("lora_B", Matrix(r_, W.cols()));
