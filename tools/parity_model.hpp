@@ -18,8 +18,7 @@ enum class AttnKind { EXACT, KIMI, SRD };
 
 class ParityLM : public nn::Module {
 public:
-    ParityLM(AttnKind kind, size_t vocab, size_t d, size_t n_heads,
-             size_t n_ctx, unsigned seed)
+    ParityLM(AttnKind kind, size_t vocab, size_t d, size_t n_heads, size_t n_ctx, unsigned seed)
         : kind_(kind) {
         wte = mod<nn::Embedding>("wte", vocab, d, seed + 1);
         wpe = mod<nn::Embedding>("wpe", n_ctx, d, seed + 2);
@@ -30,16 +29,16 @@ public:
             mlp.push_back(mod<nn::MLP>("mlp_" + std::to_string(b), d, 4 * d, s + 3));
             switch (kind) {
                 case AttnKind::EXACT:
-                    exact.push_back(mod<nn::CausalSelfAttention>(
-                        "attn_" + std::to_string(b), d, n_heads, s));
+                    exact.push_back(
+                        mod<nn::CausalSelfAttention>("attn_" + std::to_string(b), d, n_heads, s));
                     break;
                 case AttnKind::KIMI:
-                    kimi.push_back(mod<nn::KimiLinearAttention>(
-                        "attn_" + std::to_string(b), d, n_heads, s));
+                    kimi.push_back(
+                        mod<nn::KimiLinearAttention>("attn_" + std::to_string(b), d, n_heads, s));
                     break;
                 case AttnKind::SRD:
-                    srd.push_back(mod<nn::SurpriseRoutedAttention>(
-                        "attn_" + std::to_string(b), d, n_heads, s));
+                    srd.push_back(mod<nn::SurpriseRoutedAttention>("attn_" + std::to_string(b), d,
+                                                                   n_heads, s));
                     break;
             }
         }
@@ -47,17 +46,29 @@ public:
         head = mod<nn::Linear>("head", d, vocab, false, seed + 99);
     }
 
-    Var forward(const std::vector<int>& ids) const {
+    // seq_len 0 = one sequence. Stacked batches are exact-attention only:
+    // kimi's causal cumsum and srd's predictor are not block-aware yet.
+    Var forward(const std::vector<int>& ids, size_t seq_len = 0) const {
+        const size_t sl = seq_len == 0 ? ids.size() : seq_len;
+        if (sl != ids.size() && kind_ != AttnKind::EXACT) {
+            throw std::runtime_error("ParityLM: batch > 1 requires exact attention");
+        }
         std::vector<int> pos(ids.size());
-        for (size_t i = 0; i < pos.size(); ++i) pos[i] = static_cast<int>(i);
+        for (size_t i = 0; i < pos.size(); ++i) pos[i] = static_cast<int>(i % sl);
         Var h = ops::add(wte->forward(ids), wpe->forward(pos));
         for (int b = 0; b < 2; ++b) {
             Var a;
             Var n1 = ln1[b]->forward(h);
             switch (kind_) {
-                case AttnKind::EXACT: a = exact[b]->forward(n1); break;
-                case AttnKind::KIMI: a = kimi[b]->forward(n1); break;
-                case AttnKind::SRD: a = srd[b]->forward(n1); break;
+                case AttnKind::EXACT:
+                    a = exact[b]->forward(n1, seq_len);
+                    break;
+                case AttnKind::KIMI:
+                    a = kimi[b]->forward(n1);
+                    break;
+                case AttnKind::SRD:
+                    a = srd[b]->forward(n1);
+                    break;
             }
             h = ops::add(h, a);
             h = ops::add(h, mlp[b]->forward(ln2[b]->forward(h)));
@@ -66,9 +77,7 @@ public:
     }
 
     Var mean_gate() const {
-        return ops::scale(
-            ops::add(ops::mean(srd[0]->gate()), ops::mean(srd[1]->gate())),
-            0.5f);
+        return ops::scale(ops::add(ops::mean(srd[0]->gate()), ops::mean(srd[1]->gate())), 0.5f);
     }
     void set_falsifier(bool on) {
         for (auto& s : srd) s->shuffle_predictor = on;

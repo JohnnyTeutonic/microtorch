@@ -155,7 +155,10 @@ yourself and pick the attention mechanism.
   },
   "train": {
     "steps": 3000, "lr": 3e-3, "clip": 1.0,
-    "accum": 2,                       // true gradient accumulation
+    "batch": 4,                       // sequences stacked into ONE forward
+                                      // (positions + attention mask restart
+                                      // per sequence; parity-tested)
+    "accum": 2,                       // gradient accumulation over batches
     "eval_every": 100,
     "checkpoint_every": 100,          // resume picks up from here
     "gradmap_every": 10,              // per-module grad-norm event cadence
@@ -184,6 +187,7 @@ can consume a run.
 | Optimizers | ✅ | SGD (momentum), AdamW |
 | LR schedulers | ✅ | Cosine-with-warmup, StepLR |
 | Grad clipping | ✅ | Global-norm (`clip_grad_norm`) |
+| Mini-batching | ✅ | Stacked `[B*T, d]` batches, block-isolated attention; stacked-vs-per-seq logits/loss/grads equal to fp epsilon (`test_batching`), 1.34x measured at B=4/T=128 |
 | Checkpoint IO | ✅ | safetensors load **and** save (HF round-trip) |
 | GGUF export | ✅ | `export_gguf_llama`: state_dict → .gguf for tinyllama.cpp |
 | Cross-entropy loss | ✅ | Fused softmax backward |

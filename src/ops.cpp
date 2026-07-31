@@ -693,6 +693,23 @@ Var dropout(const Var& x, float p, unsigned long long seed) {
     });
 }
 
+Matrix attention_mask(size_t rows, size_t seq_len, bool causal) {
+    if (seq_len == 0) seq_len = rows;
+    if (rows % seq_len != 0) {
+        throw std::runtime_error("attention_mask: rows not a multiple of seq_len");
+    }
+    Matrix m(rows, rows);
+    for (size_t i = 0; i < rows; ++i) {
+        const size_t blk = i / seq_len;
+        for (size_t j = 0; j < rows; ++j) {
+            const bool same_block = j / seq_len == blk;
+            const bool visible = same_block && (!causal || j <= i);
+            if (!visible) m(i, j) = -1e9f;
+        }
+    }
+    return m;
+}
+
 float clip_grad_norm(const std::vector<Var>& params, float max_norm) {
     double sq = 0.0;
     for (const auto& p : params) {

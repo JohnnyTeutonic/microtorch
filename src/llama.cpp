@@ -22,7 +22,7 @@ LlamaBlock::LlamaBlock(const LlamaConfig& cfg, unsigned seed)
     down_proj = mod<Linear>("mlp.down_proj", cfg.d_ff, cfg.d, false, seed + 7);
 }
 
-Var LlamaBlock::forward(const Var& x, const std::vector<int>& pos) const {
+Var LlamaBlock::forward(const Var& x, const std::vector<int>& pos, size_t seq_len) const {
     const size_t T = x->data.rows(), d = H * dk;
 
     // ---- attention sublayer (pre-RMSNorm) ----
@@ -38,10 +38,8 @@ Var LlamaBlock::forward(const Var& x, const std::vector<int>& pos) const {
     k = ops::slice_cols(qkv, d, 2 * d);
     v = ops::slice_cols(qkv, 2 * d, 3 * d);
 
-    Matrix maskm(T, T);
-    for (size_t i = 0; i < T; ++i)
-        for (size_t j = i + 1; j < T; ++j) maskm(i, j) = -1e9f;
-    Var mask = make_var(std::move(maskm));
+    // Causal within each sequence; block-diagonal across a stacked batch.
+    Var mask = make_var(ops::attention_mask(T, seq_len, /*causal=*/true));
 
     std::vector<Var> heads;
     heads.reserve(H);
@@ -71,11 +69,14 @@ Llama::Llama(const LlamaConfig& cfg_, unsigned seed) : cfg(cfg_) {
     if (!cfg.tie_embeddings) lm_head = mod<Linear>("lm_head", cfg.d, cfg.vocab, false, seed + 12);
 }
 
-Var Llama::forward(const std::vector<int>& ids) const {
+Var Llama::forward(const std::vector<int>& ids, size_t seq_len) const {
+    // RoPE positions restart every seq_len (0 = one sequence).
+    const size_t sl = seq_len == 0 ? ids.size() : seq_len;
+    if (ids.size() % sl != 0) throw std::runtime_error("ids not a multiple of seq_len");
     std::vector<int> pos(ids.size());
-    for (size_t i = 0; i < pos.size(); ++i) pos[i] = static_cast<int>(i);
+    for (size_t i = 0; i < pos.size(); ++i) pos[i] = static_cast<int>(i % sl);
     Var h = embed_tokens->forward(ids);
-    for (const auto& b : blocks) h = b->forward(h, pos);
+    for (const auto& b : blocks) h = b->forward(h, pos, seq_len);
     h = ops::rmsnorm(h, norm_w);
     // Tied head: logits = h @ E^T (gradients flow into the embedding both
     // through the gather and through the head matmul).

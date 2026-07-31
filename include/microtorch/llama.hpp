@@ -23,7 +23,9 @@ struct LlamaConfig {
 class LlamaBlock : public Module {
 public:
     LlamaBlock(const LlamaConfig& cfg, unsigned seed);
-    Var forward(const Var& x, const std::vector<int>& positions) const;
+    // seq_len 0 = single sequence; otherwise x rows are B stacked
+    // sequences of seq_len, attention-isolated by a block-diagonal mask.
+    Var forward(const Var& x, const std::vector<int>& positions, size_t seq_len = 0) const;
 
     Var ln1_w, ln2_w;  // input/post_attention layernorm gammas
     std::shared_ptr<Linear> q_proj, k_proj, v_proj, o_proj;
@@ -35,7 +37,9 @@ public:
 class Llama : public Module {
 public:
     explicit Llama(const LlamaConfig& cfg, unsigned seed = 0);
-    Var forward(const std::vector<int>& ids) const;
+    // ids: one sequence, or B sequences of seq_len concatenated (RoPE
+    // positions restart per sequence; attention is block-isolated).
+    Var forward(const std::vector<int>& ids, size_t seq_len = 0) const;
 
     LlamaConfig cfg;
     std::shared_ptr<Embedding> embed_tokens;

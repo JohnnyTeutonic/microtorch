@@ -85,7 +85,10 @@ public:
 class CausalSelfAttention : public Module {
 public:
     CausalSelfAttention(size_t d, size_t n_heads, unsigned seed = 0, bool causal = true);
-    Var forward(const Var& x) const;  // x: [T, d]
+    // x: [T, d] for one sequence, or [B*T, d] for a stacked mini-batch
+    // with seq_len = T (sequences are isolated by a block-diagonal mask;
+    // seq_len 0 = single sequence spanning all rows).
+    Var forward(const Var& x, size_t seq_len = 0) const;
     std::shared_ptr<Linear> c_attn, c_proj;
     size_t H, dk;
     bool causal;
@@ -113,7 +116,7 @@ public:
 class Block : public Module {  // pre-LN transformer block, GPT-2 wiring
 public:
     Block(size_t d, size_t n_heads, unsigned seed = 0);
-    Var forward(const Var& x) const;
+    Var forward(const Var& x, size_t seq_len = 0) const;
     std::shared_ptr<LayerNorm> ln_1, ln_2;
     std::shared_ptr<CausalSelfAttention> attn;
     std::shared_ptr<MLP> mlp;
@@ -126,7 +129,10 @@ struct GPT2Config {
 class GPT2 : public Module {
 public:
     explicit GPT2(const GPT2Config& cfg, unsigned seed = 0);
-    Var forward(const std::vector<int>& ids) const;  // -> logits [T, vocab]
+    // ids: one sequence, or B sequences of seq_len concatenated
+    // (positions restart every seq_len; attention is block-isolated).
+    // -> logits [T, vocab] / [B*T, vocab]
+    Var forward(const std::vector<int>& ids, size_t seq_len = 0) const;
     GPT2Config cfg;
     std::shared_ptr<Embedding> wte, wpe;
     std::vector<std::shared_ptr<Block>> h;

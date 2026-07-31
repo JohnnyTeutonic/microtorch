@@ -48,7 +48,8 @@ struct Spec {
     int steps = 500;
     float lr = 3e-3f, clip = 1.0f, lambda_gate = 0.05f;
     int eval_every = 50, ckpt_every = 100;
-    int accum = 1;           // sequences per optimizer step
+    int batch = 1;           // sequences per FORWARD (stacked rows, one graph)
+    int accum = 1;           // batches accumulated per optimizer step
     int gradmap_every = 5;   // per-layer grad-norm event cadence
     size_t es_patience = 0;  // early stopping (0 = off)
     float es_min_delta = 0.0f;
@@ -106,6 +107,7 @@ Spec parse_spec(const std::string& path) {
     s.clip = tr.value("clip", s.clip);
     s.eval_every = tr.value("eval_every", s.eval_every);
     s.ckpt_every = tr.value("checkpoint_every", s.ckpt_every);
+    s.batch = tr.value("batch", s.batch);
     s.accum = tr.value("accum", s.accum);
     s.gradmap_every = tr.value("gradmap_every", s.gradmap_every);
     if (tr.contains("early_stopping")) {
@@ -172,9 +174,10 @@ int run(const Spec& s, bool plan_only) {
     std::printf("arch: %s d=%zu layers=%zu heads=%zu | T=%zu vocab_cap=%zu\n", s.attention.c_str(),
                 s.d, s.layers, s.heads, s.T, s.vocab_cap);
     std::printf(
-        "train: %d steps lr=%g clip=%g eval_every=%d ckpt_every=%d "
-        "early_stop(patience=%zu, min_delta=%g)\n",
-        s.steps, s.lr, s.clip, s.eval_every, s.ckpt_every, s.es_patience, s.es_min_delta);
+        "train: %d steps batch=%d accum=%d lr=%g clip=%g eval_every=%d "
+        "ckpt_every=%d early_stop(patience=%zu, min_delta=%g)\n",
+        s.steps, s.batch, s.accum, s.lr, s.clip, s.eval_every, s.ckpt_every, s.es_patience,
+        s.es_min_delta);
     std::printf("export: %s%s | serve: %s | out: %s\n", s.exp_safetensors ? "safetensors " : "",
                 s.exp_gguf ? "gguf" : "", s.serve ? "yes" : "no", s.out_dir.c_str());
     if (plan_only) return 0;
@@ -223,9 +226,12 @@ int run(const Spec& s, bool plan_only) {
     }
     nn::Module& model_ref =
         llama ? static_cast<nn::Module&>(*llama) : static_cast<nn::Module&>(*gpt);
-    auto fwd = [&](const std::vector<int>& ids) {
-        return llama ? llama->forward(ids) : gpt->forward(ids);
+    auto fwd = [&](const std::vector<int>& ids, size_t seq_len = 0) {
+        return llama ? llama->forward(ids, seq_len) : gpt->forward(ids, seq_len);
     };
+    if (s.batch > 1 && !llama && attn_kind(s.attention) != parity::AttnKind::EXACT) {
+        throw std::runtime_error("train.batch > 1 requires llama family or exact attention");
+    }
     model_ref.train();
     nn::AdamW opt(model_ref.parameters(), s.lr);
     const std::string ckpt = s.out_dir + "/model.safetensors";
@@ -241,7 +247,8 @@ int run(const Spec& s, bool plan_only) {
     }
 
     std::mt19937 rng(123);
-    for (int i = 0; i < start_step * s.accum; ++i) rng();
+    // Resume determinism: each step consumed accum*batch draws.
+    for (int i = 0; i < start_step * s.accum * s.batch; ++i) rng();
     auto save = [&](int step) {
         save_safetensors(ckpt, model_ref.state_dict());
         std::ofstream st(state_path);
@@ -255,16 +262,23 @@ int run(const Spec& s, bool plan_only) {
     const bool is_srd = attn_kind(s.attention) == parity::AttnKind::SRD;
     for (int step = start_step + 1; step <= s.steps; ++step) {
         const size_t lim = val_start - s.T - 1;
-        // Gradient accumulation: s.accum sequences share one optimizer
-        // step; each backward is pre-scaled by 1/accum so the summed
-        // gradient equals the mean-over-batch gradient.
+        // Mini-batching + accumulation: each of s.accum micro-steps stacks
+        // s.batch sequences into ONE forward ([batch*T, d] rows; positions
+        // and the attention mask restart per sequence — receipts in
+        // tests/test_batching.cpp), backward pre-scaled by 1/accum so the
+        // summed gradient is the mean over all batch*accum sequences.
         opt.zero_grad();
         float task_mean = 0, gate_mean = 0;
         for (int k = 0; k < s.accum; ++k) {
-            const size_t at = rng() % lim;
-            std::vector<int> x(ids.begin() + at, ids.begin() + at + s.T);
-            std::vector<int> y(ids.begin() + at + 1, ids.begin() + at + s.T + 1);
-            Var logits = fwd(x);
+            std::vector<int> x, y;
+            x.reserve(s.batch * s.T);
+            y.reserve(s.batch * s.T);
+            for (int b = 0; b < s.batch; ++b) {
+                const size_t at = rng() % lim;
+                x.insert(x.end(), ids.begin() + at, ids.begin() + at + s.T);
+                y.insert(y.end(), ids.begin() + at + 1, ids.begin() + at + s.T + 1);
+            }
+            Var logits = fwd(x, s.batch > 1 ? s.T : 0);
             Var task = ops::cross_entropy(logits, y);
             Var loss = task;
             if (is_srd) loss = ops::add(task, ops::scale(gpt->mean_gate(), s.lambda_gate));

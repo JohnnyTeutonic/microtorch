@@ -152,8 +152,14 @@ by leverage. Deliberately rejected framings are recorded too.
   mmaps it. AdamW: have it.
 
 **Real gaps, high leverage (ordered):**
-1. Mini-batching. Trainers step on one sequence at a time; batching is the
-   single biggest CPU-throughput lever and unblocks honest benchmarks.
+1. Mini-batching. DONE 2026-07-31: B sequences stack as [B*T, d] rows;
+   `ops::attention_mask` gives a block-diagonal causal mask, positions
+   restart per sequence (GPT2, Llama, ParityLM exact lanes; kimi/srd not
+   yet block-aware). Receipts: tests/test_batching.cpp — stacked vs
+   per-sequence logits/loss/grads equal to fp epsilon, isolation exactly
+   0.0; 1.34x wall-clock on identical work at batch=4/T=128 (llama-tiny).
+   Known cost: the stacked score matrix does B× redundant attention work;
+   per-block row slicing is the follow-up if attention ever dominates.
 2. Gradient checkpointing (activation rematerialization) in the tape:
    store activations at block boundaries, recompute inside blocks on the
    backward. Not currently implemented ANYWHERE (audited 2026-07-30; the

@@ -96,6 +96,14 @@ Var dropout(const Var& x, float p, unsigned long long seed);
 // .grad in place between backward() and step().
 float clip_grad_norm(const std::vector<Var>& params, float max_norm);
 
+// Additive attention mask for a stacked mini-batch: rows are B sequences
+// of seq_len each (seq_len==0 means one sequence spanning all rows).
+// Entry (i,j) is 0 where i may attend j and -1e9 otherwise. Cross-block
+// entries are ALWAYS -1e9 (sequences in a batch never see each other);
+// within a block, j>i is masked when causal, open when not. Plain
+// no-grad constant, shared by every attention implementation.
+Matrix attention_mask(size_t rows, size_t seq_len, bool causal);
+
 // ---- phase 3a additions (Novel architectures: Kimi Linear) ----
 Var kimi_attention(const Var& q, const Var& k, const Var& v,
                    bool causal);  // O(n*d²) linear-time attention

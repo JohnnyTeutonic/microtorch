@@ -126,18 +126,17 @@ CausalSelfAttention::CausalSelfAttention(size_t d, size_t n_heads, unsigned seed
     c_proj = mod<Linear>("c_proj", d, d, true, seed + 13);
 }
 
-Var CausalSelfAttention::forward(const Var& x) const {
+Var CausalSelfAttention::forward(const Var& x, size_t seq_len) const {
     const size_t T = x->data.rows(), d = H * dk;
     Var qkv = c_attn->forward(x);  // [T, 3d]
-    // Additive causal mask, no-grad constant: 0 on/below the diagonal,
-    // -1e9 above. exp(-1e9 - max) underflows to exactly 0 in float32, so
-    // this equals a hard mask. Bidirectional callers (DiT) skip it.
+    // Additive mask, no-grad constant: -1e9 masks a position and
+    // exp(-1e9 - max) underflows to exactly 0 in float32, so this equals
+    // a hard mask. For stacked mini-batches (seq_len > 0) the mask is
+    // block-diagonal, isolating the sequences; bidirectional callers
+    // (DiT) with a single sequence need no mask at all.
     Var mask;
-    if (causal) {
-        Matrix maskm(T, T);
-        for (size_t i = 0; i < T; ++i)
-            for (size_t j = i + 1; j < T; ++j) maskm(i, j) = -1e9f;
-        mask = make_var(std::move(maskm));
+    if (causal || (seq_len != 0 && seq_len != T)) {
+        mask = make_var(ops::attention_mask(T, seq_len, causal));
     }
 
     std::vector<Var> heads;
@@ -197,8 +196,8 @@ Block::Block(size_t d, size_t n_heads, unsigned seed) {
     mlp = mod<MLP>("mlp", d, 4 * d, seed + 29);
 }
 
-Var Block::forward(const Var& x) const {
-    Var y = ops::add(x, attn->forward(ln_1->forward(x)));
+Var Block::forward(const Var& x, size_t seq_len) const {
+    Var y = ops::add(x, attn->forward(ln_1->forward(x), seq_len));
     return ops::add(y, mlp->forward(ln_2->forward(y)));
 }
 
@@ -212,12 +211,16 @@ GPT2::GPT2(const GPT2Config& c, unsigned seed) : cfg(c) {
     ln_f = mod<LayerNorm>("ln_f", cfg.d);
 }
 
-Var GPT2::forward(const std::vector<int>& ids) const {
-    if (ids.size() > cfg.n_ctx) throw std::runtime_error("sequence too long");
+Var GPT2::forward(const std::vector<int>& ids, size_t seq_len) const {
+    // Positions restart every seq_len so each sequence in a stacked batch
+    // sees positions 0..seq_len-1 (seq_len 0 = one sequence).
+    const size_t sl = seq_len == 0 ? ids.size() : seq_len;
+    if (sl > cfg.n_ctx) throw std::runtime_error("sequence too long");
+    if (ids.size() % sl != 0) throw std::runtime_error("ids not a multiple of seq_len");
     std::vector<int> pos(ids.size());
-    for (size_t i = 0; i < pos.size(); ++i) pos[i] = static_cast<int>(i);
+    for (size_t i = 0; i < pos.size(); ++i) pos[i] = static_cast<int>(i % sl);
     Var x = ops::add(wte->forward(ids), wpe->forward(pos));
-    for (const auto& blk : h) x = blk->forward(x);
+    for (const auto& blk : h) x = blk->forward(x, seq_len);
     x = ln_f->forward(x);
     // Weight-tied head: logits = h wte^T (GPT-2 has no separate lm_head).
     return ops::matmul(x, ops::transpose(wte->weight));

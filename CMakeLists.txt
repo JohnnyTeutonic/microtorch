@@ -101,6 +101,10 @@ add_executable(test_llama tests/test_llama.cpp)
 target_link_libraries(test_llama PRIVATE microtorch)
 add_test(NAME llama COMMAND test_llama)
 
+add_executable(test_batching tests/test_batching.cpp)
+target_link_libraries(test_batching PRIVATE microtorch)
+add_test(NAME batching COMMAND test_batching)
+
 add_executable(test_srd tests/test_srd.cpp)
 target_link_libraries(test_srd PRIVATE microtorch)
 add_test(NAME srd COMMAND test_srd)
