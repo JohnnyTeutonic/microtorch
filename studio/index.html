@@ -140,6 +140,7 @@
     <div class="stat" id="s-es-wrap" style="display:none">
       <div class="k">early stop</div><div class="v" id="s-es">–</div></div>
   </div>
+  <div id="s-artifacts" class="legend"></div>
 </div>
 
 <div class="panel">
@@ -168,9 +169,11 @@
 "use strict";
 const $ = id => document.getElementById(id);
 let steps = [], evals = [], gates = [], lastGrads = null, gradHist = {};
+let exports = [];
 
 function parse(text) {
   steps = []; evals = []; gates = []; lastGrads = null; gradHist = {};
+  exports = [];
   let name = "run", done = null;
   for (const line of text.split("\n")) {
     const t = line.trim();
@@ -187,6 +190,7 @@ function parse(text) {
       }
     }
     else if (e.event === "eval") evals.push({ s: e.step, v: e.val_loss });
+    else if (e.event === "export" && e.path) exports.push(e.path);
     else if (e.event === "early_stop") done = "early stop @ " + e.step;
     else if (e.event === "done") done = done ||
       ("done · best val " + (+e.best_val).toFixed(4));
@@ -211,6 +215,16 @@ function render(name, done) {
   if (done && done.startsWith("early")) {
     $("s-es-wrap").style.display = "";
     $("s-es").textContent = done.split("@")[1].trim();
+  }
+  // Exported artifacts as download links — the last click of the
+  // paper → config → train → export flow. Links resolve through the
+  // serve whitelist, so only in http mode.
+  if (exports.length && location.protocol.startsWith("http")) {
+    $("s-artifacts").innerHTML = "artifacts: " + exports.map(p => {
+      const base = p.split("/").pop();
+      return '<a href="/' + base + '" download style="color:var(--accent)">' +
+             base + "</a>";
+    }).join(" · ");
   }
   drawChart();
   drawGrads();

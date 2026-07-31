@@ -437,8 +437,9 @@ int run(const Spec& s, bool plan_only) {
 
     // Export.
     if (s.exp_safetensors) {
-        save_safetensors(s.out_dir + "/" + s.name + ".safetensors", model_ref.state_dict());
-        ev.emit({{"event", "export"}, {"format", "safetensors"}});
+        const std::string spath = s.out_dir + "/" + s.name + ".safetensors";
+        save_safetensors(spath, model_ref.state_dict());
+        ev.emit({{"event", "export"}, {"format", "safetensors"}, {"path", spath}});
     }
     if (s.exp_gguf) {
         if (llama) {
@@ -829,6 +830,8 @@ int serve_ui(const std::string& out_dir, int port, const std::string& ui_path,
             if (ends(".html")) ctype = "text/html; charset=utf-8";
             if (ends(".json")) ctype = "application/json";
             if (ends(".log")) ctype = "text/plain; charset=utf-8";
+            // Trained-artifact downloads (the page's export links).
+            if (ends(".safetensors") || ends(".gguf")) ctype = "application/octet-stream";
             const bool safe = ctype && name.find('/') == std::string::npos &&
                               name.find("..") == std::string::npos;
             const std::string body = safe ? slurp(out_dir + "/" + name) : "";
