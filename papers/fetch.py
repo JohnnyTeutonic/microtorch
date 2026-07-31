@@ -293,6 +293,90 @@ def to_json(arch: Arch) -> dict:
     }
 
 
+def emit_html(arch: Arch) -> str:
+    """The diff-to-paper split view (STUDIO_PLAN section 10): extracted
+    config on the left, each field's verbatim evidence snippet from the
+    paper's LaTeX on the right, linked by hover/click highlighting.
+    Self-contained file, studio dark theme, no dependencies — the visual
+    proof that every value has a citation and nothing was guessed."""
+    import html as _html
+
+    rows, snips = [], []
+    for i, (k, f) in enumerate(arch.fields.items()):
+        v = _html.escape(str(f.value))
+        ev = _html.escape(f.evidence)
+        rows.append(
+            f'<tr class="fld" data-i="{i}"><td class="k">{_html.escape(k)}</td>'
+            f'<td class="v">{v}</td><td class="st ok">extracted</td></tr>')
+        snips.append(
+            f'<div class="snip" data-i="{i}"><div class="sk">{_html.escape(k)}'
+            f' = {v}</div><div class="ev">&ldquo;{ev}&rdquo;</div></div>')
+    for k in arch.unresolved:
+        rows.append(
+            f'<tr><td class="k">{_html.escape(k)}</td><td class="v">&mdash;</td>'
+            f'<td class="st un">unresolved &mdash; reported, not guessed</td></tr>')
+    title = _html.escape(arch.title or f"arXiv:{arch.arxiv_id}")
+    variants = ""
+    if arch.variants:
+        variants = ("<div class='note'>model-size table: " +
+                    _html.escape(json.dumps(arch.variants)) + "</div>")
+    return f"""<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<title>diff-to-paper — {title}</title>
+<style>
+  :root {{ --bg:#0d1117; --panel:#161b22; --border:#30363d; --text:#c9d1d9;
+           --dim:#8b949e; --accent:#58a6ff; --ok:#3fb950; --un:#f0883e; }}
+  * {{ box-sizing:border-box; margin:0; padding:0; }}
+  body {{ background:var(--bg); color:var(--text);
+          font:14px/1.5 ui-monospace,Consolas,monospace; padding:1.2rem; }}
+  h1 {{ font-size:1.05rem; margin-bottom:.2rem; }}
+  h1 .accent {{ color:var(--accent); }}
+  #sub {{ color:var(--dim); margin-bottom:1rem; }}
+  .cols {{ display:flex; gap:1rem; align-items:flex-start; }}
+  .panel {{ background:var(--panel); border:1px solid var(--border);
+            border-radius:8px; padding:1rem; flex:1; }}
+  .panel h2 {{ font-size:.85rem; color:var(--dim); text-transform:uppercase;
+               letter-spacing:.06em; margin-bottom:.6rem; }}
+  table {{ width:100%; border-collapse:collapse; }}
+  td {{ padding:.3rem .5rem; border-bottom:1px solid var(--border); }}
+  .k {{ color:var(--dim); }} .v {{ color:var(--text); }}
+  .st.ok {{ color:var(--ok); font-size:.78rem; }}
+  .st.un {{ color:var(--un); font-size:.78rem; }}
+  tr.fld {{ cursor:pointer; }}
+  tr.hl {{ background:#1f6feb22; }}
+  .snip {{ border-left:3px solid var(--border); padding:.4rem .7rem;
+           margin-bottom:.7rem; }}
+  .snip.hl {{ border-left-color:var(--accent); background:#1f6feb14; }}
+  .sk {{ color:var(--accent); font-size:.8rem; margin-bottom:.2rem; }}
+  .ev {{ color:var(--text); }}
+  .note {{ color:var(--dim); font-size:.78rem; margin-top:.8rem; }}
+</style></head><body>
+<h1>diff-to-paper <span class="accent">{title}</span></h1>
+<div id="sub">arXiv:{arch.arxiv_id} &middot; every value below carries its
+evidence; unresolved fields are reported, never guessed</div>
+<div class="cols">
+  <div class="panel"><h2>extracted architecture</h2>
+    <table>{''.join(rows)}</table>{variants}</div>
+  <div class="panel"><h2>evidence from the paper's LaTeX</h2>
+    {''.join(snips)}</div>
+</div>
+<script>
+  const on = (i, add) => document.querySelectorAll(`[data-i="${{i}}"]`)
+    .forEach(el => el.classList.toggle('hl', add));
+  document.querySelectorAll('.fld,.snip').forEach(el => {{
+    el.addEventListener('mouseenter', () => on(el.dataset.i, true));
+    el.addEventListener('mouseleave', () => on(el.dataset.i, false));
+    el.addEventListener('click', () => {{
+      const tgt = document.querySelector(
+        `.snip[data-i="${{el.dataset.i}}"]`);
+      if (tgt) tgt.scrollIntoView({{behavior:'smooth', block:'center'}});
+    }});
+  }});
+</script>
+</body></html>
+"""
+
+
 def emit_cpp(arch: Arch) -> str:
     g = {k: f.value for k, f in arch.fields.items()}
     llama_family = g.get("norm") == "rmsnorm" or g.get("positional") == "rope"
@@ -343,6 +427,7 @@ def main() -> int:
     ap.add_argument("arxiv_id")
     ap.add_argument("--json", help="write normalized arch config here")
     ap.add_argument("--emit-cpp", help="write microtorch C++ here")
+    ap.add_argument("--emit-html", help="write the diff-to-paper split view here")
     ap.add_argument("--tex", help="parse a local .tex file instead of fetching")
     args = ap.parse_args()
 
@@ -364,6 +449,10 @@ def main() -> int:
         with open(args.emit_cpp, "w", encoding="utf-8") as fh:
             fh.write(emit_cpp(arch))
         print(f"wrote {args.emit_cpp}")
+    if args.emit_html:
+        with open(args.emit_html, "w", encoding="utf-8") as fh:
+            fh.write(emit_html(arch))
+        print(f"wrote {args.emit_html}")
     return 0
 
 

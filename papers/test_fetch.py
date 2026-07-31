@@ -68,9 +68,28 @@ def test_unresolved_reported() -> None:
     print("unresolved reporting ok")
 
 
+def test_emit_html() -> None:
+    from fetch import emit_html
+    arch = extract("0000.00000", FIXTURE_PROSE)
+    html = emit_html(arch)
+    # Every extracted field appears with its evidence; unresolved fields
+    # are labelled as such; the page is self-contained (no external refs).
+    for k, f in arch.fields.items():
+        assert k in html, f"field {k} missing from html"
+        assert str(f.value) in html
+    for k in arch.unresolved:
+        assert k in html
+    assert "unresolved &mdash; reported, not guessed" in html or not arch.unresolved
+    assert "http" not in html.split("</style>")[1], "external reference leaked"
+    assert "diff-to-paper" in html
+    print("emit_html ok "
+          f"({len(arch.fields)} fields, {len(arch.unresolved)} unresolved)")
+
+
 if __name__ == "__main__":
     test_prose()
     test_table()
     test_unresolved_reported()
+    test_emit_html()
     print("\n[PASS] all fetcher tests")
     sys.exit(0)
