@@ -693,6 +693,81 @@ Var dropout(const Var& x, float p, unsigned long long seed) {
     });
 }
 
+Var relu(const Var& x) {
+    Matrix out(x->data.rows(), x->data.cols());
+    for (size_t i = 0; i < out.rows(); ++i)
+        for (size_t j = 0; j < out.cols(); ++j) out(i, j) = std::max(0.0f, x->data(i, j));
+    return record(std::move(out), {x}, [](Variable* self) {
+        const Var& x = self->parents[0];
+        if (!x->requires_grad) return;
+        Matrix dx(x->data.rows(), x->data.cols());
+        for (size_t i = 0; i < dx.rows(); ++i)
+            for (size_t j = 0; j < dx.cols(); ++j)
+                dx(i, j) = x->data(i, j) > 0.0f ? self->grad(i, j) : 0.0f;
+        x->accumulate(dx);
+    });
+}
+
+namespace {
+// The in-place mechanism: transform the buffer, then interpose on the
+// node's backward so grad-in-terms-of-output becomes grad-in-terms-of-
+// input before the original closure (if any) runs. Under NoGrad only
+// the data transform happens.
+Var inplace_unary(const Var& x, const std::function<void(Matrix&)>& fwd,
+                  const std::function<void(const Matrix&, Matrix&)>& dydx_from_output) {
+    fwd(x->data);
+    if (grad_enabled() && x->requires_grad) {
+        auto orig = std::move(x->backward_fn);
+        Variable* self = x.get();
+        x->backward_fn = [self, orig, dydx_from_output]() {
+            dydx_from_output(self->data, self->grad);  // grad *= f'(y), in place
+            if (orig) orig();
+        };
+    }
+    return x;
+}
+}  // namespace
+
+Var relu_(const Var& x) {
+    return inplace_unary(
+        x,
+        [](Matrix& d) {
+            for (size_t i = 0; i < d.rows(); ++i)
+                for (size_t j = 0; j < d.cols(); ++j) d(i, j) = std::max(0.0f, d(i, j));
+        },
+        [](const Matrix& y, Matrix& g) {
+            for (size_t i = 0; i < g.rows(); ++i)
+                for (size_t j = 0; j < g.cols(); ++j)
+                    if (y(i, j) <= 0.0f) g(i, j) = 0.0f;
+        });
+}
+
+Var sigmoid_(const Var& x) {
+    return inplace_unary(
+        x,
+        [](Matrix& d) {
+            for (size_t i = 0; i < d.rows(); ++i)
+                for (size_t j = 0; j < d.cols(); ++j) d(i, j) = 1.0f / (1.0f + std::exp(-d(i, j)));
+        },
+        [](const Matrix& y, Matrix& g) {
+            for (size_t i = 0; i < g.rows(); ++i)
+                for (size_t j = 0; j < g.cols(); ++j) g(i, j) *= y(i, j) * (1.0f - y(i, j));
+        });
+}
+
+Var scale_(const Var& x, float s) {
+    return inplace_unary(
+        x,
+        [s](Matrix& d) {
+            for (size_t i = 0; i < d.rows(); ++i)
+                for (size_t j = 0; j < d.cols(); ++j) d(i, j) *= s;
+        },
+        [s](const Matrix&, Matrix& g) {
+            for (size_t i = 0; i < g.rows(); ++i)
+                for (size_t j = 0; j < g.cols(); ++j) g(i, j) *= s;
+        });
+}
+
 Var fused_attention(const Var& q, const Var& k, const Var& v, float scale, size_t seq_len,
                     bool causal) {
     const size_t T = q->data.rows();

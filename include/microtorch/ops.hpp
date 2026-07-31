@@ -104,6 +104,31 @@ float clip_grad_norm(const std::vector<Var>& params, float max_norm);
 // no-grad constant, shared by every attention implementation.
 Matrix attention_mask(size_t rows, size_t seq_len, bool causal);
 
+// ---- safe in-place elementwise ops (performance-triage gap 4) ----
+// Each op transforms x's buffer IN PLACE and chains x's existing
+// backward: the node's gradient is first converted through f' — which
+// for these ops is computable from the OUTPUT alone — and then the
+// original backward runs. No new tape node, no new allocation; the
+// activation that would have been stored simply never exists.
+//
+// The eligibility rule is mathematical, not stylistic: an op may be
+// in-place only if f'(x) is expressible in f(x). relu/sigmoid/scale
+// qualify; gelu and silu need their INPUT and are excluded on purpose.
+//
+// CONTRACT (the caller's side of the bargain, PyTorch's `_` convention):
+// (1) x must have NO other consumer — another op's backward would read
+//     the mutated buffer and be silently wrong; and
+// (2) x must not be the OUTPUT of an op whose backward reads its own
+//     output (softmax_row, sigmoid, fused_attention) — their closures
+//     would see f(x) where they stored x. The blessed pattern is the
+//     one that matters in practice: in-place on a fresh matmul/add
+//     result, e.g. relu_(matmul(h, W)) — those backwards read only
+//     their parents. Returns x itself.
+Var relu_(const Var& x);            // y = max(x,0);      dx = dy .* (y > 0)
+Var sigmoid_(const Var& x);         // y = 1/(1+e^-x);    dx = dy .* y .* (1-y)
+Var scale_(const Var& x, float s);  // y = s*x;    dx = s * dy
+Var relu(const Var& x);             // out-of-place sibling (parity + FD anchor)
+
 // Fused scaled-dot-product attention for one head:
 //   Y = softmax(scale * Q K^T + mask(seq_len, causal)) V
 // as ONE tape node. The two GEMMs stay on device::matmul (AVX/CUDA);
