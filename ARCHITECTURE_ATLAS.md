@@ -843,3 +843,112 @@ evidence**: instead of every paper starting from zero, results are preserved and
 integrated across architectures, tasks, interventions, scales and training
 regimes — moving architecture research from isolated benchmark claims toward a
 systematic empirical science.
+
+---
+
+## 21. The endgame: from Atlas to search (added 2026-07-31)
+
+The Atlas is not only a map. It is the missing prerequisite for the most
+ambitious version of this programme: **given a target objective, search finds
+the architecture** — not just widths and depths, but compositions, and
+eventually components that do not exist yet.
+
+### 21.1 Why a decade of NAS mostly failed to deliver that
+
+Classical NAS (including the genetic-algorithm attempt in AI_ML — the failure
+there was structural, not an execution error) searches by **blind mutation
+against an expensive, noisy oracle**. Every proposal costs a training run;
+nothing learned from run N transfers structure to run N+1 beyond a fitness
+scalar; the search space definition smuggles in most of the real knowledge; and
+the proxy tasks overfit. The field's honest scorecard: **component-level search
+has genuine hits** — Swish was found by search, Lion was found by symbolic
+program search, EvoNorm found normalisation-activation layers, AutoML-Zero
+evolved learning algorithms from primitives — while **whole-architecture novel
+search has essentially none** at the level of "invented something researchers
+now use as a design idea".
+
+The 2026 wave (FunSearch, AlphaEvolve, karpathy/autoresearch) replaces random
+mutation with an LLM as the proposal operator: agent edits code, short training
+run scores it, keep-or-revert, loop. autoresearch is the single-GPU personal
+version and its design is deliberately minimal — one metric, greedy
+hill-climbing, and **no memory beyond the current best code**. Every night
+starts from approximately zero accumulated understanding. That is the
+time/space trade-off it embodies: all compute goes into trying things, none
+into remembering *why* things worked.
+
+### 21.2 What researchers actually have that these systems lack
+
+A human architect carries a fitted, uncertainty-weighted mental model of the
+interaction structure of design space: *RMSNorm pays off in deep nets; gating
+helps selective-copy-shaped problems; this combination is redundant; that one
+is untested.* New architectures are mostly **recombinations conditioned on that
+model, aimed at a named problem**. The Atlas — effect estimates, interaction
+terms, uncertainty, evidence grades — is precisely that mental model made
+explicit and queryable. Which yields the three-layer design:
+
+```
+WORLD MODEL   the Atlas: fitted effects + interactions + uncertainty
+      ↓ conditions
+PROPOSER      typed-grammar generation (Chimera) / LLM proposal,
+              ranked by expected improvement or information gain
+      ↓ feeds
+EVALUATOR     microtorch under the matched-protocol regimes,
+              results flowing BACK into the world model
+```
+
+**Search proposes what the model is most uncertain-and-optimistic about**
+(Bayesian optimal experimental design, §13) instead of what mutation happens to
+reach. Every evaluation improves the prior for every future proposal. That
+closed loop — propose, run, *integrate* — is what none of the 2026 systems
+have, and it is the unclaimed position: **evidence-conditioned architecture
+search**.
+
+### 21.3 The pieces already exist in this workspace
+
+- **The proposer's grammar**: AI_ML/chimera — MAP-Elites quality-diversity
+  search over *typed compositions* of primitive blocks (attention, gating,
+  recurrence, fast weights), with weight inheritance via containment init, a
+  behavioural-fingerprint archive (the Atlas's `y_i` at toy scale), and a
+  falsifier mode where a primitive is dropped and the search must reconstruct
+  its niche. Chimera is the search layer prototyped at toy scale.
+- **The world model's substrate**: this document, Stages 0–3.
+- **The evaluator**: microtorch + the spec system + the matched protocols.
+- **De novo components**: a lower-level symbolic grammar over scalar/tensor
+  primitives (the AutoML-Zero / Swish / Lion lineage) slots in as one more
+  factor family once the taxonomy (§12) exists. Component search is the part
+  with historical precedent for genuine hits, and FD gradchecks make candidate
+  ops cheap to admit safely here.
+
+### 21.4 The validation gate: time-sliced rediscovery
+
+"Can the system find novel architectures?" is unfalsifiable as stated. The
+falsifiable version, and the experiment that would carry a paper:
+
+> **Fit the world model only on evidence available before date X. Ask the
+> system to propose. Does it propose what the field actually discovered after
+> X?**
+
+Concretely: build the corpus's canonical-architecture axis from papers up to
+2019 (papers/fetch.py provides exactly this, with provenance); fit; ask for
+proposals under the matched protocol; check whether RoPE-like position
+handling, RMSNorm-like normalisation, SwiGLU-like gating emerge as
+high-expected-value proposals *before the evidence that motivated them exists
+in the corpus*. Chimera's drop-a-primitive falsifier is this test at toy scale;
+the time-sliced version is the grand one. Rediscovery is the control experiment
+that licenses any future claim of genuine novelty — a system that cannot
+re-find RoPE has no business claiming its new proposal matters.
+
+### 21.5 The wall, stated plainly
+
+Evaluation cost is the true limit — every candidate is a training run, which is
+why the world model must be sample-efficient (hierarchical pooling, §9) and why
+proposals must be ranked by information gain rather than enumerated. Scale
+transfer remains the standing threat (§18): the search finds what is good at
+the scale it can afford to evaluate, so the scale-ladder trends, not point
+estimates, are what the proposer should condition on. And the grammar is where
+the intelligence hides: designing the typed space of legal compositions IS
+architecture research, done once, explicitly, instead of implicitly per paper.
+
+None of that diminishes the target. It defines the order of operations: the
+Atlas stages are not a detour before the search programme — they are its
+training data.
