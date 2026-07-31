@@ -38,3 +38,5 @@ docs/xml/
 .idea/
 *.swp
 .DS_Store
+debugging.log
+*.log
