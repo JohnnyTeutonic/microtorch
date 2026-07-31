@@ -818,6 +818,15 @@ architectural factors, 3 seeds, one dataset, parameter-matched. Main effects
 with confidence intervals.
 *Useful alone:* a publishable result about which architectural factors matter at
 small scale, positive or negative.
+**STATUS 2026-08-01: DONE — and it was literally one night.** 7 factors ×
+PB12 × 3 seeds = 36/36 runs (6.9 h serial CPU on 2 workers). Headline:
+Muon is the strongest factor in the screen (loss-AUC t = −10.8, best_val
+t = −6.2, throughput cost t = −2.4); lr decouples speed from quality
+(half-gap t = −8.8 with **zero** best_val gain and 3× grad spikes); heads
+is null on every metric. Cell *ranking* was inside seed noise while the
+18-vs-18 main effects were 6–10σ — the seed-lottery lesson, demonstrated
+in our own data. Full writeup with caveats and the Stage 3 prescription:
+`ATLAS_STAGE2_RESULTS.md`; raw rows in `experiments/atlas_stage2/`.
 
 **Stage 3 — the resolution-V design (a weekend).** All main effects and pairwise
 interactions for surviving factors; fit the mixed-effects model.
