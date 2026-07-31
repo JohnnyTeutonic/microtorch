@@ -1,11 +1,19 @@
 # The Architecture Atlas
 
-**A platform for controlled comparative science of neural architectures.**
+**The Architecture Atlas is a cumulative science of neural architectures.**
 
-**Status: design note, 2026-07-31. Nothing here is implemented.** The proposal
-is Jonathan's, consolidated from two drafts. Sections marked *Engineering note*
-are additions from working feasibility against the existing codebase; several of
-them change the plan rather than merely costing it.
+Not a corpus, not a database, not a leaderboard — those are its instruments.
+The manifesto is the noun: a *science*, in which every controlled run adds to a
+body of evidence that outlives the paper it was run for, effects are estimated
+with uncertainty and revised as data arrives, negatives are kept, and the next
+experiment is chosen because the accumulated evidence cannot yet answer it.
+Architecture research today restarts from zero with each paper; the Atlas
+exists so that it never has to again.
+
+**Status: living design note, begun 2026-07-31; stages 0–1 implemented.** The
+proposal is Jonathan's, consolidated from two drafts. Sections marked
+*Engineering note* are additions from working feasibility against the existing
+codebase; several of them change the plan rather than merely costing it.
 
 ---
 
@@ -68,7 +76,8 @@ behave*.
 alike and behave differently; two that look different can occupy the same
 behavioural region.
 
-A corpus of controlled architecture experiments addresses all four.
+A cumulative science of controlled architecture experiments addresses all
+four — the corpus is merely its lab notebook.
 
 ---
 
