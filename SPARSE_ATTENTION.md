@@ -292,12 +292,61 @@ not a tax on recall paid for efficiency -- it is an accelerant for
 forming the recall circuit.
 
 **Status: single seed (7), single config -- NOT yet a claim.**
-Pre-registered replication (in flight): seeds 1,2,3 at rung 1, 3000
-steps; criteria are (i) srd breakthrough strictly before exact per seed,
-(ii) last-8 CE ordering srd < srd_f < exact. Also in flight: seed-7
-extension to 6000 steps -- if exact catches up the claim is
-"acceleration", if it stays floor-bound the claim is "enablement at this
-capacity". Only after both: ladder the difficulty back up.
+Pre-registered replication: seeds 1,2,3 at rung 1, 3000 steps; criteria
+(i) srd breakthrough strictly before exact per seed, (ii) last-8 CE
+ordering srd < srd_f < exact. Also run: seed-7 extension to 6000 steps.
+**Both completed 2026-07-31. See the next section -- the replication
+FAILED and the claim above does not stand as written.**
+
+### REPLICATION: FAILED (2026-07-31, results_needle_r1s{1,2,3}_*.csv)
+
+Seeds 1, 2, 3 at rung 1 (2p/8k/T64/B4, 3000 steps), identical protocol.
+
+    seed  exact_bt  srd_bt  | last-8 CE: srd    srd_f   exact
+      7      none    2000   |            1.559  1.761   2.112   <- original
+      1      none    none   |            2.112  1.983   2.111
+      2      none    none   |            2.112  2.111   2.113
+      3      none    none   |            2.113  2.025   2.114
+    (breakthrough = 3 consecutive probes below floor-0.15; floor = log 8
+     = 2.079)
+
+**Criterion (i): 0/3 pass. Criterion (ii): 0/3 pass.** SRD did not break
+the floor in ANY replication seed within the 3000-step budget. The
+seed-7 result was a seed lottery, not a mechanism, and the section above
+must be read as describing one lucky initialisation.
+
+**Worse for the specific hypothesis:** in seeds 1 and 3 the only lane to
+move below the floor at all was **srd_f -- the falsifier**, whose gate is
+deliberately decoupled from surprise. The claim that surprise-COUPLED
+gating beats generic gating is therefore not merely unreplicated, it is
+contradicted in 2 of 3 seeds. V1's distinctive ingredient is the part
+that failed.
+
+**What survives, stated at its true (weak) strength:** across all four
+seeds, NO ungated lane ever broke the floor (exact 0/4, kimi 0/4), while
+some gated lane broke in 3/4 (seed 7 both; seeds 1 and 3 srd_f only).
+That is suggestive that multiplicative gating per se helps the recall
+circuit form -- plausibly by suppressing the filler-token gradient that
+drowns the rare answer signal -- but at n=4 with no effect in seed 2 it
+is an observation, not a result, and it is a claim about GATING, not
+about surprise routing.
+
+**Consequences, recorded so they are not quietly forgotten:**
+1. The seed-7 6000-step extension (srd CE 0.886, acc 0.531 while exact
+   sat at 2.057) is a real measurement of ONE seed and is not evidence
+   for the mechanism. Do not cite it as such.
+2. Multi-seed is now mandatory before any needle claim; single-seed runs
+   on this task are uninformative because the phase change is a lottery
+   over inits.
+3. Pre-registered next test, if this line is continued: 8 seeds x rung 1
+   x 6000 steps, comparing only GATED vs UNGATED (srd+srd_f pooled vs
+   exact+kimi pooled), with breakthrough-rate as the statistic. That
+   tests the surviving hypothesis rather than the dead one.
+4. The gate-profile result (the router concentrates density at
+   retrieval-critical positions, srd 70/80 probes vs srd_f 0/80) is
+   UNAFFECTED by this failure -- it was measured on gate values, not on
+   recall, and it replicated five times. The mechanism does what it says
+   on the tin; it just does not (yet) buy recall performance.
 
 ## 3. Protocol
 
