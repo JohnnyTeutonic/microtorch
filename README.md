@@ -136,7 +136,15 @@ polls every two seconds while training proceeds.
 - **Spec builder** — a form that writes the very same `spec.json` that
   `mtstudio run` consumes, previews the JSON live, downloads it, and prints the
   exact run and serve commands. Preset dropdown covers `llama-tiny`,
-  `gpt2-nano`, `gpt2-small`, `kimi-tiny`, `srd-tiny`.
+  `gpt2-nano`, `gpt2-small`, `kimi-tiny`, `srd-tiny`, `attnres-tiny`, plus
+  editable d/layers/heads overrides (`arch.custom`).
+- **From paper** (serve mode) — drag an arxiv.org link onto the page (or type
+  the id): the server forks `papers/fetch.py`, the extracted d/layers/heads/T
+  land in the editable builder fields, the node graph previews the
+  architecture, and the diff-to-paper evidence view is one click away. Then
+  press ▶ train in the same tab — and when the run finishes, the exported
+  `.safetensors`/`.gguf` appear as download links. The whole
+  paper → config → train → export loop happens in one page.
 
 ### Custom configuration — the spec format
 
