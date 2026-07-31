@@ -1,0 +1,18 @@
+{
+  "base": {
+    "arch": {"preset": "llama-tiny"},
+    "data": {
+      "corpus": "/path/to/tinystories/train.txt",
+      "vocab": "/path/to/vocab.gguf",
+      "vocab_cap": 4096,
+      "T": 128
+    },
+    "train": {"steps": 300, "batch": 4, "eval_every": 50,
+               "checkpoint_every": 1000, "gradmap_every": 0},
+    "export": {"formats": []}
+  },
+  "factors": {"train.lr": [0.001, 0.003]},
+  "design": "grid",
+  "seeds": [1, 2, 3],
+  "out_root": "/tmp/sweep_lr"
+}
