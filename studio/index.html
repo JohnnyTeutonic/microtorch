@@ -440,7 +440,12 @@ function load(f) {
 // drag-drop only.
 function poll() {
   fetch("events.jsonl").then(r => r.ok ? r.text() : null)
-    .then(t => { if (t) parse(t); }).catch(() => {});
+    .then(t => {
+      if (t && t.trim()) parse(t);
+      else $("status").textContent =
+        "live mode — waiting for the run to start (polling every 2s; " +
+        "the moment mtstudio run begins, this page fills in)";
+    }).catch(() => {});
 }
 if (location.protocol.startsWith("http")) {
   poll();

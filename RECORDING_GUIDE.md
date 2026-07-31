@@ -34,6 +34,26 @@ Enter, so the recording can never run away from you.
    (100 steps ≈ 1 minute of training; the real take can use 300 ≈ 5 min,
    which you'll speed up in the edit — see §4.)
 
+## 1.5 The all-in-VSCode variant (single window, simplest recording)
+
+Since Claude Code runs as a VSCode extension, the whole demo can live in ONE
+VSCode window — no Alt+Tab at all:
+
+1. Open the integrated terminal (Ctrl+`) in a WSL profile and run
+   `tools/demo_record.sh` there.
+2. When the script announces a page, press **Ctrl+Shift+P → "Simple
+   Browser: Show"** and paste the URL (`http://localhost:8080/paper.html`,
+   then later `http://localhost:8080/`). The page renders as an editor tab
+   beside the terminal.
+3. Record just the VSCode window with **Win + Alt + R** (Game Bar) — one
+   app, one clip, no desktop visible. Drag the Simple Browser tab to a
+   split so terminal and dashboard are visible side-by-side, which is the
+   best-looking layout anyway.
+
+Note: the script also auto-opens URLs in your default Windows browser via
+interop; in the VSCode flow just ignore that tab (or close it) and use
+Simple Browser.
+
 ## 2. Recording — Snipping Tool (recommended, no install)
 
 Windows 11's Snipping Tool records a REGION of the screen, and captures
@@ -78,13 +98,17 @@ when to switch. The scene list:
 | Scene | Where | What the viewer sees |
 |---|---|---|
 | 1 | terminal | arXiv fetch: architecture extracted with evidence per field |
-| 2 | browser | the diff-to-paper page; hover a row, evidence highlights |
-| 3 | terminal | the one-file spec; `plan` resolves it; training launches |
-| 4 | browser | `localhost:8080` — loss curve descending, node-graph glowing, live |
+| 2 | browser | `localhost:8080/paper.html` (auto-opened) — hover a row, evidence highlights |
+| 3 | terminal | the one-file spec; `plan` resolves it; training launches in the background |
+| 4 | browser | `localhost:8080/` (auto-opened) — loss curve descending, node-graph glowing, LIVE while training runs |
 | 5 | terminal | the Atlas row, then the model CHATTING through tinyllama.cpp |
 
-The script waits for Enter at every boundary. Take your time; dead seconds
-disappear in the edit.
+Everything is served over localhost — the paper page too — so there are no
+file:// URLs and no WSL path gymnastics; the script opens the tabs for you.
+Training runs in the background from scene 3, so the dashboard has data the
+moment you look at it (an empty dashboard now says "waiting for the run to
+start" rather than "no run loaded"). The script pauses for Enter at the
+scene boundaries that need you; dead seconds disappear in the edit.
 
 ## 4. The edit — Clipchamp (built into Windows 11)
 

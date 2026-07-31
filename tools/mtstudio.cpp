@@ -676,6 +676,22 @@ int serve_ui(const std::string& out_dir, int port, const std::string& ui_path) {
             respond(c, "200 OK", "application/jsonl", slurp(out_dir + "/events.jsonl"));
         } else if (line.rfind("GET / ", 0) == 0 || line.rfind("GET /index.html", 0) == 0) {
             respond(c, "200 OK", "text/html; charset=utf-8", ui);
+        } else if (line.rfind("GET /", 0) == 0) {
+            // Serve sibling .html files from out_dir (the diff-to-paper
+            // page rides the same localhost as the dashboard, so no
+            // file:// URL gymnastics from Windows/WSL). Name only — no
+            // slashes or dots-paths — and .html only.
+            const size_t sp = line.find(' ', 4);
+            std::string name = sp == std::string::npos ? "" : line.substr(5, sp - 5);
+            const bool safe = !name.empty() && name.find('/') == std::string::npos &&
+                              name.find("..") == std::string::npos && name.size() > 5 &&
+                              name.substr(name.size() - 5) == ".html";
+            const std::string body = safe ? slurp(out_dir + "/" + name) : "";
+            if (!body.empty()) {
+                respond(c, "200 OK", "text/html; charset=utf-8", body);
+            } else {
+                respond(c, "404 Not Found", "text/plain", "404");
+            }
         } else {
             respond(c, "404 Not Found", "text/plain", "404");
         }
