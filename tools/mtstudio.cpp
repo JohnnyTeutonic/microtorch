@@ -70,7 +70,7 @@ const std::map<std::string, std::array<size_t, 4>> PRESETS = {
     // name -> {d, layers, heads, T}
     {"gpt2-nano", {128, 2, 4, 128}},  {"llama-tiny", {128, 2, 4, 128}},
     {"gpt2-small", {256, 4, 8, 256}}, {"kimi-tiny", {128, 2, 4, 128}},
-    {"srd-tiny", {128, 2, 4, 128}},
+    {"srd-tiny", {128, 2, 4, 128}},   {"attnres-tiny", {128, 2, 4, 128}},
 };
 
 Spec parse_spec(const std::string& path) {
@@ -91,6 +91,7 @@ Spec parse_spec(const std::string& path) {
         s.T = it->second[3];
         if (p.rfind("kimi", 0) == 0) s.attention = "kimi";
         if (p.rfind("srd", 0) == 0) s.attention = "srd";
+        if (p.rfind("attnres", 0) == 0) s.attention = "attnres";
         if (p.rfind("llama", 0) == 0) s.family = "llama";
     }
     if (arch.contains("custom")) {
@@ -228,7 +229,16 @@ int run(const Spec& s, bool plan_only) {
     // RoPE/SwiGLU, HF names -> GGUF-exportable).
     std::shared_ptr<parity::ParityLM> gpt;
     std::shared_ptr<nn::Llama> llama;
-    if (s.family == "llama") {
+    std::shared_ptr<parity::AttnResLM> attnres;
+    if (s.attention == "attnres") {
+        // TECH_TRANSFER item 1 as a preset: the residual stream replaced
+        // by attention over depth (nn::AttnResStack, K3 block form).
+        attnres = std::make_shared<parity::AttnResLM>(tokens.size(), s.d, s.heads, s.T, s.seed);
+        if (s.ckpt_act) {
+            throw std::runtime_error(
+                "train.checkpoint_activations requires the llama family for now");
+        }
+    } else if (s.family == "llama") {
         nn::LlamaConfig lc;
         lc.vocab = tokens.size();
         lc.d = s.d;
@@ -247,9 +257,10 @@ int run(const Spec& s, bool plan_only) {
         }
     }
     // Atlas stage-0 structural echo: the run's identity as a data point.
-    const size_t n_params =
-        (llama ? static_cast<nn::Module&>(*llama) : static_cast<nn::Module&>(*gpt))
-            .parameter_count();
+    nn::Module& model_pick =
+        attnres ? static_cast<nn::Module&>(*attnres)
+                : (llama ? static_cast<nn::Module&>(*llama) : static_cast<nn::Module&>(*gpt));
+    const size_t n_params = model_pick.parameter_count();
     ev.emit({{"event", "model"},
              {"family", s.family},
              {"attention", s.attention},
@@ -264,9 +275,9 @@ int run(const Spec& s, bool plan_only) {
              {"seed", s.seed},
              {"checkpoint_activations", s.ckpt_act},
              {"params", n_params}});
-    nn::Module& model_ref =
-        llama ? static_cast<nn::Module&>(*llama) : static_cast<nn::Module&>(*gpt);
+    nn::Module& model_ref = model_pick;
     auto fwd = [&](const std::vector<int>& ids, size_t seq_len = 0) {
+        if (attnres) return attnres->forward(ids, seq_len);
         return llama ? llama->forward(ids, seq_len) : gpt->forward(ids, seq_len);
     };
     // batch > 1 is supported for every family and attention kind: exact
