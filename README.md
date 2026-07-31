@@ -187,7 +187,7 @@ can consume a run.
 | Layers | ✅ | Linear, LayerNorm, RMSNorm, Embedding, Attention, MLP, Dropout |
 | Full GPT-2 | ✅ | Logit-parity verified against HF checkpoint |
 | Llama-family ops | ✅ | RMSNorm + RoPE + SwiGLU; Qwen 1.5-1.8B load verified |
-| Optimizers | ✅ | SGD (momentum), AdamW |
+| Optimizers | ✅ | SGD (momentum), AdamW, **Muon** (K3 per-head Newton-Schulz, golden-pinned to the reference; `train.optimizer: "muon"` = deployment-faithful hybrid) |
 | LR schedulers | ✅ | Cosine-with-warmup, StepLR |
 | Grad clipping | ✅ | Global-norm (`clip_grad_norm`) |
 | Mini-batching | ✅ | Stacked `[B*T, d]` batches, block-isolated attention; stacked-vs-per-seq logits/loss/grads equal to fp epsilon (`test_batching`), 1.34x measured at B=4/T=128 |
