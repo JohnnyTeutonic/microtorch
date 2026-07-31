@@ -23,7 +23,7 @@ LlamaBlock::LlamaBlock(const LlamaConfig& cfg, unsigned seed)
 }
 
 Var LlamaBlock::forward(const Var& x, const std::vector<int>& pos, size_t seq_len) const {
-    const size_t T = x->data.rows(), d = H * dk;
+    const size_t d = H * dk;
 
     // ---- attention sublayer (pre-RMSNorm) ----
     Var h = ops::rmsnorm(x, ln1_w);
@@ -38,18 +38,17 @@ Var LlamaBlock::forward(const Var& x, const std::vector<int>& pos, size_t seq_le
     k = ops::slice_cols(qkv, d, 2 * d);
     v = ops::slice_cols(qkv, 2 * d, 3 * d);
 
-    // Causal within each sequence; block-diagonal across a stacked batch.
-    Var mask = make_var(ops::attention_mask(T, seq_len, /*causal=*/true));
-
+    // Fused per-head attention: causal within each sequence,
+    // block-isolated across a stacked batch, no mask materialization
+    // (ops::fused_attention; FD-checked).
+    const float sc = 1.0f / std::sqrt(static_cast<float>(dk));
     std::vector<Var> heads;
     heads.reserve(H);
     for (size_t hh = 0; hh < H; ++hh) {
         Var qh = ops::slice_cols(q, hh * dk, (hh + 1) * dk);
         Var kh = ops::slice_cols(k, hh * dk, (hh + 1) * dk);
         Var vh = ops::slice_cols(v, hh * dk, (hh + 1) * dk);
-        Var s = ops::scale(ops::matmul(qh, ops::transpose(kh)),
-                           1.0f / std::sqrt(static_cast<float>(dk)));
-        heads.push_back(ops::matmul(ops::softmax_row(ops::add(s, mask)), vh));
+        heads.push_back(ops::fused_attention(qh, kh, vh, sc, seq_len, /*causal=*/true));
     }
     Var attn = o_proj->forward(ops::concat_cols(heads));
     Var x1 = ops::add(x, attn);

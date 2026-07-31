@@ -172,8 +172,17 @@ by leverage. Deliberately rejected framings are recorded too.
    probe the Fit-to-VRAM budgeter needs. Constraint documented in
    autograd.hpp: segments must be recomputation-deterministic (Dropout's
    per-forward seed counter is excluded).
-3. Fused operators: attention proj->scale->mask->softmax as one routine
-   (cache behavior on CPU; kernel count on CUDA phase B).
+3. Fused operators. DONE 2026-07-31 for attention: ops::fused_attention
+   keeps the two GEMMs on device::matmul and collapses scale+mask+softmax
+   into one in-place pass — the mask matrix is never materialized, one
+   [T,T] buffer (the weights, kept for backward) survives the forward,
+   one tape node per head instead of ~5. Swapped into CausalSelfAttention
+   and LlamaBlock. Receipts: 12 FD gradchecks (causal, causal+batch,
+   bidir+batch on q/k/v + forward parity vs the composed path); measured
+   68.0s -> 36.4s at batch=1 and 50.6s -> 31.0s at batch=4 on the
+   identical-work benchmark (llama-tiny, T=128) — 2.19x total against the
+   pre-batching baseline. Elementwise fusion (gelu/silu chains) remains
+   open under gap 4.
 4. Safe in-place elementwise ops (relu/silu/gelu variants that reuse the
    buffer when the tape can recompute rather than store).
 5. Mixed precision: fp16/bf16 tape mode (transformer_cpp's CUDA path

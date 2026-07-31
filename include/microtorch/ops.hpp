@@ -104,6 +104,18 @@ float clip_grad_norm(const std::vector<Var>& params, float max_norm);
 // no-grad constant, shared by every attention implementation.
 Matrix attention_mask(size_t rows, size_t seq_len, bool causal);
 
+// Fused scaled-dot-product attention for one head:
+//   Y = softmax(scale * Q K^T + mask(seq_len, causal)) V
+// as ONE tape node. The two GEMMs stay on device::matmul (AVX/CUDA);
+// the scale+mask+softmax collapse into a single in-place pass, so the
+// mask matrix is never materialized and exactly one [T,T] buffer (the
+// attention weights, needed for backward) survives the forward —
+// against s, s+mask and softmax(s) as separate tape nodes on the
+// composed path. Backward is the hand-derived softmax-attention
+// gradient; FD-checked in test_gradcheck.
+Var fused_attention(const Var& q, const Var& k, const Var& v, float scale, size_t seq_len,
+                    bool causal);
+
 // ---- phase 3a additions (Novel architectures: Kimi Linear) ----
 Var kimi_attention(const Var& q, const Var& k, const Var& v,
                    bool causal);  // O(n*d²) linear-time attention

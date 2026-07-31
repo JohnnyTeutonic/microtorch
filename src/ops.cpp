@@ -693,6 +693,71 @@ Var dropout(const Var& x, float p, unsigned long long seed) {
     });
 }
 
+Var fused_attention(const Var& q, const Var& k, const Var& v, float scale, size_t seq_len,
+                    bool causal) {
+    const size_t T = q->data.rows();
+    if (k->data.rows() != T || v->data.rows() != T || q->data.cols() != k->data.cols()) {
+        throw std::runtime_error("fused_attention: shape mismatch");
+    }
+    const size_t sl = seq_len == 0 ? T : seq_len;
+    if (T % sl != 0) throw std::runtime_error("fused_attention: rows not a multiple of seq_len");
+
+    // GEMM, then scale+mask+softmax fused in-place: A starts as the raw
+    // scores and ends as the attention weights. Masked entries are never
+    // exponentiated — they are written as hard zeros, which is exactly
+    // what the -1e9 additive mask produces after float32 underflow.
+    auto A = std::make_shared<Matrix>(device::matmul(q->data, k->data.transpose()));
+    for (size_t i = 0; i < T; ++i) {
+        const size_t b0 = (i / sl) * sl;
+        const size_t lo = b0, hi = causal ? i + 1 : b0 + sl;  // visible: [lo, hi)
+        float mx = -1e30f;
+        for (size_t j = lo; j < hi; ++j) {
+            (*A)(i, j) *= scale;
+            mx = std::max(mx, (*A)(i, j));
+        }
+        float z = 0.0f;
+        for (size_t j = lo; j < hi; ++j) {
+            (*A)(i, j) = std::exp((*A)(i, j) - mx);
+            z += (*A)(i, j);
+        }
+        for (size_t j = 0; j < T; ++j) {
+            if (j < lo || j >= hi) {
+                (*A)(i, j) = 0.0f;
+            } else {
+                (*A)(i, j) /= z;
+            }
+        }
+    }
+    Matrix y = device::matmul(*A, v->data);
+
+    return record(std::move(y), {q, k, v}, [A, scale, sl, causal](Variable* self) {
+        const Var& q = self->parents[0];
+        const Var& k = self->parents[1];
+        const Var& v = self->parents[2];
+        const size_t T = q->data.rows();
+        if (v->requires_grad) {
+            v->accumulate(device::matmul(A->transpose(), self->grad));
+        }
+        if (!q->requires_grad && !k->requires_grad) return;
+        // dA = dY V^T; ds = A .* (dA - rowsum(dA .* A)) * scale, computed
+        // in place on dA (masked entries have A == 0, so ds is 0 there and
+        // no mask bookkeeping is needed).
+        Matrix ds = device::matmul(self->grad, v->data.transpose());
+        for (size_t i = 0; i < T; ++i) {
+            const size_t b0 = (i / sl) * sl;
+            const size_t hi = causal ? i + 1 : b0 + sl;
+            float dot = 0.0f;
+            for (size_t j = b0; j < hi; ++j) dot += ds(i, j) * (*A)(i, j);
+            for (size_t j = 0; j < T; ++j) {
+                const bool vis = j >= b0 && j < hi;
+                ds(i, j) = vis ? scale * (*A)(i, j) * (ds(i, j) - dot) : 0.0f;
+            }
+        }
+        if (q->requires_grad) q->accumulate(device::matmul(ds, k->data));
+        if (k->requires_grad) k->accumulate(device::matmul(ds.transpose(), q->data));
+    });
+}
+
 Matrix attention_mask(size_t rows, size_t seq_len, bool causal) {
     if (seq_len == 0) seq_len = rows;
     if (rows % seq_len != 0) {

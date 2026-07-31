@@ -127,27 +127,18 @@ CausalSelfAttention::CausalSelfAttention(size_t d, size_t n_heads, unsigned seed
 }
 
 Var CausalSelfAttention::forward(const Var& x, size_t seq_len) const {
-    const size_t T = x->data.rows(), d = H * dk;
+    const size_t d = H * dk;
     Var qkv = c_attn->forward(x);  // [T, 3d]
-    // Additive mask, no-grad constant: -1e9 masks a position and
-    // exp(-1e9 - max) underflows to exactly 0 in float32, so this equals
-    // a hard mask. For stacked mini-batches (seq_len > 0) the mask is
-    // block-diagonal, isolating the sequences; bidirectional callers
-    // (DiT) with a single sequence need no mask at all.
-    Var mask;
-    if (causal || (seq_len != 0 && seq_len != T)) {
-        mask = make_var(ops::attention_mask(T, seq_len, causal));
-    }
-
+    // One fused tape node per head: GEMMs on device::matmul,
+    // scale+mask+softmax as a single in-place pass — the mask matrix is
+    // never materialized (see ops::fused_attention; FD-checked).
+    const float sc = 1.0f / std::sqrt(static_cast<float>(dk));
     std::vector<Var> heads;
     for (size_t h = 0; h < H; ++h) {
         Var q = ops::slice_cols(qkv, h * dk, (h + 1) * dk);
         Var k = ops::slice_cols(qkv, d + h * dk, d + (h + 1) * dk);
         Var v = ops::slice_cols(qkv, 2 * d + h * dk, 2 * d + (h + 1) * dk);
-        Var s =
-            ops::scale(ops::matmul(q, ops::transpose(k)), 1.0f / std::sqrt(static_cast<float>(dk)));
-        Var a = ops::softmax_row(mask ? ops::add(s, mask) : s);
-        heads.push_back(ops::matmul(a, v));
+        heads.push_back(ops::fused_attention(q, k, v, sc, seq_len, causal));
     }
     return c_proj->forward(ops::concat_cols(heads));
 }

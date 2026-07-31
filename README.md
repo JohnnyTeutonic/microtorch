@@ -192,6 +192,7 @@ can consume a run.
 | Grad clipping | ✅ | Global-norm (`clip_grad_norm`) |
 | Mini-batching | ✅ | Stacked `[B*T, d]` batches, block-isolated attention; stacked-vs-per-seq logits/loss/grads equal to fp epsilon (`test_batching`), 1.34x measured at B=4/T=128 |
 | Gradient checkpointing | ✅ | `checkpoint(fn, x)` rematerializes block interiors on backward: loss+grads **bit-identical**, live tape nodes after forward 211→11 (GPT-2) / 229→9 (Llama) (`test_checkpointing`) |
+| Fused attention | ✅ | `fused_attention`: GEMMs + one in-place scale/mask/softmax pass, one tape node per head, mask never materialized; 12 FD receipts; 1.87x wall-clock (2.19x with batching) |
 | Checkpoint IO | ✅ | safetensors load **and** save (HF round-trip) |
 | GGUF export | ✅ | `export_gguf_llama`: state_dict → .gguf for tinyllama.cpp |
 | Cross-entropy loss | ✅ | Fused softmax backward |

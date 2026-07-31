@@ -193,6 +193,50 @@ int main() {
               fd_vs_analytic(f, qk, qk->grad));
     }
 
+    // ---- fused_attention: FD on q,k,v + parity vs the composed path ----
+    {
+        const double TOL = 5e-3;
+        const size_t T = 8, dk = 4;
+        const float sc = 1.0f / std::sqrt(static_cast<float>(dk));
+        Var q = make_var(randn(T, dk, 61, 0.5f), true);
+        Var k = make_var(randn(T, dk, 62, 0.5f), true);
+        Var v = make_var(randn(T, dk, 63, 0.5f), true);
+        struct Cfg {
+            const char* name;
+            size_t sl;
+            bool causal;
+        };
+        for (const Cfg c : {Cfg{"causal", 0, true}, Cfg{"causal+batch", T / 2, true},
+                            Cfg{"bidir+batch", T / 2, false}}) {
+            auto f = [&] {
+                return ops::mean(ops::fused_attention(q, k, v, sc, c.sl, c.causal))->data(0, 0);
+            };
+            microtorch::zero_grad({q, k, v});
+            microtorch::backward(ops::mean(ops::fused_attention(q, k, v, sc, c.sl, c.causal)));
+            char label[80];
+            std::snprintf(label, sizeof label, "fused_attention(%s): dq FD", c.name);
+            check(fd_vs_analytic(f, q, q->grad) < TOL, label, fd_vs_analytic(f, q, q->grad));
+            std::snprintf(label, sizeof label, "fused_attention(%s): dk FD", c.name);
+            check(fd_vs_analytic(f, k, k->grad) < TOL, label, fd_vs_analytic(f, k, k->grad));
+            std::snprintf(label, sizeof label, "fused_attention(%s): dv FD", c.name);
+            check(fd_vs_analytic(f, v, v->grad) < TOL, label, fd_vs_analytic(f, v, v->grad));
+            // Forward parity against the composed mask+softmax path.
+            microtorch::NoGrad ng;
+            Var composed = ops::matmul(
+                ops::softmax_row(ops::add(ops::scale(ops::matmul(q, ops::transpose(k)), sc),
+                                          make_var(ops::attention_mask(T, c.sl, c.causal)))),
+                v);
+            Var fused = ops::fused_attention(q, k, v, sc, c.sl, c.causal);
+            double worst = 0.0;
+            for (size_t i = 0; i < T; ++i)
+                for (size_t j = 0; j < dk; ++j)
+                    worst = std::max(worst, static_cast<double>(std::abs(composed->data(i, j) -
+                                                                         fused->data(i, j))));
+            std::snprintf(label, sizeof label, "fused_attention(%s): forward parity", c.name);
+            check(worst < 1e-5, label, worst);
+        }
+    }
+
     // ---- NoGrad records nothing; requires_grad=false leaves stay clean ----
     {
         microtorch::NoGrad ng;
