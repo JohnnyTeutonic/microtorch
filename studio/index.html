@@ -62,7 +62,8 @@
 </style>
 </head>
 <body>
-<h1>microtorch <span class="accent">studio</span></h1>
+<h1>microtorch <span class="accent">studio</span>
+  <button id="train" style="display:none;float:right">&#9654; train</button></h1>
 <div id="status">no run loaded</div>
 
 <div class="drop" id="drop">
@@ -450,6 +451,18 @@ function poll() {
 if (location.protocol.startsWith("http")) {
   poll();
   setInterval(poll, 2000);
+  // Served with an armed spec? Show the in-page Train button — the whole
+  // demo drives from the browser, no terminal commands.
+  fetch("spec").then(r => {
+    if (!r.ok) return;
+    const b = $("train");
+    b.style.display = "";
+    b.onclick = () => fetch("train", { method: "POST" })
+      .then(r => r.text()).then(t => {
+        b.textContent = t;
+        if (t !== "no spec armed") b.disabled = true;
+      });
+  }).catch(() => {});
 }
 </script>
 </body>

@@ -618,6 +618,7 @@ std::vector<int> tokenize(const std::string& text, const std::map<std::string, i
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
+#include <sys/wait.h>
 #include <unistd.h>
 #endif
 
@@ -628,7 +629,8 @@ std::string slurp(const std::string& path) {
     return std::string((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
 }
 
-int serve_ui(const std::string& out_dir, int port, const std::string& ui_path) {
+int serve_ui(const std::string& out_dir, int port, const std::string& ui_path,
+             const std::string& spec_path = "") {
 #ifdef _WIN32
     std::fprintf(stderr,
                  "mtstudio serve: POSIX-only for now (run under "
@@ -666,13 +668,53 @@ int serve_ui(const std::string& out_dir, int port, const std::string& ui_path) {
         (void)!::write(c, body.data(), body.size());
     };
 
+    // The in-page Train button: POST /train forks this binary as
+    // "mtstudio run <spec>" with output logged into out_dir. One run at
+    // a time; state is reaped non-blockingly per request.
+    pid_t run_pid = -1;
+    bool run_finished = false;
     for (;;) {
         const int c = ::accept(fd, nullptr, nullptr);
         if (c < 0) continue;
+        if (run_pid > 0) {
+            int st = 0;
+            if (::waitpid(run_pid, &st, WNOHANG) == run_pid) {
+                run_pid = -1;
+                run_finished = true;
+            }
+        }
         char req[1024] = {0};
         const ssize_t r = ::read(c, req, sizeof(req) - 1);
         std::string line = r > 0 ? std::string(req) : "";
-        if (line.rfind("GET /events.jsonl", 0) == 0) {
+        if (line.rfind("POST /train", 0) == 0) {
+            if (spec_path.empty()) {
+                respond(c, "409 Conflict", "text/plain",
+                        "no spec armed (serve <dir> <port> <spec>)");
+            } else if (run_pid > 0) {
+                respond(c, "200 OK", "text/plain", "training…");
+            } else if (run_finished) {
+                respond(c, "200 OK", "text/plain", "run complete");
+            } else {
+                const pid_t pid = ::fork();
+                if (pid == 0) {
+                    const std::string log = out_dir + "/run.log";
+                    (void)!::freopen(log.c_str(), "a", stdout);
+                    (void)!::freopen(log.c_str(), "a", stderr);
+                    ::execl("/proc/self/exe", "mtstudio", "run", spec_path.c_str(),
+                            static_cast<char*>(nullptr));
+                    _exit(127);
+                }
+                run_pid = pid;
+                respond(c, "200 OK", "text/plain", pid > 0 ? "training…" : "fork failed");
+            }
+        } else if (line.rfind("GET /spec", 0) == 0) {
+            const std::string body = spec_path.empty() ? "" : slurp(spec_path);
+            if (body.empty()) {
+                respond(c, "404 Not Found", "text/plain", "404");
+            } else {
+                respond(c, "200 OK", "application/json", body);
+            }
+        } else if (line.rfind("GET /events.jsonl", 0) == 0) {
             respond(c, "200 OK", "application/jsonl", slurp(out_dir + "/events.jsonl"));
         } else if (line.rfind("GET / ", 0) == 0 || line.rfind("GET /index.html", 0) == 0) {
             respond(c, "200 OK", "text/html; charset=utf-8", ui);
@@ -709,7 +751,10 @@ int main(int argc, char** argv) {
         if (cmd == "serve" && argc >= 3) {
             const int port = argc > 3 ? std::atoi(argv[3]) : 8123;
             const char* ui = std::getenv("MTSTUDIO_UI");
-            return serve_ui(argv[2], port, ui ? ui : "studio/index.html");
+            // Optional 4th arg: a spec the browser can launch via the
+            // in-page Train button (POST /train).
+            const std::string spec = argc > 4 ? argv[4] : "";
+            return serve_ui(argv[2], port, ui ? ui : "studio/index.html", spec);
         }
     } catch (const std::exception& e) {
         std::fprintf(stderr, "mtstudio: %s\n", e.what());

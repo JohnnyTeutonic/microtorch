@@ -8,18 +8,17 @@
 #
 #   tools/demo_record.sh CORPUS.txt VOCAB.gguf [TINYLLAMA_BIN]
 #
-# Scenes (the storyboard for the edit):
-#   1  terminal   paper -> architecture with evidence
-#   2  browser    http://localhost:8080/paper.html  (auto-opened)
-#   3  terminal   the spec; training LAUNCHES in the background
-#   4  browser    http://localhost:8080/            (auto-opened) — loss
-#                 curve + node-graph filling in LIVE while you watch
-#   5  terminal   Atlas row + chat with the model
-#
-# VSCode single-window variant: instead of an external browser, Ctrl+
-# Shift+P -> "Simple Browser: Show" -> paste the URL. The whole demo then
-# lives inside one VSCode window (terminal pane + browser tab), which
-# Game Bar (Win+Alt+R) records as a single app. See RECORDING_GUIDE.md.
+# The browser drives EVERYTHING: one page (demo.html) with a
+# [paper -> architecture] / [live dashboard] toggle, and the dashboard
+# carries a ▶ TRAIN button that launches the armed spec via POST /train.
+# The terminal only narrates, waits for the done event, and runs the
+# payoff (Atlas row + chat). Storyboard:
+#   1  page   paper view — hover fields, evidence highlights
+#   2  page   click [live dashboard], press ▶ TRAIN
+#   3  page   loss curve descends, node-graph glows, live
+#   4  term   payoff fires automatically: Atlas row + the model chatting
+# In VSCode: one Simple Browser tab (the script prints the URL). See
+# RECORDING_GUIDE.md.
 set -e
 cd "$(dirname "$0")/.."   # repo root, wherever the script is launched from
 
@@ -39,11 +38,13 @@ STEPS=${DEMO_STEPS:-300}
 cue()  { printf "\n\033[1;33m>>> %s\033[0m\n" "$*"; }
 step() { printf "\n\033[1;36m== %s ==\033[0m\n" "$*"; }
 pause() { read -rp $'\033[1;33m[enter to continue]\033[0m '; }
-# Inside VSCode's integrated terminal (TERM_PROGRAM=vscode) nothing is
-# spawned externally — the whole demo lives in one Simple Browser tab.
-# Elsewhere, URLs auto-open in the Windows default browser via interop.
+# Inside VSCode's integrated terminal nothing is spawned externally —
+# the whole demo lives in one Simple Browser tab. Detection is belt and
+# braces (TERM_PROGRAM can be lost through nested shells); DEMO_NO_OPEN=1
+# forces it. Elsewhere, the ONE url auto-opens in the Windows browser.
 IN_VSCODE=""
-[ "${TERM_PROGRAM:-}" = "vscode" ] && IN_VSCODE=1
+{ [ "${TERM_PROGRAM:-}" = "vscode" ] || [ -n "${VSCODE_IPC_HOOK_CLI:-}" ] ||
+  [ -n "${VSCODE_GIT_ASKPASS_MAIN:-}" ] || [ -n "${DEMO_NO_OPEN:-}" ]; } && IN_VSCODE=1
 openurl() {
   if [ -n "$IN_VSCODE" ]; then
     return 0  # the one-tab instruction is printed once, up front
@@ -88,23 +89,9 @@ cat > "$OUT/demo.html" <<'HTML'
 </script></body></html>
 HTML
 
-"$MT" serve "$OUT" 8080 > /dev/null 2>&1 &
-SERVE_PID=$!
-sleep 1
-if [ -n "$IN_VSCODE" ]; then
-  cue "ONE TAB, INSIDE VSCODE — do this once, now:"
-  cue "  Ctrl+Shift+P  ->  'Simple Browser: Show'  ->  paste:"
-  echo ""
-  echo "        http://localhost:8080/demo.html"
-  echo ""
-  cue "Drag that tab into a split beside this terminal. The [paper] and"
-  cue "[dashboard] buttons at its top switch views — no app switching ever."
-fi
-cue "SCENE 2: the diff-to-paper page (hover a field, evidence lights up)"
-openurl "http://localhost:8080/demo.html"
-pause
-
-step "SCENE 3 — one spec describes the lifecycle; training launches NOW"
+# The spec is written up front and ARMED into the server: the page's
+# Train button launches it — every action after this line happens in
+# the browser, not the terminal.
 cat > /tmp/mtdemo_rec_spec.json <<EOF
 {
   "name": "demo",
@@ -116,24 +103,33 @@ cat > /tmp/mtdemo_rec_spec.json <<EOF
   "out_dir": "$OUT"
 }
 EOF
-"$MT" plan /tmp/mtdemo_rec_spec.json
 export OMP_NUM_THREADS=${OMP_NUM_THREADS:-4} OMP_WAIT_POLICY=PASSIVE
-"$MT" run /tmp/mtdemo_rec_spec.json > /tmp/mtdemo_rec_run.log 2>&1 &
-RUN_PID=$!
+"$MT" serve "$OUT" 8080 /tmp/mtdemo_rec_spec.json > /dev/null 2>&1 &
+SERVE_PID=$!
+sleep 1
+echo ""
 if [ -n "$IN_VSCODE" ]; then
-  cue "SCENE 4: training is RUNNING — click [live dashboard] in the demo tab."
+  cue "ONE TAB, INSIDE VSCODE — the only setup step:"
+  cue "  Ctrl+Shift+P  ->  'Simple Browser: Show'  ->  paste:"
 else
-  cue "SCENE 4: training is RUNNING — the dashboard is opening now."
-  openurl "http://localhost:8080/"
+  cue "your browser is opening this page (the only page there is):"
 fi
-cue "Watch the loss curve descend and the node-graph glow (updates every 2s)."
-echo "     (milestones stream here meanwhile:)"
-tail --pid="$RUN_PID" -n +1 -f /tmp/mtdemo_rec_run.log \
-  | grep --line-buffered -E '"eval"|"done"|"export"' || true
-wait "$RUN_PID" 2>/dev/null || true
-
-cue "SCENE 5: switch BACK TO THIS TERMINAL for the payoff."
-pause
+echo ""
+echo "        http://localhost:8080/demo.html"
+echo ""
+openurl "http://localhost:8080/demo.html"
+cue "Everything happens IN THE PAGE from here:"
+echo "     1. [paper -> architecture]  — hover fields, evidence lights up"
+echo "     2. [live dashboard]         — then press its \xe2\x96\xb6 TRAIN button"
+echo "     3. watch the loss curve descend and the node-graph glow"
+echo ""
+cue "This terminal will notice when training finishes and run the payoff."
+printf "     waiting for the Train button"
+until grep -q '"event":"done"' "$OUT/events.jsonl" 2>/dev/null; do
+  printf "."
+  sleep 2
+done
+echo " done!"
 step "the run is now an Atlas data point"
 python3 tools/atlas_extract.py "$OUT" | head -20
 
