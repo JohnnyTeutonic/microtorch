@@ -780,12 +780,23 @@ arranged so each stage is independently useful if the next never happens.
 **Stage 0 — instrument (days).** Derived structural features; behavioural
 extraction from `events.jsonl`; persist run records instead of discarding them.
 *Useful alone:* every future microtorch run becomes a data point.
+**STATUS 2026-07-31: DONE.** `Module::parameter_count()`, `train.seed`, the
+`model` event, `result.json` per run (mtstudio); behavioural features in
+`tools/atlas_extract.py` (best_val, final_train_loss, steps_to_half_gap,
+loss_auc_norm, grad_norm mean/max, grad_spike_count, loss_tail_std, gate
+stats) with a fixture selftest.
 
 **Stage 1 — taxonomy, grammar, sweep runner (days).** Component taxonomy;
 constrained grammar; design matrix → specs; a runner with checkpoint/resume
 writing one result row per run.
 *Useful alone:* multi-seed sweeps become one command — which the SRD line needs
 regardless.
+**STATUS 2026-07-31: sweep runner DONE** (`tools/mtsweep.py`: grid + PB12
+designs over dotted spec paths × seeds, resumable, parallel with the
+OMP-oversubscription lesson baked in, per-cell seed statistics and a
+signal-vs-seed-noise verdict in the aggregate). Verified end-to-end on a
+4-run micro-sweep: lr=3e-3 beat lr=1e-3 with the gap 16x mean seed noise.
+Taxonomy + constrained grammar remain open.
 
 **Stage 2 — the screening experiment (one night).** Plackett–Burman over ~11
 architectural factors, 3 seeds, one dataset, parameter-matched. Main effects

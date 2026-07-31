@@ -1,0 +1,259 @@
+#!/usr/bin/env python3
+"""Atlas stage 1: the sweep runner (ARCHITECTURE_ATLAS.md).
+
+A design matrix row IS a spec file — this tool makes that literal. It
+expands a sweep description into mtstudio specs, executes them (resumably,
+in parallel), and aggregates the Atlas rows, including the per-cell
+seed statistics that single runs cannot have.
+
+    python tools/mtsweep.py sweep.json [--jobs 2] [--dry-run]
+                            [--mtstudio PATH]
+    python tools/mtsweep.py --selftest
+
+Sweep description:
+{
+  "base":    { ... a full mtstudio spec ... },      # or "base_path": "spec.json"
+  "factors": { "train.lr": [1e-3, 3e-3],            # dotted spec paths
+               "arch.custom.attention": ["exact", "kimi"] },
+  "design":  "grid",                                 # or "pb12"
+  "seeds":   [1, 2, 3],
+  "out_root": "/tmp/sweep_demo"
+}
+
+Designs:
+  grid  full factorial over the factor levels (any number of levels each)
+  pb12  Plackett-Burman 12-run screen: up to 11 factors, each with
+        exactly TWO levels — all main effects in 12 runs (x seeds).
+        The screening pass of ARCHITECTURE_ATLAS.md section 5.3.
+
+Seeds multiply the design; every run gets train.seed set. Aggregation
+groups runs into CELLS (identical factor values, seeds pooled) and
+reports mean/std/min of best_val per cell — seed variance is a cell
+property, per the Atlas doc, and cells with std comparable to their
+between-cell differences are flagged.
+
+Parallelism: --jobs N runs N mtstudio processes with OMP_NUM_THREADS
+split evenly and OMP_WAIT_POLICY=PASSIVE — the 2026-07-31 lesson that 2
+processes x default threads on one box spin-locked to 1 step/min is
+baked in here so it cannot recur.
+"""
+from __future__ import annotations
+
+import argparse
+import copy
+import itertools
+import json
+import os
+import statistics
+import subprocess
+import sys
+from concurrent.futures import ThreadPoolExecutor
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from atlas_extract import extract_row  # noqa: E402
+
+# Classic PB12 first row; rows 2-11 are cyclic shifts, row 12 is all-minus.
+_PB12_FIRST = [+1, +1, -1, +1, +1, +1, -1, -1, -1, +1, -1]
+
+
+def pb12_matrix(n_factors):
+    if not 1 <= n_factors <= 11:
+        raise SystemExit("pb12: 1..11 factors")
+    rows = []
+    row = list(_PB12_FIRST)
+    for _ in range(11):
+        rows.append(row[:n_factors])
+        row = [row[-1]] + row[:-1]
+    rows.append([-1] * n_factors)
+    return rows
+
+
+def set_dotted(d, path, value):
+    keys = path.split(".")
+    for k in keys[:-1]:
+        d = d.setdefault(k, {})
+    d[keys[-1]] = value
+
+
+def expand(sweep):
+    factors = sweep.get("factors", {})
+    names = list(factors.keys())
+    design = sweep.get("design", "grid")
+    if design == "grid":
+        combos = list(itertools.product(*[factors[n] for n in names]))
+    elif design == "pb12":
+        for n in names:
+            if len(factors[n]) != 2:
+                raise SystemExit(f"pb12 factor {n} needs exactly 2 levels")
+        combos = [tuple(factors[n][0 if s < 0 else 1] for n, s in zip(names, r))
+                  for r in pb12_matrix(len(names))]
+    else:
+        raise SystemExit(f"unknown design {design}")
+
+    seeds = sweep.get("seeds", [7])
+    runs = []
+    for ci, combo in enumerate(combos):
+        for seed in seeds:
+            runs.append({"cell": ci,
+                         "factors": dict(zip(names, combo)),
+                         "seed": seed})
+    return names, combos, runs
+
+
+def materialise(sweep, runs, out_root):
+    base = sweep.get("base")
+    if base is None:
+        with open(sweep["base_path"], "r", encoding="utf-8") as f:
+            base = json.load(f)
+    os.makedirs(os.path.join(out_root, "specs"), exist_ok=True)
+    spec_paths = []
+    for i, r in enumerate(runs):
+        spec = copy.deepcopy(base)
+        for path, value in r["factors"].items():
+            set_dotted(spec, path, value)
+        set_dotted(spec, "train.seed", r["seed"])
+        name = f"run_{i:03d}_c{r['cell']:02d}_s{r['seed']}"
+        spec["name"] = name
+        spec["out_dir"] = os.path.join(out_root, "runs", name)
+        spec.setdefault("serve", {})["on_finish"] = False
+        p = os.path.join(out_root, "specs", name + ".json")
+        with open(p, "w", encoding="utf-8") as f:
+            json.dump(spec, f, indent=2)
+        spec_paths.append((p, spec["out_dir"]))
+    return spec_paths
+
+
+def find_mtstudio(cli):
+    for cand in ([cli] if cli else []) + [
+            "./mtstudio", "build/mtstudio",
+            os.path.expanduser("~/mtrel/mtstudio")]:
+        if cand and os.path.isfile(cand) and os.access(cand, os.X_OK):
+            return os.path.abspath(cand)
+    raise SystemExit("mtstudio binary not found; pass --mtstudio PATH")
+
+
+def run_all(spec_paths, binary, jobs):
+    threads = max(1, (os.cpu_count() or 4) // max(1, jobs))
+    env = dict(os.environ,
+               OMP_NUM_THREADS=str(threads),
+               OMP_WAIT_POLICY="PASSIVE")
+
+    def one(args):
+        spec_path, out_dir = args
+        if os.path.exists(os.path.join(out_dir, "result.json")):
+            return (spec_path, "resumed-skip")
+        r = subprocess.run([binary, "run", spec_path], env=env,
+                           stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
+        return (spec_path, "ok" if r.returncode == 0 else f"EXIT {r.returncode}")
+
+    results = []
+    with ThreadPoolExecutor(max_workers=jobs) as ex:
+        for spec_path, status in ex.map(one, spec_paths):
+            print(f"  {os.path.basename(spec_path):<28} {status}", flush=True)
+            results.append(status)
+    return results
+
+
+def aggregate(runs, spec_paths, names, out_root):
+    rows = []
+    for r, (_, out_dir) in zip(runs, spec_paths):
+        row = extract_row(out_dir)
+        row["cell"] = r["cell"]
+        row.update({f"factor.{k}": v for k, v in r["factors"].items()})
+        rows.append(row)
+    rows_path = os.path.join(out_root, "atlas_rows.jsonl")
+    with open(rows_path, "w", encoding="utf-8") as f:
+        for row in rows:
+            f.write(json.dumps(row, sort_keys=True) + "\n")
+
+    cells = []
+    for ci in sorted({r["cell"] for r in runs}):
+        vals = [row.get("best_val") for row in rows
+                if row["cell"] == ci and row.get("best_val") is not None]
+        cell = {"cell": ci,
+                "factors": next(r["factors"] for r in runs if r["cell"] == ci),
+                "n_seeds": len(vals)}
+        if vals:
+            cell["best_val_mean"] = statistics.fmean(vals)
+            cell["best_val_std"] = statistics.pstdev(vals) if len(vals) > 1 else None
+            cell["best_val_min"] = min(vals)
+        cells.append(cell)
+    cells_path = os.path.join(out_root, "cells.jsonl")
+    with open(cells_path, "w", encoding="utf-8") as f:
+        for c in cells:
+            f.write(json.dumps(c, sort_keys=True) + "\n")
+
+    print(f"\ncells ({len(cells)}), by best_val_mean:")
+    ranked = sorted([c for c in cells if "best_val_mean" in c],
+                    key=lambda c: c["best_val_mean"])
+    stds = [c["best_val_std"] for c in ranked if c.get("best_val_std")]
+    seed_noise = statistics.fmean(stds) if stds else None
+    for c in ranked:
+        fac = " ".join(f"{k.split('.')[-1]}={v}" for k, v in c["factors"].items())
+        std = f" ±{c['best_val_std']:.4f}" if c.get("best_val_std") else ""
+        print(f"  {c['best_val_mean']:.4f}{std}  [{fac}] (n={c['n_seeds']})")
+    if seed_noise is not None and len(ranked) >= 2:
+        gap = ranked[1]["best_val_mean"] - ranked[0]["best_val_mean"]
+        verdict = "SEPARATED from" if gap > 2 * seed_noise else "WITHIN"
+        print(f"\n  top-2 gap {gap:.4f} is {verdict} mean seed noise "
+              f"{seed_noise:.4f} — {'ordering is signal' if gap > 2 * seed_noise else 'ordering is NOT yet signal; more seeds or longer runs'}")
+    print(f"\nrows -> {rows_path}\ncells -> {cells_path}")
+
+
+def selftest():
+    m = pb12_matrix(11)
+    assert len(m) == 12 and all(len(r) == 11 for r in m)
+    # Balance: every column has six + and six -.
+    for j in range(11):
+        col = [r[j] for r in m]
+        assert col.count(+1) == 6 and col.count(-1) == 6, f"col {j} unbalanced"
+    # Orthogonality: every column pair agrees on exactly 6 rows.
+    for a in range(11):
+        for b in range(a + 1, 11):
+            agree = sum(1 for r in m if r[a] == r[b])
+            assert agree == 6, f"cols {a},{b} not orthogonal"
+    # Dotted set + grid expansion.
+    d = {}
+    set_dotted(d, "train.lr", 0.001)
+    assert d == {"train": {"lr": 0.001}}
+    names, combos, runs = expand({"factors": {"a": [1, 2], "b": [3, 4]},
+                                  "seeds": [1, 2]})
+    assert len(combos) == 4 and len(runs) == 8
+    _, combos_pb, _ = expand({"factors": {f"f{i}": [0, 1] for i in range(11)},
+                              "design": "pb12", "seeds": [1]})
+    assert len(combos_pb) == 12
+    print("SELFTEST OK: pb12 balanced+orthogonal, grid/pb expansion, dotted set")
+    return 0
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("sweep", nargs="?")
+    ap.add_argument("--jobs", type=int, default=1)
+    ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--mtstudio")
+    ap.add_argument("--selftest", action="store_true")
+    args = ap.parse_args()
+    if args.selftest:
+        sys.exit(selftest())
+    if not args.sweep:
+        ap.error("give a sweep.json (or --selftest)")
+
+    with open(args.sweep, "r", encoding="utf-8") as f:
+        sweep = json.load(f)
+    out_root = sweep["out_root"]
+    names, combos, runs = expand(sweep)
+    spec_paths = materialise(sweep, runs, out_root)
+    print(f"{len(combos)} cells x {len(sweep.get('seeds', [7]))} seeds = "
+          f"{len(runs)} runs -> {out_root}")
+    if args.dry_run:
+        for p, _ in spec_paths:
+            print(f"  {p}")
+        return
+    binary = find_mtstudio(args.mtstudio)
+    run_all(spec_paths, binary, args.jobs)
+    aggregate(runs, spec_paths, names, out_root)
+
+
+if __name__ == "__main__":
+    main()
