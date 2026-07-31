@@ -128,11 +128,15 @@
 </div>
 
 <div class="panel">
-  <h2>gradient glow — per-module L2 norms (pre-clip)</h2>
-  <div id="gradbars"><span style="color:var(--dim)">no grads events yet
-    (train.gradmap_every controls cadence)</span></div>
-  <div class="legend">dim&nbsp;=&nbsp;vanishing · red&nbsp;=&nbsp;exploding,
-    scaled per-module against its own run median</div>
+  <h2>gradient glow — per-module L2 norms (pre-clip)
+    <button id="glow-toggle" style="float:right;font-size:.75rem;
+      padding:.15rem .5rem">bars</button></h2>
+  <canvas id="nodegraph" width="1040" height="190" style="display:block"></canvas>
+  <div id="gradbars" style="display:none"><span style="color:var(--dim)">no
+    grads events yet (train.gradmap_every controls cadence)</span></div>
+  <div class="legend">node&nbsp;=&nbsp;module, edge&nbsp;=&nbsp;forward flow ·
+    dim&nbsp;=&nbsp;vanishing · red&nbsp;=&nbsp;exploding, scaled per-module
+    against its own run median · size&nbsp;∝&nbsp;share of global grad norm</div>
 </div>
 
 <script>
@@ -237,7 +241,108 @@ function median(a) {
   return s.length ? s[Math.floor(s.length / 2)] : 1;
 }
 
+// ---- node graph: the architecture as a glowing chain --------------------
+// Groups arrive as flat names ("wte", "attn_0", "layers.3", "norm.weight").
+// Layout: embeddings column -> one column per block index (sub-modules
+// stacked) -> final column (norm/head). Colors reuse the bar scheme:
+// log10(norm / module's own run median).
+function glowColor(name, norm) {
+  const med = median(gradHist[name] || [norm]);
+  const r = Math.log10((norm + 1e-12) / (med + 1e-12));
+  if (r > 0.8) return "#f85149";
+  if (r > 0.3) return "#f0883e";
+  if (r < -1.2) return "#1f3a5f";
+  return "#58a6ff";
+}
+
+function classify(name) {
+  const m = name.match(/^(?:layers|h|blocks)\.(\d+)/) ||
+            name.match(/^(?:attn|mlp|ln1|ln2)_(\d+)$/);
+  if (m) return { kind: "block", idx: +m[1] };
+  if (/wte|wpe|embed/.test(name)) return { kind: "embed" };
+  return { kind: "final" };
+}
+
+function drawNodeGraph() {
+  const cv = $("nodegraph"), ctx = cv.getContext("2d");
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  if (!lastGrads) {
+    ctx.fillStyle = "#8b949e"; ctx.font = "12px monospace";
+    ctx.fillText("no grads events yet (train.gradmap_every controls cadence)",
+                 12, 24);
+    return;
+  }
+  const entries = Object.entries(lastGrads.grads);
+  const total = entries.reduce((s, [, v]) => s + v * v, 0);
+
+  // Column assembly: embed | block 0..N | final.
+  const cols = [];
+  const embeds = entries.filter(([n]) => classify(n).kind === "embed");
+  if (embeds.length) cols.push({ label: "embed", items: embeds });
+  const blocks = {};
+  for (const e of entries) {
+    const c = classify(e[0]);
+    if (c.kind === "block") (blocks[c.idx] = blocks[c.idx] || []).push(e);
+  }
+  Object.keys(blocks).map(Number).sort((a, b) => a - b)
+    .forEach(i => cols.push({ label: "block " + i, items: blocks[i] }));
+  const finals = entries.filter(([n]) => classify(n).kind === "final");
+  if (finals.length) cols.push({ label: "head", items: finals });
+  if (!cols.length) return;
+
+  const W = cv.width, H = cv.height, padX = 30, topY = 26;
+  const colW = (W - 2 * padX) / cols.length;
+  const centers = [];
+  ctx.font = "10px monospace";
+  cols.forEach((col, ci) => {
+    const cx = padX + colW * (ci + 0.5);
+    centers.push(cx);
+    ctx.fillStyle = "#8b949e";
+    ctx.textAlign = "center";
+    ctx.fillText(col.label, cx, 14);
+    const n = col.items.length;
+    const rowH = Math.min(34, (H - topY - 8) / Math.max(1, n));
+    col.items.sort((a, b) => a[0] < b[0] ? -1 : 1).forEach(([name, norm], ri) => {
+      const cy = topY + rowH * (ri + 0.5);
+      const share = total > 0 ? (norm * norm) / total : 0;
+      const r = 5 + 11 * Math.sqrt(share);
+      // edge to previous column's vertical center
+      if (ci > 0) {
+        ctx.strokeStyle = "#30363d"; ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(centers[ci - 1] + 14, topY + (H - topY) / 2 - 8);
+        ctx.lineTo(cx - r - 2, cy);
+        ctx.stroke();
+      }
+      const color = glowColor(name, norm);
+      ctx.beginPath();
+      ctx.fillStyle = color;
+      ctx.shadowColor = color; ctx.shadowBlur = color === "#f85149" ? 14 : 6;
+      ctx.arc(cx, cy, r, 0, 7);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = "#c9d1d9";
+      const short = name.replace(/^(layers|h|blocks)\./, "").replace(/_(\d+)$/, "");
+      ctx.fillText(short, cx, cy + r + 10);
+    });
+  });
+  ctx.textAlign = "left";
+  ctx.fillStyle = "#8b949e";
+  ctx.fillText("grads @ step " + lastGrads.step, 8, H - 6);
+}
+
+let glowMode = "graph";
+document.getElementById("glow-toggle").addEventListener("click", () => {
+  glowMode = glowMode === "graph" ? "bars" : "graph";
+  document.getElementById("glow-toggle").textContent =
+    glowMode === "graph" ? "bars" : "graph";
+  $("nodegraph").style.display = glowMode === "graph" ? "block" : "none";
+  $("gradbars").style.display = glowMode === "graph" ? "none" : "";
+  drawGrads();
+});
+
 function drawGrads() {
+  if (glowMode === "graph") { drawNodeGraph(); return; }
   const host = $("gradbars");
   if (!lastGrads) return;
   host.innerHTML = "";

@@ -161,8 +161,15 @@ json grad_map(const nn::Module& m) {
     std::map<std::string, double> sq;
     for (const auto& [name, p] : m.named_parameters()) {
         if (p->grad.rows() == 0) continue;
-        const auto cut = name.find('.');
-        const std::string group = cut == std::string::npos ? name : name.substr(0, cut);
+        // Group at the first segment — except structural containers
+        // ("layers.N", "h.N", "blocks.N"), which keep their index so the
+        // node graph gets per-block resolution instead of one blob.
+        auto cut = name.find('.');
+        std::string group = cut == std::string::npos ? name : name.substr(0, cut);
+        if ((group == "layers" || group == "h" || group == "blocks") && cut != std::string::npos) {
+            const auto cut2 = name.find('.', cut + 1);
+            group = cut2 == std::string::npos ? name : name.substr(0, cut2);
+        }
         double acc = 0;
         for (size_t i = 0; i < p->grad.rows(); ++i)
             for (size_t j = 0; j < p->grad.cols(); ++j)
