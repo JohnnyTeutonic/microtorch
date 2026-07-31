@@ -30,7 +30,8 @@ cat > /tmp/mtdemo_spec.json <<EOF
   "name": "demo",
   "arch": {"preset": "llama-tiny"},
   "data": {"corpus": "$CORPUS", "vocab": "$VOCAB", "vocab_cap": 4096, "T": 128},
-  "train": {"steps": 300, "batch": 4, "eval_every": 50, "checkpoint_every": 100,
+  "train": {"steps": ${DEMO_STEPS:-300}, "batch": 4, "eval_every": 50,
+             "checkpoint_every": 100,
              "early_stopping": {"patience": 6, "min_delta": 0.003}},
   "export": {"formats": ["safetensors", "gguf"]},
   "serve": {"on_finish": true},
@@ -41,7 +42,13 @@ EOF
 
 step "3/5  train (RMSNorm + RoPE + SwiGLU on a hand-derived, FD-checked tape)"
 export OMP_NUM_THREADS=${OMP_NUM_THREADS:-4} OMP_WAIT_POLICY=PASSIVE
-"$MT" run /tmp/mtdemo_spec.json | grep -E '"eval"|"done"|"export"' | tail -8
+# --line-buffered so eval events stream as they happen even when piped
+# (mtstudio already fflushes per event; the pipe must not re-buffer).
+# DEMO_VERBOSE=1 keeps the per-step lines — the live heartbeat a
+# recording wants; default keeps just the milestones.
+FILTER='"eval"|"done"|"export"'
+[ -n "${DEMO_VERBOSE:-}" ] && FILTER='"step"|"eval"|"done"|"export"'
+"$MT" run /tmp/mtdemo_spec.json | grep --line-buffered -E "$FILTER"
 echo "     (mtstudio serve $OUT 8080 tails this live: loss curve + node-graph glow)"
 
 step "4/5  the run is now an Atlas data point"

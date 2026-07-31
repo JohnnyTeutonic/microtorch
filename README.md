@@ -23,6 +23,13 @@ Launch inference              tinyllama.cpp serves it — a separate engine
 Share the results             a run is one spec file
 ```
 
+![the full loop: paper → provenance-carrying extraction → train → Atlas row → chat](docs/media/demo.gif)
+
+*Real recording of `tools/demo.sh`: fetches Attention Is All You Need from
+arXiv, extracts the architecture with per-field evidence, trains a
+Llama-family model on the FD-checked tape, emits the run's Atlas row, and
+chats with the exported GGUF through tinyllama.cpp.*
+
 An educational yet research-capable LLM framework that exposes every major
 component of the modern transformer training stack in readable C++ — while
 remaining compatible with Hugging Face checkpoints.
