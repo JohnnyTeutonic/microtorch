@@ -269,9 +269,9 @@ int run(const Spec& s, bool plan_only) {
     auto fwd = [&](const std::vector<int>& ids, size_t seq_len = 0) {
         return llama ? llama->forward(ids, seq_len) : gpt->forward(ids, seq_len);
     };
-    if (s.batch > 1 && !llama && attn_kind(s.attention) != parity::AttnKind::EXACT) {
-        throw std::runtime_error("train.batch > 1 requires llama family or exact attention");
-    }
+    // batch > 1 is supported for every family and attention kind: exact
+    // via the block-diagonal fused mask, kimi via per-block prefix-sum
+    // reset, srd through both of its paths.
     model_ref.train();
     // Optimizer. "muon" is the deployment-faithful hybrid (TECH_TRANSFER
     // item 3): per-head Muon on qkv projections (columns are head-major in

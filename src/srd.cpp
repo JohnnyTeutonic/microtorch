@@ -20,7 +20,7 @@ SurpriseRoutedAttention::SurpriseRoutedAttention(size_t d, size_t n_heads, unsig
     predictor = mod<cerebellum::RoutinePredictor>("predictor", d, seed + 17);
 }
 
-Var SurpriseRoutedAttention::forward(const Var& x) const {
+Var SurpriseRoutedAttention::forward(const Var& x, size_t seq_len) const {
     const size_t T = x->data.rows(), d = H * dk;
 
     // ---- the router: surprise -> gate in (0, 1), fully on the tape ----
@@ -49,26 +49,21 @@ Var SurpriseRoutedAttention::forward(const Var& x) const {
     // ---- shared qkv ----
     Var qkv = c_attn->forward(x);  // [T, 3d]
 
-    // Additive causal mask (no-grad constant), as in CausalSelfAttention.
-    Matrix maskm(T, T);
-    for (size_t i = 0; i < T; ++i)
-        for (size_t j = i + 1; j < T; ++j) maskm(i, j) = -1e9f;
-    Var mask = make_var(std::move(maskm));
-
     std::vector<Var> heads;
     heads.reserve(H);
+    const float sc = 1.0f / std::sqrt(static_cast<float>(dk));
     for (size_t h = 0; h < H; ++h) {
         Var q = ops::slice_cols(qkv, h * dk, (h + 1) * dk);
         Var k = ops::slice_cols(qkv, d + h * dk, d + (h + 1) * dk);
         Var v = ops::slice_cols(qkv, 2 * d + h * dk, 2 * d + (h + 1) * dk);
 
-        // Exact path: masked softmax attention.
-        Var s =
-            ops::scale(ops::matmul(q, ops::transpose(k)), 1.0f / std::sqrt(static_cast<float>(dk)));
-        Var exact = ops::matmul(ops::softmax_row(ops::add(s, mask)), v);
+        // Exact path: fused masked softmax attention (block-isolated when
+        // seq_len > 0 — forward-parity-proven against the composed path).
+        Var exact = ops::fused_attention(q, k, v, sc, seq_len, /*causal=*/true);
 
-        // Cheap path: Kimi linear attention on the SAME q, k, v.
-        Var linear = ops::kimi_attention(q, k, v, /*causal=*/true);
+        // Cheap path: Kimi linear attention on the SAME q, k, v (prefix
+        // sums reset per block under batching).
+        Var linear = ops::kimi_attention(q, k, v, /*causal=*/true, seq_len);
 
         // Per-query blend: surprising queries lean exact, routine lean
         // linear. mul_col keeps the blend differentiable in both paths

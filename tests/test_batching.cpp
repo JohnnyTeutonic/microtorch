@@ -19,6 +19,7 @@
 #include "microtorch/nn.hpp"
 #include "microtorch/ops.hpp"
 
+#include "../tools/parity_model.hpp"
 #include "check.hpp"
 
 using namespace microtorch;
@@ -144,6 +145,13 @@ int main() {
     lcfg.n_ctx = 64;
     nn::Llama llama(lcfg, /*seed=*/6);
     run_family("llama", llama, vocab, T);
+
+    // The block-aware research mechanisms: kimi's prefix sums reset per
+    // block; srd routes through both paths. Same four receipts each.
+    parity::ParityLM kimi(parity::AttnKind::KIMI, vocab, 32, 4, 64, /*seed=*/8);
+    run_family("kimi", kimi, vocab, T);
+    parity::ParityLM srd(parity::AttnKind::SRD, vocab, 32, 4, 64, /*seed=*/9);
+    run_family("srd", srd, vocab, T);
 
     std::printf("[PASS] all batching tests\n");
     return 0;

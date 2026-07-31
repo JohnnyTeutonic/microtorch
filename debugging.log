@@ -1,0 +1,1738 @@
+2026-08-01 02:28:51 [INFO] Using model path/directory: /tmp/mtdemo_rec/demo.gguf
+2026-08-01 02:28:51 [INFO] Tokenizer path: /tmp/mtdemo_rec/demo.gguf
+2026-08-01 02:28:51 [INFO] Num threads: 4
+2026-08-01 02:28:51 [INFO] Mode: prompt
+2026-08-01 02:28:51 [INFO] System Prompt: ""
+2026-08-01 02:28:51 [INFO] Default User Prompt: "once upon a time"
+2026-08-01 02:28:51 [INFO] Max tokens: 40
+2026-08-01 02:28:51 [INFO] N GPU Layers: 0
+2026-08-01 02:28:51 [INFO] Use mmap: true
+2026-08-01 02:28:51 [INFO] Temperature: 0.100000
+2026-08-01 02:28:51 [INFO] Top-K: 1
+2026-08-01 02:28:51 [INFO] Top-P: 0.900000
+2026-08-01 02:28:51 [INFO] Use KVCache Quantization: false
+2026-08-01 02:28:51 [INFO] Use Batch Generation: false
+2026-08-01 02:28:51 [INFO] TinyLlamaSession constructor entered. Model path: /tmp/mtdemo_rec/demo.gguf, Tokenizer path: /tmp/mtdemo_rec/demo.gguf, Threads: 4, Num GPU Layers (CLI): 0, Use MMAP (CLI): true, Use KV Quant (CLI): false
+2026-08-01 02:28:51 [INFO] GGUF model type detected by extension for Session constructor: /tmp/mtdemo_rec/demo.gguf
+2026-08-01 02:28:51 [INFO] TinyLlamaModel constructor entered. Model path (from string): /tmp/mtdemo_rec/demo.gguf
+2026-08-01 02:28:51 [INFO] GGUF file detected by path in Model Constructor: /tmp/mtdemo_rec/demo.gguf
+2026-08-01 02:28:51 [INFO] TinyLlamaModel GGUF path: Using mmap setting true for gguf_meta/weight loading based on CLI mmap preference: true
+2026-08-01 02:28:51 [INFO] Attempting to load GGUF file: /tmp/mtdemo_rec/demo.gguf with mmap
+2026-08-01 02:28:51 [INFO] Read Header:
+    Magic: 0x46554747
+    Version: 3
+    Tensor Count: 21
+    Metadata KV Count: 20
+2026-08-01 02:28:51 [INFO] Reading Metadata (20 pairs)...
+2026-08-01 02:28:51 [INFO] Loading STRING array data ('tokenizer.ggml.tokens') with 4096 elements...
+2026-08-01 02:28:51 [INFO] Loaded tokenizer_tokens. Size: 4096
+2026-08-01 02:28:51 [INFO] Loading FLOAT32 array data ('tokenizer.ggml.scores') with 4096 elements...
+2026-08-01 02:28:51 [INFO] Loaded tokenizer_scores. Size: 4096
+2026-08-01 02:28:51 [INFO] Finished reading metadata.
+2026-08-01 02:28:51 [INFO] Reading Tensor Info (21 tensors)...
+2026-08-01 02:28:51 [INFO] [GGUF_TENSOR_INFO] Tensor 0 ('token_embd.weight'):
+  Raw offset from file: 0
+  File pos before offset read: 73475
+  Calculated accumulated_offset_debug (before this tensor): 0
+  Calculated size_in_bytes for this tensor: 2097152
+2026-08-01 02:28:51 [INFO] Tensor 0: Name='token_embd.weight', Type=F32, Shape=[ 4096, 128 ], Offset=0, Size=2097152 bytes
+2026-08-01 02:28:51 [INFO] [GGUF_TENSOR_INFO] Tensor 1 ('blk.0.attn_q.weight'):
+  Raw offset from file: 2097152
+  File pos before offset read: 73534
+  Calculated accumulated_offset_debug (before this tensor): 2097152
+  Calculated size_in_bytes for this tensor: 65536
+2026-08-01 02:28:51 [INFO] Tensor 1: Name='blk.0.attn_q.weight', Type=F32, Shape=[ 128, 128 ], Offset=2097152, Size=65536 bytes
+2026-08-01 02:28:51 [INFO] [GGUF_TENSOR_INFO] Tensor 2 ('blk.0.attn_k.weight'):
+  Raw offset from file: 2162688
+  File pos before offset read: 73593
+  Calculated accumulated_offset_debug (before this tensor): 2162688
+  Calculated size_in_bytes for this tensor: 65536
+2026-08-01 02:28:51 [INFO] Tensor 2: Name='blk.0.attn_k.weight', Type=F32, Shape=[ 128, 128 ], Offset=2162688, Size=65536 bytes
+2026-08-01 02:28:51 [INFO] [GGUF_TENSOR_INFO] Tensor 3 ('blk.0.attn_v.weight'):
+  Raw offset from file: 2228224
+  File pos before offset read: 73652
+  Calculated accumulated_offset_debug (before this tensor): 2228224
+  Calculated size_in_bytes for this tensor: 65536
+2026-08-01 02:28:51 [INFO] Tensor 3: Name='blk.0.attn_v.weight', Type=F32, Shape=[ 128, 128 ], Offset=2228224, Size=65536 bytes
+2026-08-01 02:28:51 [INFO] [GGUF_TENSOR_INFO] Tensor 4 ('blk.0.attn_output.weight'):
+  Raw offset from file: 2293760
+  File pos before offset read: 73716
+  Calculated accumulated_offset_debug (before this tensor): 2293760
+  Calculated size_in_bytes for this tensor: 65536
+2026-08-01 02:28:51 [INFO] Tensor 4: Name='blk.0.attn_output.weight', Type=F32, Shape=[ 128, 128 ], Offset=2293760, Size=65536 bytes
+2026-08-01 02:28:51 [INFO] [GGUF_TENSOR_INFO] Tensor 5 ('blk.0.attn_norm.weight'):
+  Raw offset from file: 2359296
+  File pos before offset read: 73770
+  Calculated accumulated_offset_debug (before this tensor): 2359296
+  Calculated size_in_bytes for this tensor: 512
+2026-08-01 02:28:51 [INFO] Tensor 5: Name='blk.0.attn_norm.weight', Type=F32, Shape=[ 128 ], Offset=2359296, Size=512 bytes
+2026-08-01 02:28:51 [INFO] [GGUF_TENSOR_INFO] Tensor 6 ('blk.0.ffn_gate.weight'):
+  Raw offset from file: 2359808
+  File pos before offset read: 73831
+  Calculated accumulated_offset_debug (before this tensor): 2359808
+  Calculated size_in_bytes for this tensor: 196608
+2026-08-01 02:28:51 [INFO] Tensor 6: Name='blk.0.ffn_gate.weight', Type=F32, Shape=[ 384, 128 ], Offset=2359808, Size=196608 bytes
+2026-08-01 02:28:51 [INFO] [GGUF_TENSOR_INFO] Tensor 7 ('blk.0.ffn_up.weight'):
+  Raw offset from file: 2556416
+  File pos before offset read: 73890
+  Calculated accumulated_offset_debug (before this tensor): 2556416
+  Calculated size_in_bytes for this tensor: 196608
+2026-08-01 02:28:51 [INFO] Tensor 7: Name='blk.0.ffn_up.weight', Type=F32, Shape=[ 384, 128 ], Offset=2556416, Size=196608 bytes
+2026-08-01 02:28:51 [INFO] [GGUF_TENSOR_INFO] Tensor 8 ('blk.0.ffn_down.weight'):
+  Raw offset from file: 2753024
+  File pos before offset read: 73951
+  Calculated accumulated_offset_debug (before this tensor): 2753024
+  Calculated size_in_bytes for this tensor: 196608
+2026-08-01 02:28:51 [INFO] Tensor 8: Name='blk.0.ffn_down.weight', Type=F32, Shape=[ 128, 384 ], Offset=2753024, Size=196608 bytes
+2026-08-01 02:28:51 [INFO] [GGUF_TENSOR_INFO] Tensor 9 ('blk.0.ffn_norm.weight'):
+  Raw offset from file: 2949632
+  File pos before offset read: 74004
+  Calculated accumulated_offset_debug (before this tensor): 2949632
+  Calculated size_in_bytes for this tensor: 512
+2026-08-01 02:28:51 [INFO] Tensor 9: Name='blk.0.ffn_norm.weight', Type=F32, Shape=[ 128 ], Offset=2949632, Size=512 bytes
+2026-08-01 02:28:51 [INFO] [GGUF_TENSOR_INFO] Tensor 10 ('blk.1.attn_q.weight'):
+  Raw offset from file: 2950144
+  File pos before offset read: 74063
+  Calculated accumulated_offset_debug (before this tensor): 2950144
+  Calculated size_in_bytes for this tensor: 65536
+2026-08-01 02:28:51 [INFO] Tensor 10: Name='blk.1.attn_q.weight', Type=F32, Shape=[ 128, 128 ], Offset=2950144, Size=65536 bytes
+2026-08-01 02:28:51 [INFO] [GGUF_TENSOR_INFO] Tensor 11 ('blk.1.attn_k.weight'):
+  Raw offset from file: 3015680
+  File pos before offset read: 74122
+  Calculated accumulated_offset_debug (before this tensor): 3015680
+  Calculated size_in_bytes for this tensor: 65536
+2026-08-01 02:28:51 [INFO] Tensor 11: Name='blk.1.attn_k.weight', Type=F32, Shape=[ 128, 128 ], Offset=3015680, Size=65536 bytes
+2026-08-01 02:28:51 [INFO] [GGUF_TENSOR_INFO] Tensor 12 ('blk.1.attn_v.weight'):
+  Raw offset from file: 3081216
+  File pos before offset read: 74181
+  Calculated accumulated_offset_debug (before this tensor): 3081216
+  Calculated size_in_bytes for this tensor: 65536
+2026-08-01 02:28:51 [INFO] Tensor 12: Name='blk.1.attn_v.weight', Type=F32, Shape=[ 128, 128 ], Offset=3081216, Size=65536 bytes
+2026-08-01 02:28:51 [INFO] [GGUF_TENSOR_INFO] Tensor 13 ('blk.1.attn_output.weight'):
+  Raw offset from file: 3146752
+  File pos before offset read: 74245
+  Calculated accumulated_offset_debug (before this tensor): 3146752
+  Calculated size_in_bytes for this tensor: 65536
+2026-08-01 02:28:51 [INFO] Tensor 13: Name='blk.1.attn_output.weight', Type=F32, Shape=[ 128, 128 ], Offset=3146752, Size=65536 bytes
+2026-08-01 02:28:51 [INFO] [GGUF_TENSOR_INFO] Tensor 14 ('blk.1.attn_norm.weight'):
+  Raw offset from file: 3212288
+  File pos before offset read: 74299
+  Calculated accumulated_offset_debug (before this tensor): 3212288
+  Calculated size_in_bytes for this tensor: 512
+2026-08-01 02:28:51 [INFO] Tensor 14: Name='blk.1.attn_norm.weight', Type=F32, Shape=[ 128 ], Offset=3212288, Size=512 bytes
+2026-08-01 02:28:51 [INFO] [GGUF_TENSOR_INFO] Tensor 15 ('blk.1.ffn_gate.weight'):
+  Raw offset from file: 3212800
+  File pos before offset read: 74360
+  Calculated accumulated_offset_debug (before this tensor): 3212800
+  Calculated size_in_bytes for this tensor: 196608
+2026-08-01 02:28:51 [INFO] Tensor 15: Name='blk.1.ffn_gate.weight', Type=F32, Shape=[ 384, 128 ], Offset=3212800, Size=196608 bytes
+2026-08-01 02:28:51 [INFO] [GGUF_TENSOR_INFO] Tensor 16 ('blk.1.ffn_up.weight'):
+  Raw offset from file: 3409408
+  File pos before offset read: 74419
+  Calculated accumulated_offset_debug (before this tensor): 3409408
+  Calculated size_in_bytes for this tensor: 196608
+2026-08-01 02:28:51 [INFO] Tensor 16: Name='blk.1.ffn_up.weight', Type=F32, Shape=[ 384, 128 ], Offset=3409408, Size=196608 bytes
+2026-08-01 02:28:51 [INFO] [GGUF_TENSOR_INFO] Tensor 17 ('blk.1.ffn_down.weight'):
+  Raw offset from file: 3606016
+  File pos before offset read: 74480
+  Calculated accumulated_offset_debug (before this tensor): 3606016
+  Calculated size_in_bytes for this tensor: 196608
+2026-08-01 02:28:51 [INFO] Tensor 17: Name='blk.1.ffn_down.weight', Type=F32, Shape=[ 128, 384 ], Offset=3606016, Size=196608 bytes
+2026-08-01 02:28:51 [INFO] [GGUF_TENSOR_INFO] Tensor 18 ('blk.1.ffn_norm.weight'):
+  Raw offset from file: 3802624
+  File pos before offset read: 74533
+  Calculated accumulated_offset_debug (before this tensor): 3802624
+  Calculated size_in_bytes for this tensor: 512
+2026-08-01 02:28:51 [INFO] Tensor 18: Name='blk.1.ffn_norm.weight', Type=F32, Shape=[ 128 ], Offset=3802624, Size=512 bytes
+2026-08-01 02:28:51 [INFO] [GGUF_TENSOR_INFO] Tensor 19 ('output_norm.weight'):
+  Raw offset from file: 3803136
+  File pos before offset read: 74583
+  Calculated accumulated_offset_debug (before this tensor): 3803136
+  Calculated size_in_bytes for this tensor: 512
+2026-08-01 02:28:51 [INFO] Tensor 19: Name='output_norm.weight', Type=F32, Shape=[ 128 ], Offset=3803136, Size=512 bytes
+2026-08-01 02:28:51 [INFO] [GGUF_TENSOR_INFO] Tensor 20 ('output.weight'):
+  Raw offset from file: 3803648
+  File pos before offset read: 74636
+  Calculated accumulated_offset_debug (before this tensor): 3803648
+  Calculated size_in_bytes for this tensor: 2097152
+2026-08-01 02:28:51 [INFO] Tensor 20: Name='output.weight', Type=F32, Shape=[ 4096, 128 ], Offset=3803648, Size=2097152 bytes
+2026-08-01 02:28:51 [INFO] Finished reading tensor info.
+2026-08-01 02:28:51 [INFO] Populating tensor_infos_map...
+2026-08-01 02:28:51 [INFO] Finished populating tensor_infos_map. Map size: 21
+2026-08-01 02:28:51 [INFO] Using alignment value from metadata: 32
+2026-08-01 02:28:51 [INFO] [GGUF_LOAD] Current file position (metadata stream) before padding seek: 74644
+2026-08-01 02:28:51 [INFO] [GGUF_LOAD] Calculated padding: 12
+2026-08-01 02:28:51 [INFO] [GGUF_LOAD] Calculated actual_data_start_offset_in_file (for mmap): 74656
+2026-08-01 02:28:51 [INFO] [GGUF_LOAD] Metadata ifstream closed.
+2026-08-01 02:28:51 [INFO] [GGUF_LOAD] File opened for mmap with fd: 4
+2026-08-01 02:28:51 [INFO] [GGUF_LOAD] Calculated tensor_data_block_size_on_disk (for mmap length calculation): 5900800 bytes.
+2026-08-01 02:28:51 [INFO] [GGUF_LOAD] System page/allocation granularity for mmap offset: 4096
+2026-08-01 02:28:51 [INFO] [GGUF_LOAD] Aligning mmap: actual_data_start_offset_in_file=74656, mmap_offset=73728, offset_diff_for_mmap=928, mmap_length=5901728
+2026-08-01 02:28:51 [INFO] [GGUF_LOAD] Successfully mmapped tensor data block. Mapped Address: 130213847572480, Mapped Size: 5901728 bytes from file offset 73728
+2026-08-01 02:28:51 [INFO] [GGUF_LOAD] First 16 bytes of *actual* tensor data (after offset_diff) in mmap: 0xcb 0x32 0xb5 0x3c 0x5d 0x87 0xfa 0xbd 0xd5 0xb3 0xa7 0x3d 0x85 0x48 0x33 0x3e 
+2026-08-01 02:28:51 [INFO] [GGUF_LOAD] Attempting to prefetch mmapped tensor data using posix_madvise(MADV_WILLNEED)...
+2026-08-01 02:28:51 [INFO] [GGUF_LOAD] Finished POSIX prefetching attempt with posix_madvise.
+2026-08-01 02:28:51 [INFO] GGUF metadata loaded and tensor data (if any) mmapped successfully.
+2026-08-01 02:28:51 [INFO] [parse_gguf_config] Entered function.
+2026-08-01 02:28:51 [INFO] [parse_gguf_config] hidden_act = 'silu'
+2026-08-01 02:28:51 [INFO] [parse_gguf_config] Architecture: llama, Vocab Size: 4096, Has Merges: No
+2026-08-01 02:28:51 [INFO] [parse_gguf_config] Identifying tokenizer family...
+2026-08-01 02:28:51 [INFO] [parse_gguf_config] L3 Hints: arch_hint=N, vocab_size_match=N, has_merges=N, ggml_tokenizer_model_key='word' (is_tiktoken_style: N)
+2026-08-01 02:28:51 [INFO] [parse_gguf_config] Result: Identified WORD_LEVEL tokenizer (tokenizer.ggml.model='word'; transformer_cpp export).
+2026-08-01 02:28:51 [INFO] Determined config: architecture='llama', model_name='demo', chat_template='llama2', pre_tokenizer='llama'
+2026-08-01 02:28:51 [INFO] tokenizer.chat_template not found or not a string in metadata. Will use fallback logic.
+2026-08-01 02:28:51 [INFO] [parse_gguf_config] Finished parsing. Returning config. Family: UNKNOWN
+2026-08-01 02:28:51 [INFO] TinyLlamaModel GGUF Ctor CALC: CLI hint == 0 (all CPU). num_cpu_offload_layers set to num_hidden_layers (2).
+2026-08-01 02:28:51 [INFO] TinyLlamaModel GGUF Ctor: POST-CALC (within GGUF block) final num_cpu_offload_layers = 2
+2026-08-01 02:28:51 [INFO] [CTOR_GGUF_DEBUG_L1860] After CLI hint logic: this->config_.num_cpu_offload_layers = 2, this->config_.num_hidden_layers = 2
+2026-08-01 02:28:51 [INFO] TinyLlamaModel constructor: After specific loader block. Current config_.num_cpu_offload_layers = 2, config_.num_hidden_layers = 2
+2026-08-01 02:28:51 [INFO] TinyLlamaModel constructor: Current config_.use_mmap_for_gguf = true
+2026-08-01 02:28:51 [INFO] TinyLlamaModel constructor: Final clamped num_cpu_offload_layers = 2
+2026-08-01 02:28:51 [INFO] [CTOR_DEBUG_L1921] End of Model Ctor (before initialize_weights/rope call): this->config_.num_cpu_offload_layers = 2, this->config_.num_hidden_layers = 2
+2026-08-01 02:28:51 [INFO] Final ModelConfig (before initialize_weights/rope):
+2026-08-01 02:28:51 [INFO]   hidden_size: 128
+2026-08-01 02:28:51 [INFO]   intermediate_size: 384
+2026-08-01 02:28:51 [INFO]   num_attention_heads: 4
+2026-08-01 02:28:51 [INFO]   num_key_value_heads: 4
+2026-08-01 02:28:51 [INFO]   num_hidden_layers: 2
+2026-08-01 02:28:51 [INFO]   vocab_size: 4096
+2026-08-01 02:28:51 [INFO]   max_position_embeddings: 128
+2026-08-01 02:28:51 [INFO]   architecture: llama
+2026-08-01 02:28:51 [INFO]   is_gguf_file_loaded: true
+2026-08-01 02:28:51 [INFO]   use_mmap_for_gguf: true
+2026-08-01 02:28:51 [INFO] Initializing model weights...
+2026-08-01 02:28:51 [INFO] Processing weights from GGUF data source...
+2026-08-01 02:28:51 [INFO] Mapping GGUF weights to model fields (ULTRA-OPTIMIZED VERSION)...
+2026-08-01 02:28:51 [INFO] map_gguf_weights: Using mmap mode (ZERO-COPY). Size: 5901728 bytes.
+2026-08-01 02:28:51 [INFO] Processing 21 tensors with ultra-optimized parallel mapping...
+2026-08-01 02:28:51 [INFO] [MAP_DEBUG] blk.0.attn_q.weight F32 copied, elems=16384 into layer_idx=0
+2026-08-01 02:28:51 [INFO] [MAP_DEBUG] blk.1.attn_q.weight F32 copied, elems=16384 into layer_idx=1
+2026-08-01 02:28:51 [INFO] Finished mapping GGUF weights: 5/21 tensors processed successfully (errors: 0) with ultra-optimized parallel mapping
+2026-08-01 02:28:51 [INFO] [INIT_WEIGHTS_GGUF] map_gguf_weights(*gguf, *this) CALLED (using function parameter).
+2026-08-01 02:28:51 [INFO] [INIT_WEIGHTS_GGUF] Using lazy dequantization to prevent OOM
+2026-08-01 02:28:51 [INFO] [INIT_WEIGHTS_GGUF] Deferring lm_head dequantization until needed to save memory
+2026-08-01 02:28:51 [INFO] [INIT_WEIGHTS_GGUF] Deferring all layer weight dequantization until layers are used
+2026-08-01 02:28:51 [INFO] [INIT_WEIGHTS_GGUF] Finished per-layer NORM F32 vector checks post-GGUF.
+2026-08-01 02:28:51 [INFO] Finished initializing model weights logic block.
+2026-08-01 02:28:51 [INFO] [INIT_WEIGHTS_FINAL_CHECK] final_norm_f32 is POPULATED. Size: 128
+2026-08-01 02:28:51 [INFO] [INIT_WEIGHTS_FINAL_CHECK] embed_tokens_f32 is POPULATED. Size: 524288
+2026-08-01 02:28:51 [INFO] [INIT_GPU_ROPE_DEBUG_L1113] Absolute Start of initialize_gpu_and_rope: config_.num_cpu_offload_layers = 2, config_.num_hidden_layers = 2
+2026-08-01 02:28:51 [INFO] [GPU_ROPE_INIT_ENTRY] Entered initialize_gpu_and_rope. Requested CPU Offload Layers: 2, Total Hidden Layers: 2
+2026-08-01 02:28:51 [INFO] Effective CPU layers for this init: 2, Effective GPU layers for this init: 0
+2026-08-01 02:28:51 [INFO] Precomputing RoPE frequencies on CPU (always done).
+2026-08-01 02:28:51 [INFO] Finished precomputing RoPE cos/sin frequencies on CPU.
+2026-08-01 02:28:51 [INFO] CUDA not available or no GPU layers configured. Model will run entirely on CPU.
+2026-08-01 02:28:51 [INFO] TinyLlamaModel (from path string) constructed and initialized successfully.
+2026-08-01 02:28:51 [INFO] Initializing Tokenizer from GGUFData...
+2026-08-01 02:28:51 [INFO] Tokenizer family from ModelConfig: UNKNOWN
+2026-08-01 02:28:51 [INFO] [Tokenizer GGUF Init] 'tokenizer.chat_template' not found in GGUF metadata.
+2026-08-01 02:28:51 [INFO] [GGUF_VOCAB_SCAN] Token string at ID 1734 is: '"oh,' (length: 4)
+2026-08-01 02:28:51 [INFO] Loaded 4096 tokens from GGUF tokenizer_tokens.
+2026-08-01 02:28:51 [INFO] First few (up to 10 or vocab size) GGUF tokens: ID[0]='<unk>' ID[1]='|' ID[2]='the' ID[3]='and' ID[4]='a' ID[5]='to' ID[6]='was' ID[7]='he' ID[8]='she' ID[9]='they' 
+2026-08-01 02:28:51 [WARNING] Tokenizer family is UNKNOWN. Tokenizer may not function as expected. Will attempt to load basic vocab and scores if present.
+2026-08-01 02:28:51 [INFO] Loaded 4096 token scores from GGUF for UNKNOWN family as a fallback.
+2026-08-01 02:28:51 [WARNING] GGUF tokenizer_token_types array missing or size mismatch. Byte token and special token identification will be limited.
+2026-08-01 02:28:51 [INFO] [GENERAL_BYTE_FALLBACK] Space ' ' not found in byte_char_to_id_. Attempting to populate from vocab.
+2026-08-01 02:28:51 [INFO] [GENERAL_BYTE_FALLBACK] Added 5 new entries to byte_char_to_id_ map. Final size: 5
+2026-08-01 02:28:51 [WARNING] [GENERAL_BYTE_FALLBACK] Space ' ' still not found in byte_char_to_id_ after fallback scan!
+2026-08-01 02:28:51 [WARNING] [GENERAL_BYTE_FALLBACK] Space ' ' still not found in byte_char_to_id_ after fallback scan AND specific SP space check!
+2026-08-01 02:28:51 [WARNING] [Tokenizer GGUF Init] UNK token ID from config was invalid (-1). Forcing to 0.
+2026-08-01 02:28:51 [INFO] Final Special Tokens (GGUF constructor): BOS ID=1 ('|'), EOS ID=1 ('|'), UNK ID=0 ('<unk>'), PAD ID=0 ('<unk>\\')
+2026-08-01 02:28:51 [INFO] Tokenizer successfully initialized from GGUFData. Final type: UNKNOWN
+2026-08-01 02:28:51 [INFO] Tokenizer initialized from GGUF metadata.
+2026-08-01 02:28:51 [INFO] [Session KVCache Init] Total Layers: 2, Effective CPU Offload by Model: 2, GPU Layers for KVCache: 0
+2026-08-01 02:28:51 [INFO] Allocating KVCache host vectors...
+2026-08-01 02:28:51 [INFO] KVCache (CPU) vectors allocated for 2 layers.
+2026-08-01 02:28:51 [INFO] KVCache (CPU-only build) initialized with dimensions for 2 layers, 128 seq len, 4 KV heads, 32 head dim
+2026-08-01 02:28:51 [INFO] TinyLlamaSession initialization complete (after KVCache init).
+2026-08-01 02:28:51 [INFO] TinyLlamaSession initialized successfully.
+2026-08-01 02:28:51 [INFO] [Main.cpp] Non-Llama 3 model and no GGUF chat template. Internal Q&A prompt formatting will be ENABLED.
+2026-08-01 02:28:51 [INFO] [Main.cpp] --raw-prompt: internal Q&A formatting DISABLED.
+2026-08-01 02:28:51 [INFO] [Main.cpp] Mode: 'prompt'. Final decision for apply_qa_formatting_decision: false
+2026-08-01 02:28:51 [INFO] [Generate API] User prompt: "once upon a time", System prompt: "", Steps: 40
+2026-08-01 02:28:51 [INFO] [Generate API] GGUF chat template from tokenizer is empty: true
+2026-08-01 02:28:51 [INFO] [Generate API] Configured tokenizer_family: UNKNOWN
+2026-08-01 02:28:51 [INFO] [Generate API] WORD_LEVEL tokenizer: using raw prompt (no Q/A or chat template).
+2026-08-01 02:28:52 [INFO] [Generate API] Number of prompt tokens: 4
+2026-08-01 02:28:52 [INFO] [CPU_FWD] Entered. Processing up to layer 1. Input n_tokens: 0
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 0 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD] ------ START Layer 0 (pos=0) ------
+2026-08-01 02:28:52 [INFO] Layer 0 Input (input): size=128, first 5: [0.0630 -0.0510 0.0147 -0.1103 0.0757], min=-0.1781, max=0.1514, mean=0.0008, finite=yes
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD] ------ END Layer 0 (pos=0) ------
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 1 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD] All layers processed on CPU. Performing final RMSNorm and Logits.
+2026-08-01 02:28:52 [INFO] [CPU_FWD] Final Logits (all CPU, pos=0): size=4096, first 15: [4.5154 -6.1297 2.9527 2.1330 2.6588 1.6348 2.2461 2.3944 2.4526 1.8232 1.3602 1.7573 -0.1001 1.0669 -0.0125], min=-7.2548, max=4.5154, mean=-4.3118, finite=yes
+2026-08-01 02:28:52 [INFO] [CPU_FWD] Entered. Processing up to layer 1. Input n_tokens: 1
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 0 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 1 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD] All layers processed on CPU. Performing final RMSNorm and Logits.
+2026-08-01 02:28:52 [INFO] [CPU_FWD] Entered. Processing up to layer 1. Input n_tokens: 2
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 0 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 1 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD] All layers processed on CPU. Performing final RMSNorm and Logits.
+2026-08-01 02:28:52 [INFO] [CPU_FWD] Entered. Processing up to layer 1. Input n_tokens: 3
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 0 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 1 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD] All layers processed on CPU. Performing final RMSNorm and Logits.
+2026-08-01 02:28:52 [INFO] [Generate API] First token sampled from prompt: 0, Decoded: "<unk>"
+2026-08-01 02:28:52 [INFO] [CPU_FWD] Entered. Processing up to layer 1. Input n_tokens: 4
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 0 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 1 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD] All layers processed on CPU. Performing final RMSNorm and Logits.
+2026-08-01 02:28:52 [INFO] [CPU_FWD] Entered. Processing up to layer 1. Input n_tokens: 5
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 0 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 1 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD] All layers processed on CPU. Performing final RMSNorm and Logits.
+2026-08-01 02:28:52 [INFO] [CPU_FWD] Entered. Processing up to layer 1. Input n_tokens: 6
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 0 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 1 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD] All layers processed on CPU. Performing final RMSNorm and Logits.
+2026-08-01 02:28:52 [INFO] [CPU_FWD] Entered. Processing up to layer 1. Input n_tokens: 7
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 0 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 1 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD] All layers processed on CPU. Performing final RMSNorm and Logits.
+2026-08-01 02:28:52 [INFO] [CPU_FWD] Entered. Processing up to layer 1. Input n_tokens: 8
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 0 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 1 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD] All layers processed on CPU. Performing final RMSNorm and Logits.
+2026-08-01 02:28:52 [INFO] [CPU_FWD] Entered. Processing up to layer 1. Input n_tokens: 9
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 0 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 1 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD] All layers processed on CPU. Performing final RMSNorm and Logits.
+2026-08-01 02:28:52 [INFO] [CPU_FWD] Entered. Processing up to layer 1. Input n_tokens: 10
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 0 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 1 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD] All layers processed on CPU. Performing final RMSNorm and Logits.
+2026-08-01 02:28:52 [INFO] [CPU_FWD] Entered. Processing up to layer 1. Input n_tokens: 11
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 0 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 1 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD] All layers processed on CPU. Performing final RMSNorm and Logits.
+2026-08-01 02:28:52 [INFO] [CPU_FWD] Entered. Processing up to layer 1. Input n_tokens: 12
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 0 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD] ------ START Layer 0 (pos=12) ------
+2026-08-01 02:28:52 [INFO] Layer 0 Input (input): size=128, first 5: [0.0024 -0.0368 0.0840 0.0261 0.0141], min=-0.1455, max=0.1519, mean=-0.0037, finite=yes
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD] ------ END Layer 0 (pos=12) ------
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 1 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD] All layers processed on CPU. Performing final RMSNorm and Logits.
+2026-08-01 02:28:52 [INFO] [CPU_FWD] Final Logits (all CPU, pos=12): size=4096, first 15: [2.8298 -4.4124 1.4661 0.8189 4.3722 2.8480 3.9342 0.3279 0.4047 0.7676 0.9177 0.5705 0.1167 1.2770 0.5862], min=-8.0892, max=4.3722, mean=-3.3371, finite=yes
+2026-08-01 02:28:52 [INFO] [CPU_FWD] Entered. Processing up to layer 1. Input n_tokens: 13
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 0 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD] ------ START Layer 0 (pos=13) ------
+2026-08-01 02:28:52 [INFO] Layer 0 Input (input): size=128, first 5: [0.0669 0.0328 -0.0163 0.0888 0.0329], min=-0.1391, max=0.1634, mean=-0.0035, finite=yes
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD] ------ END Layer 0 (pos=13) ------
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 1 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD] All layers processed on CPU. Performing final RMSNorm and Logits.
+2026-08-01 02:28:52 [INFO] [CPU_FWD] Final Logits (all CPU, pos=13): size=4096, first 15: [4.4309 -6.1032 4.6913 1.7702 2.1954 -0.0496 0.4901 4.0559 4.0404 3.2782 2.2759 2.6863 -1.0899 2.3791 -0.2739], min=-7.0316, max=4.6913, mean=-4.2963, finite=yes
+2026-08-01 02:28:52 [INFO] [API_CPP GenLoop] current_data_host after lookup_embedding for input_token_id=2 (pos=14, layer=-100): size=128, first 8: [0.0918, 0.0324, 0.1049, 0.1781, 0.0758, -0.0359, 0.0365, 0.0257], min=-0.1463, max=0.1781, mean=0.0024, finite=yes
+2026-08-01 02:28:52 [INFO] [CPU_FWD] Entered. Processing up to layer 1. Input n_tokens: 14
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 0 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 1 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD] All layers processed on CPU. Performing final RMSNorm and Logits.
+2026-08-01 02:28:52 [INFO] [API_CPP GenLoop] current_data_host after lookup_embedding for input_token_id=43 (pos=15, layer=-100): size=128, first 8: [0.0762, -0.0366, 0.0186, -0.1680, 0.0074, 0.0710, -0.0871, 0.0154], min=-0.2118, max=0.1981, mean=0.0064, finite=yes
+2026-08-01 02:28:52 [INFO] [CPU_FWD] Entered. Processing up to layer 1. Input n_tokens: 15
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 0 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 1 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD] All layers processed on CPU. Performing final RMSNorm and Logits.
+2026-08-01 02:28:52 [INFO] [API_CPP GenLoop] current_data_host after lookup_embedding for input_token_id=4 (pos=16, layer=-100): size=128, first 8: [0.1299, 0.0489, 0.0948, 0.0898, 0.0352, -0.0429, -0.0237, 0.0170], min=-0.1245, max=0.1542, mean=-0.0007, finite=yes
+2026-08-01 02:28:52 [INFO] [CPU_FWD] Entered. Processing up to layer 1. Input n_tokens: 16
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 0 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 1 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD] All layers processed on CPU. Performing final RMSNorm and Logits.
+2026-08-01 02:28:52 [INFO] [CPU_FWD] Entered. Processing up to layer 1. Input n_tokens: 17
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 0 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 1 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD] All layers processed on CPU. Performing final RMSNorm and Logits.
+2026-08-01 02:28:52 [INFO] [CPU_FWD] Entered. Processing up to layer 1. Input n_tokens: 18
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 0 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 1 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD] All layers processed on CPU. Performing final RMSNorm and Logits.
+2026-08-01 02:28:52 [INFO] [CPU_FWD] Entered. Processing up to layer 1. Input n_tokens: 19
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 0 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 1 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD] All layers processed on CPU. Performing final RMSNorm and Logits.
+2026-08-01 02:28:52 [INFO] [CPU_FWD] Entered. Processing up to layer 1. Input n_tokens: 20
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 0 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 1 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD] All layers processed on CPU. Performing final RMSNorm and Logits.
+2026-08-01 02:28:52 [INFO] [CPU_FWD] Entered. Processing up to layer 1. Input n_tokens: 21
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 0 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 1 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD] All layers processed on CPU. Performing final RMSNorm and Logits.
+2026-08-01 02:28:52 [INFO] [CPU_FWD] Entered. Processing up to layer 1. Input n_tokens: 22
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 0 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 1 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD] All layers processed on CPU. Performing final RMSNorm and Logits.
+2026-08-01 02:28:52 [INFO] [CPU_FWD] Entered. Processing up to layer 1. Input n_tokens: 23
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 0 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 1 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD] All layers processed on CPU. Performing final RMSNorm and Logits.
+2026-08-01 02:28:52 [INFO] [CPU_FWD] Entered. Processing up to layer 1. Input n_tokens: 24
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 0 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 1 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD] All layers processed on CPU. Performing final RMSNorm and Logits.
+2026-08-01 02:28:52 [INFO] [CPU_FWD] Entered. Processing up to layer 1. Input n_tokens: 25
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 0 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 1 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD] All layers processed on CPU. Performing final RMSNorm and Logits.
+2026-08-01 02:28:52 [INFO] [CPU_FWD] Entered. Processing up to layer 1. Input n_tokens: 26
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 0 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 1 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD] All layers processed on CPU. Performing final RMSNorm and Logits.
+2026-08-01 02:28:52 [INFO] [CPU_FWD] Entered. Processing up to layer 1. Input n_tokens: 27
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 0 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 1 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD] All layers processed on CPU. Performing final RMSNorm and Logits.
+2026-08-01 02:28:52 [INFO] [CPU_FWD] Entered. Processing up to layer 1. Input n_tokens: 28
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 0 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 1 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD] All layers processed on CPU. Performing final RMSNorm and Logits.
+2026-08-01 02:28:52 [INFO] [CPU_FWD] Entered. Processing up to layer 1. Input n_tokens: 29
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 0 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 1 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD] All layers processed on CPU. Performing final RMSNorm and Logits.
+2026-08-01 02:28:52 [INFO] [CPU_FWD] Entered. Processing up to layer 1. Input n_tokens: 30
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 0 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 1 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD] All layers processed on CPU. Performing final RMSNorm and Logits.
+2026-08-01 02:28:52 [INFO] [CPU_FWD] Entered. Processing up to layer 1. Input n_tokens: 31
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 0 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 1 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD] All layers processed on CPU. Performing final RMSNorm and Logits.
+2026-08-01 02:28:52 [INFO] [CPU_FWD] Entered. Processing up to layer 1. Input n_tokens: 32
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 0 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 1 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD] All layers processed on CPU. Performing final RMSNorm and Logits.
+2026-08-01 02:28:52 [INFO] [CPU_FWD] Entered. Processing up to layer 1. Input n_tokens: 33
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 0 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 1 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD] All layers processed on CPU. Performing final RMSNorm and Logits.
+2026-08-01 02:28:52 [INFO] [CPU_FWD] Entered. Processing up to layer 1. Input n_tokens: 34
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 0 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 1 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD] All layers processed on CPU. Performing final RMSNorm and Logits.
+2026-08-01 02:28:52 [INFO] [CPU_FWD] Entered. Processing up to layer 1. Input n_tokens: 35
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 0 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 1 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD] All layers processed on CPU. Performing final RMSNorm and Logits.
+2026-08-01 02:28:52 [INFO] [CPU_FWD] Entered. Processing up to layer 1. Input n_tokens: 36
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 0 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 1 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD] All layers processed on CPU. Performing final RMSNorm and Logits.
+2026-08-01 02:28:52 [INFO] [CPU_FWD] Entered. Processing up to layer 1. Input n_tokens: 37
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 0 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 1 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD] All layers processed on CPU. Performing final RMSNorm and Logits.
+2026-08-01 02:28:52 [INFO] [CPU_FWD] Entered. Processing up to layer 1. Input n_tokens: 38
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 0 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 1 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD] All layers processed on CPU. Performing final RMSNorm and Logits.
+2026-08-01 02:28:52 [INFO] [CPU_FWD] Entered. Processing up to layer 1. Input n_tokens: 39
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 0 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 1 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD] All layers processed on CPU. Performing final RMSNorm and Logits.
+2026-08-01 02:28:52 [INFO] [CPU_FWD] Entered. Processing up to layer 1. Input n_tokens: 40
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 0 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 1 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD] All layers processed on CPU. Performing final RMSNorm and Logits.
+2026-08-01 02:28:52 [INFO] [CPU_FWD] Entered. Processing up to layer 1. Input n_tokens: 41
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 0 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 1 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_o_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_o_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_up_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_up_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_down_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 1: ensure_down_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD] All layers processed on CPU. Performing final RMSNorm and Logits.
+2026-08-01 02:28:52 [INFO] [CPU_FWD] Entered. Processing up to layer 1. Input n_tokens: 42
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Starting layer 0 processing
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: Allocating QKV vectors
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_q_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_q_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_k_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_k_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_v_proj_dequantized
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: ensure_v_proj_dequantized completed
+2026-08-01 02:28:52 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_o_proj_dequantized
+2026-08-01 02:28:53 [INFO] [CPU_FWD_MEM] Layer 0: ensure_o_proj_dequantized completed
+2026-08-01 02:28:53 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:53 [INFO] [CPU_FWD_MEM] Layer 0: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:53 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_up_proj_dequantized
+2026-08-01 02:28:53 [INFO] [CPU_FWD_MEM] Layer 0: ensure_up_proj_dequantized completed
+2026-08-01 02:28:53 [INFO] [CPU_FWD_MEM] Layer 0: About to ensure_down_proj_dequantized
+2026-08-01 02:28:53 [INFO] [CPU_FWD_MEM] Layer 0: ensure_down_proj_dequantized completed
+2026-08-01 02:28:53 [INFO] [CPU_FWD_MEM] Starting layer 1 processing
+2026-08-01 02:28:53 [INFO] [CPU_FWD_MEM] Layer 1: Allocating QKV vectors
+2026-08-01 02:28:53 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_q_proj_dequantized
+2026-08-01 02:28:53 [INFO] [CPU_FWD_MEM] Layer 1: ensure_q_proj_dequantized completed
+2026-08-01 02:28:53 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_k_proj_dequantized
+2026-08-01 02:28:53 [INFO] [CPU_FWD_MEM] Layer 1: ensure_k_proj_dequantized completed
+2026-08-01 02:28:53 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_v_proj_dequantized
+2026-08-01 02:28:53 [INFO] [CPU_FWD_MEM] Layer 1: ensure_v_proj_dequantized completed
+2026-08-01 02:28:53 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_o_proj_dequantized
+2026-08-01 02:28:53 [INFO] [CPU_FWD_MEM] Layer 1: ensure_o_proj_dequantized completed
+2026-08-01 02:28:53 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_gate_proj_dequantized
+2026-08-01 02:28:53 [INFO] [CPU_FWD_MEM] Layer 1: ensure_gate_proj_dequantized completed
+2026-08-01 02:28:53 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_up_proj_dequantized
+2026-08-01 02:28:53 [INFO] [CPU_FWD_MEM] Layer 1: ensure_up_proj_dequantized completed
+2026-08-01 02:28:53 [INFO] [CPU_FWD_MEM] Layer 1: About to ensure_down_proj_dequantized
+2026-08-01 02:28:53 [INFO] [CPU_FWD_MEM] Layer 1: ensure_down_proj_dequantized completed
+2026-08-01 02:28:53 [INFO] [CPU_FWD] All layers processed on CPU. Performing final RMSNorm and Logits.
+2026-08-01 02:28:53 [INFO] Reached max generation steps (40). Stopping.
+2026-08-01 02:28:53 [INFO] Generated response: he was a mom said she had so the upon a little they saw very happy and started to big day but then he was been so the girl said it was a girl wanted to time
+2026-08-01 02:28:53 [INFO] [INFO] Total generation processing time: 1023.2404 ms
+2026-08-01 02:28:53 [INFO] TinyLlamaSession: Destroyed.

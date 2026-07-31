@@ -32,7 +32,11 @@ public:
 
     SurpriseRoutedAttention(size_t d, size_t n_heads, unsigned seed = 0);
 
-    Var forward(const Var& x) const;
+    // seq_len > 0: x rows are B stacked sequences; both attention paths
+    // are block-isolated. The router is row-wise and batch-agnostic.
+    // (Falsifier caveat: shuffle_predictor permutes across the whole
+    // stack; research falsifier runs use single-sequence forwards.)
+    Var forward(const Var& x, size_t seq_len = 0) const;
 
     // The gate from the LAST forward, as a tape Var [T, 1]: feed
     // ops::mean(gate()) into the loss to price density. Empty before the

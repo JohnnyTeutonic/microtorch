@@ -105,7 +105,8 @@ public:
 class KimiLinearAttention : public Module {  // Phase 3a: O(n*d²) linear-time attention
 public:
     KimiLinearAttention(size_t d, size_t n_heads, unsigned seed = 0, bool causal = true);
-    Var forward(const Var& x) const;  // x: [T, d] -> [T, d]
+    // seq_len > 0: stacked mini-batch; prefix sums reset per block.
+    Var forward(const Var& x, size_t seq_len = 0) const;  // x: [T, d] -> [T, d]
     std::shared_ptr<Linear> c_attn, c_proj;
     size_t H, dk;
     bool causal;

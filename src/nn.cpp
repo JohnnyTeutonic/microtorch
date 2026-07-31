@@ -162,8 +162,8 @@ KimiLinearAttention::KimiLinearAttention(size_t d, size_t n_heads, unsigned seed
     c_proj = mod<Linear>("c_proj", d, d, true, seed + 13);
 }
 
-Var KimiLinearAttention::forward(const Var& x) const {
-    const size_t T = x->data.rows(), d = H * dk;
+Var KimiLinearAttention::forward(const Var& x, size_t seq_len) const {
+    const size_t d = H * dk;
     Var qkv = c_attn->forward(x);  // [T, 3d]
 
     std::vector<Var> heads;
@@ -174,7 +174,7 @@ Var KimiLinearAttention::forward(const Var& x) const {
         // Only difference from CausalSelfAttention: use kimi_attention instead of
         // scaled-dot-product (matmul -> softmax -> matmul)
         // Kimi Linear: Feature map (elu+1) -> cumsum numerator/denominator
-        heads.push_back(ops::kimi_attention(q, k, v, causal));
+        heads.push_back(ops::kimi_attention(q, k, v, causal, seq_len));
     }
     return c_proj->forward(ops::concat_cols(heads));
 }

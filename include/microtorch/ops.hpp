@@ -142,13 +142,17 @@ Var fused_attention(const Var& q, const Var& k, const Var& v, float scale, size_
                     bool causal);
 
 // ---- phase 3a additions (Novel architectures: Kimi Linear) ----
-Var kimi_attention(const Var& q, const Var& k, const Var& v,
-                   bool causal);  // O(n*d²) linear-time attention
-                                  // Feature map: φ(x)=elu(x)+1
-                                  // Numerator: Σ φ(k_i)⊗v_i (cumsum)
-                                  // Denominator: Σ φ(k_i) (normalization)
-                                  // Output: φ(q)·numerator/denominator
-                                  // Causal: if true, only attend to past
+Var kimi_attention(const Var& q, const Var& k, const Var& v, bool causal,
+                   size_t seq_len = 0);  // O(n*d²) linear-time attention
+                                         // Feature map: φ(x)=elu(x)+1
+                                         // Numerator: Σ φ(k_i)⊗v_i (cumsum)
+                                         // Denominator: Σ φ(k_i) (normalization)
+                                         // Output: φ(q)·numerator/denominator
+                                         // Causal: if true, only attend to past
+                                         // seq_len > 0: rows are B stacked
+                                         // sequences; the prefix sums RESET at
+                                         // every block boundary (the verified
+                                         // kernel runs per block)
 
 }  // namespace ops
 }  // namespace microtorch

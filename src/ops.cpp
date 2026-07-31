@@ -487,7 +487,20 @@ Var apply_rope(const Var& qk, const std::vector<int>& pos, float theta_base, siz
 }
 
 // Phase 3a: Kimi Linear attention (O(n*d²) vs O(n²*d) standard attention)
-Var kimi_attention(const Var& q, const Var& k, const Var& v, bool causal) {
+namespace {
+Matrix rows_of(const Matrix& m, size_t r0, size_t r1) {
+    Matrix out(r1 - r0, m.cols());
+    for (size_t i = r0; i < r1; ++i)
+        for (size_t j = 0; j < m.cols(); ++j) out(i - r0, j) = m(i, j);
+    return out;
+}
+void rows_into(Matrix& dst, const Matrix& src, size_t r0) {
+    for (size_t i = 0; i < src.rows(); ++i)
+        for (size_t j = 0; j < src.cols(); ++j) dst(r0 + i, j) = src(i, j);
+}
+}  // namespace
+
+Var kimi_attention(const Var& q, const Var& k, const Var& v, bool causal, size_t seq_len) {
     using kimi::KimiLinearAttention;
 
     // The class backward recomputes CAUSAL prefix sums; a non-causal
@@ -499,14 +512,26 @@ Var kimi_attention(const Var& q, const Var& k, const Var& v, bool causal) {
             "NoGrad for inference or use causal=true");
     }
 
+    const size_t T = q->data.rows();
+    const size_t sl = seq_len == 0 ? T : seq_len;
+    if (T % sl != 0) throw std::runtime_error("kimi_attention: rows not a multiple of seq_len");
+    const size_t B = T / sl;
     size_t head_dim = q->data.cols();
     KimiLinearAttention kimi(head_dim);
 
-    // Forward: linear-time attention
-    Matrix out = kimi.forward(q->data, k->data, v->data, causal);
+    // Stacked mini-batch: linear attention's causal prefix sums must
+    // reset at sequence boundaries, and blocks are independent — so run
+    // the verified kernel PER BLOCK and stitch. Same total work
+    // (linear attention is O(T d^2); splitting is free).
+    Matrix out(T, head_dim);
+    for (size_t b = 0; b < B; ++b) {
+        Matrix ob = kimi.forward(rows_of(q->data, b * sl, (b + 1) * sl),
+                                 rows_of(k->data, b * sl, (b + 1) * sl),
+                                 rows_of(v->data, b * sl, (b + 1) * sl), causal);
+        rows_into(out, ob, b * sl);
+    }
 
-    // Backward: compute gradients w.r.t. q, k, v through the attention
-    return record(std::move(out), {q, k, v}, [kimi = std::move(kimi)](Variable* self) {
+    return record(std::move(out), {q, k, v}, [kimi = std::move(kimi), sl, B](Variable* self) {
         const Var& q_var = self->parents[0];
         const Var& k_var = self->parents[1];
         const Var& v_var = self->parents[2];
@@ -515,13 +540,22 @@ Var kimi_attention(const Var& q, const Var& k, const Var& v, bool causal) {
             return;
         }
 
-        // Backward through Kimi Linear: compute gradients
-        auto [grad_q, grad_k, grad_v] =
-            kimi.backward(self->grad, q_var->data, k_var->data, v_var->data, self->data);
-
-        if (q_var->requires_grad) q_var->accumulate(grad_q);
-        if (k_var->requires_grad) k_var->accumulate(grad_k);
-        if (v_var->requires_grad) v_var->accumulate(grad_v);
+        Matrix gq(q_var->data.rows(), q_var->data.cols());
+        Matrix gk(k_var->data.rows(), k_var->data.cols());
+        Matrix gv(v_var->data.rows(), v_var->data.cols());
+        for (size_t b = 0; b < B; ++b) {
+            auto [bq, bk, bv] = kimi.backward(rows_of(self->grad, b * sl, (b + 1) * sl),
+                                              rows_of(q_var->data, b * sl, (b + 1) * sl),
+                                              rows_of(k_var->data, b * sl, (b + 1) * sl),
+                                              rows_of(v_var->data, b * sl, (b + 1) * sl),
+                                              rows_of(self->data, b * sl, (b + 1) * sl));
+            rows_into(gq, bq, b * sl);
+            rows_into(gk, bk, b * sl);
+            rows_into(gv, bv, b * sl);
+        }
+        if (q_var->requires_grad) q_var->accumulate(gq);
+        if (k_var->requires_grad) k_var->accumulate(gk);
+        if (v_var->requires_grad) v_var->accumulate(gv);
     });
 }
 

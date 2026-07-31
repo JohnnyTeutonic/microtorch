@@ -46,13 +46,11 @@ public:
         head = mod<nn::Linear>("head", d, vocab, false, seed + 99);
     }
 
-    // seq_len 0 = one sequence. Stacked batches are exact-attention only:
-    // kimi's causal cumsum and srd's predictor are not block-aware yet.
+    // seq_len 0 = one sequence; > 0 = stacked mini-batch. All three
+    // attention kinds are block-aware (exact via the fused mask, kimi
+    // via per-block prefix-sum reset, srd through both paths).
     Var forward(const std::vector<int>& ids, size_t seq_len = 0) const {
         const size_t sl = seq_len == 0 ? ids.size() : seq_len;
-        if (sl != ids.size() && kind_ != AttnKind::EXACT) {
-            throw std::runtime_error("ParityLM: batch > 1 requires exact attention");
-        }
         std::vector<int> pos(ids.size());
         for (size_t i = 0; i < pos.size(); ++i) pos[i] = static_cast<int>(i % sl);
         Var h = ops::add(wte->forward(ids), wpe->forward(pos));
@@ -64,10 +62,10 @@ public:
                     a = exact[b]->forward(n1, seq_len);
                     break;
                 case AttnKind::KIMI:
-                    a = kimi[b]->forward(n1);
+                    a = kimi[b]->forward(n1, seq_len);
                     break;
                 case AttnKind::SRD:
-                    a = srd[b]->forward(n1);
+                    a = srd[b]->forward(n1, seq_len);
                     break;
             }
             h = ops::add(h, a);
