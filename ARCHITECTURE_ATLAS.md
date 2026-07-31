@@ -1,513 +1,845 @@
 # The Architecture Atlas
 
-**Status: design note, 2026-07-31. Nothing here is implemented.** The idea is
-Jonathan's; the sections marked *Engineering note* are additions from working
-through feasibility against the existing codebase, and some of them change the
-plan rather than merely costing it.
+**A platform for controlled comparative science of neural architectures.**
+
+**Status: design note, 2026-07-31. Nothing here is implemented.** The proposal
+is Jonathan's, consolidated from two drafts. Sections marked *Engineering note*
+are additions from working feasibility against the existing codebase; several of
+them change the plan rather than merely costing it.
 
 ---
 
 ## 0. The intellectual move
 
-> An architecture should not be represented only by its source code or its
-> final benchmark score. It should be represented by the pattern of behaviours
-> and dependencies it exhibits under controlled interventions.
+> An architecture should not be represented only by its source code, family
+> name, or final benchmark score. It should also be represented by the pattern
+> of behaviours and dependencies it exhibits under controlled interventions.
 
-That is the whole thesis. It turns ablation from a one-paper diagnostic into a
-comparative empirical science of model architecture.
+That is the thesis. It turns ablation from a local diagnostic used inside a
+single paper into the foundation of a comparative empirical science of model
+architecture.
 
-A leaderboard says *architecture A scores 0.7 better than B*. This says
-*architecture A is high-performing because one component carries it, while B is
-high-performing because six components each contribute a little — and those are
-different kinds of object even when the scores match.*
+A leaderboard says *A scores 0.7 better than B*. This says *A is high-performing
+because one component carries it, while B is high-performing because six
+components each contribute a little* — and those are different objects even when
+the scores match.
+
+**Two things this is not.**
+
+*Not mechanistic interpretability.* The goal is not to explain a trained model
+neuron by neuron or circuit by circuit. It is **architectural explainability**:
+understanding how observable design choices relate to model behaviour under
+controlled experimental conditions. A model is explained by its comparative
+position in a corpus and by its response to controlled changes.
+
+*Not neural architecture search.* NAS asks *which architecture should we
+choose?* This asks *what does the architecture space look like, which design
+choices matter, under what conditions do they matter, and which experiment would
+most efficiently reduce our uncertainty?* Different question, different object,
+different output.
 
 ---
 
-## 1. The three representations
+## 1. Motivation
 
-Every architecture in the corpus gets three vectors.
+Architecture research is reported as a sequence of isolated claims: RMSNorm
+improves stability; RoPE improves long context; SwiGLU improves capacity; wider
+FFNs improve accuracy; local attention cuts compute acceptably. Each is
+typically evaluated within one family, on a few datasets, under one recipe, with
+limited ablation.
 
-### 1.1 Structural features — what the model *is*
+Four problems follow.
 
-`x_i ∈ R^d`, from the spec itself: depth; width; parameter count; attention-head
-count; head dimension; MLP expansion ratio; normalisation type and placement;
-positional encoding; activation function; residual topology; convolutional vs
-attention components; recurrence; parameter sharing; sparsity; routing / MoE
-structure; local vs global attention; estimated FLOPs and memory.
+**Incomparable conditions.** Papers differ in parameter budget, token budget,
+optimiser, schedule, dataset, hardware, implementation, regularisation, and —
+most corrosively — tuning effort.
 
-Entries are numeric, categorical, or graph-derived.
+**Scalar collapse.** Leaderboards say which model scored highest, but not why,
+which components were essential, which were redundant, whether the gain
+generalises across tasks, whether the design is fragile, or whether it depends
+on an interaction between components.
 
-*Engineering note.* microtorch already has most of this for free — a run **is** a
-spec file, and a spec is very nearly `x_i` already. The categorical fields
-(`arch.preset`, `arch.custom.attention`) and the numeric ones (`d`, `layers`,
-`heads`, `T`) are exactly the factor coordinates. What is missing is derived
-quantities: parameter count, estimated FLOPs, and a graph encoding of residual
-topology. Parameter count is one line over `named_parameters()`; FLOPs is a
-short analytic pass over the module tree.
+**Selection bias.** Published architectures are designs researchers chose to
+build, tune and report. They are not a sample of the design space. Analyse only
+them and you learn *what researchers publish*, not *how architectural features
+behave*.
 
-### 1.2 Behavioural profile — how the model *behaves*
+**Structural identity confused with behavioural identity.** Two models can look
+alike and behave differently; two that look different can occupy the same
+behavioural region.
 
-`y_i ∈ R^m`: validation loss; convergence speed; sample efficiency; compute
-efficiency; memory efficiency; sensitivity to learning rate; gradient
-instability; variance across seeds; robustness to distribution shift;
-long-context degradation; calibration; performance by task family.
+A corpus of controlled architecture experiments addresses all four.
 
-Two architectures may be structurally near-identical and behaviourally distant.
-Conversely, syntactically different architectures may occupy the same
-behavioural region. That mismatch is one of the more interesting things the
-Atlas could measure.
+---
 
-*Engineering note.* The `events.jsonl` stream already carries most of the raw
-material: per-step loss, `grad_norm`, per-module gradient norms, eval points,
-early-stop triggers. Convergence speed, gradient instability and the loss curve
-shape are post-hoc reductions of a file that today is thrown away after the run.
-`live_variables()` (added with checkpointing) gives the memory axis. The missing
-pieces are held-out task families and a distribution-shift eval set.
+## 2. The core research object
 
-### 1.3 Ablation signature — what the model *depends on*
+Every architecture in the corpus carries three primary representations.
 
-For architecture `i` and component `j`:
+### 2.1 Structural representation — what the model *is*
+
+`x_i ∈ R^d`: depth; width; parameter count; attention-head count; head
+dimension; MLP expansion ratio; normalisation type and placement; residual
+topology; activation; positional encoding; parameter sharing; recurrence;
+convolutional components; sparse routing; MoE structure; local vs global
+attention; memory complexity; estimated FLOPs; inference latency; activation
+memory; graph-derived features from the computational graph.
+
+Entries are continuous, categorical, binary, or graph-structured.
+
+*Engineering note.* microtorch has most of this for free: a run **is** a spec
+file, and a spec is very nearly `x_i` already — `arch.preset`,
+`arch.custom.attention`, `d`, `layers`, `heads`, `T` are factor coordinates.
+Missing: parameter count (one pass over `named_parameters()`), analytic FLOPs
+(a short walk of the module tree), and a graph encoding of residual topology.
+
+### 2.2 Behavioural representation — how the model *behaves*
+
+`y_i ∈ R^m`: validation loss; test accuracy; convergence speed; sample
+efficiency; compute efficiency; memory efficiency; inference latency;
+throughput; sensitivity to learning rate; sensitivity to optimiser; gradient
+instability; variance across seeds; calibration; robustness to distribution
+shift; robustness to noise; long-context degradation; catastrophic-failure
+frequency; task-family performance; scaling behaviour.
+
+*Engineering note.* `events.jsonl` already carries the raw material — per-step
+loss, `grad_norm`, per-module gradient norms, eval points, early-stop triggers.
+Convergence speed, gradient instability and curve shape are post-hoc reductions
+of a file currently discarded after each run. `live_variables()` (added with
+checkpointing) supplies the memory axis. Missing: held-out task families and a
+distribution-shift eval set.
+
+### 2.3 Ablation representation — what the model *depends on*
+
+For architecture `A_i` and component `j`:
 
 ```
 Δ_ij = M(A_i) − M(A_i^−j)
 a_i  = (Δ_i1, Δ_i2, …, Δ_ik)
 ```
 
-`M` is validation loss, accuracy, compute-adjusted performance, stability, or
-another metric. `a_i` is the **ablation signature**: not how well the
-architecture performs, but what its performance rests on.
+where `A_i^−j` has component `j` removed, replaced, disabled or altered. `a_i`
+is the **ablation signature** — not how well the architecture performs, but
+which choices support that performance.
 
-*Engineering note — the substitution lattice.* "Removing" a component is usually
-undefined. You cannot delete RoPE from a Llama and still have a model; you
-replace it with NoPE or learned positional embeddings. So `Δ` is a
-**substitution effect**, not a removal effect, and the corpus needs an explicit
-lattice declaring, for each component slot, the legal alternatives:
+One architecture may depend moderately on many components; another almost
+entirely on a single innovation; a third may contain components individually
+unnecessary but jointly essential. Those differences are invisible on a
+leaderboard, and they are the thing a practitioner most needs before borrowing
+an idea.
 
-```
-norm       : {RMSNorm, LayerNorm, none}
-position   : {RoPE, learned, sinusoidal, NoPE}
-activation : {SwiGLU, GELU-MLP, ReLU-MLP}
-attention  : {exact, kimi-linear, SRD, sliding-window}
-head tying : {tied, untied}
-residual   : {pre-norm, post-norm}
-```
-
-This matters for interpretation: `Δ` is only meaningful relative to a named
-baseline substitute, and the doc/report must always say which one.
+*Engineering note — Δ is a substitution effect, not a removal effect.* You
+cannot delete RoPE and still have a model; you replace it with NoPE or learned
+embeddings. Every reported Δ must name its baseline substitute, which is what
+the component taxonomy (§12) exists to standardise.
 
 ---
 
-## 2. Clustering, and what each space reveals
+## 3. Architecture spaces
 
-Candidate methods: k-means; hierarchical; Gaussian mixtures; spectral; HDBSCAN;
-or a k-NN graph followed by community detection.
+Architectures should be analysed in several spaces rather than forced into one
+representation. Candidate methods throughout: k-means, Gaussian mixtures,
+hierarchical, HDBSCAN, spectral, or a k-NN graph with community detection.
 
-**Structural clustering** on `x_i` recovers architectural families:
-deep-and-narrow, shallow-and-wide, attention-heavy, MLP-heavy, recurrent
-hybrids, parameter-sharing, sparse-routing. The most obvious analysis and
-probably the least surprising.
+**Structural space** (`x_i`) recovers design families: deep-and-narrow,
+shallow-and-wide, attention-heavy, MLP-heavy, recurrent hybrids, sparse-routing,
+local-attention, parameter-sharing, conv-attention hybrids. The most obvious
+analysis and probably the least surprising.
 
-**Behavioural clustering** on `y_i` gives groups like: fast learners that
-plateau early; slow but high-ceiling; efficient small-data models; unstable
-high-capacity models; strong long-context models; robust but less accurate
-models. This can reveal that conventional architectural labels conceal more
-meaningful empirical groupings.
+**Behavioural space** (`y_i`): fast learners that plateau early; slow learners
+with high ceilings; strong small-data models; unstable high-capacity models;
+efficient long-context models; robust but lower-accuracy models; models highly
+sensitive to hyperparameters. This can reveal that conventional labels conceal
+more meaningful empirical groupings.
 
-**Ablation-signature clustering** on `a_i` is where the project becomes
-original. Groups might be: architectures highly dependent on positional
-encoding; architectures where MLP design matters more than attention design;
-architectures robust to normalisation substitution; architectures with strong
-component redundancy; architectures where the gain lives entirely in
+**Ablation space** (`a_i`) is the scientifically distinctive one: architectures
+dependent on positional encoding; architectures where MLP design matters more
+than attention design; architectures robust to normalisation substitution;
+architectures with strong component redundancy; architectures dominated by one
+critical innovation; architectures whose performance lives in high-order
 interactions.
 
-Two models with identical benchmark scores can have completely different causal
-dependency profiles. One is carried by a single component; the other spreads its
-dependence evenly. That distinction is invisible on a leaderboard, and it is the
-thing a practitioner most needs to know before borrowing an idea.
+**Efficiency space**: training FLOPs, inference FLOPs, latency, throughput,
+memory, power, scaling efficiency.
+
+**Robustness space**: distribution shift, adversarial perturbation,
+context-length change, data scarcity, seed variation, optimiser change,
+training instability.
+
+### 3.1 Visual exploration
+
+UMAP (or PCA) gives an interactive map, one point per architecture or variant.
+Colour by performance, parameter count, compute budget, latency, family,
+stability, long-context ability, ablation sensitivity, robustness, dataset, task
+family, or confidence. The interface should let the user **switch embedding
+space** — structural, behavioural, ablation, efficiency, integrated fingerprint
+— since the same corpus rearranges completely between them, and that
+rearrangement is itself the finding.
+
+Clicking a point shows: the architecture graph; source paper; training config;
+learning curves; uncertainty estimates; nearest neighbours of each kind;
+strongest positive and negative components; redundant components; interaction
+effects; likely failure modes; recommended follow-up experiments.
+
+Treat the visualisation as **exploratory, not confirmatory**. Clusters visible
+in two dimensions are not proof.
 
 *Engineering note — cluster stability is mandatory.* With `d` features and `N`
 architectures, clustering will find "families" in noise whenever `N` is not
-comfortably larger than `d`. Two defences, both cheap, both non-negotiable
-given this project's discipline:
+comfortably larger than `d`. Two cheap, non-negotiable defences:
 
-1. **Bootstrap the clustering.** Resample architectures, re-cluster, and report
-   the co-assignment frequency for each pair. A "family" that survives 90% of
-   resamples is a finding; one that survives 55% is a picture.
-2. **Pre-register the protocol** — metric, method, `k` selection rule — before
-   looking at the embedding. Otherwise cluster count becomes a researcher
-   degree of freedom, and the SRD replication failure (SPARSE_ATTENTION.md,
-   2026-07-31) is the standing reminder of what that costs.
+1. **Bootstrap the clustering.** Resample architectures, re-cluster, report
+   pairwise co-assignment frequency. A family surviving 90% of resamples is a
+   finding; 55% is a picture.
+2. **Pre-register the protocol** — metric, method, `k`-selection rule — before
+   looking at the embedding. Otherwise cluster count is a researcher degree of
+   freedom, and the SRD replication failure (SPARSE_ATTENTION.md, 2026-07-31) is
+   the standing reminder of what that costs.
 
 ---
 
-## 3. Neighbours become meaningful
+## 4. Neighbourhoods
 
-For any selected architecture the Atlas reports four distinct notions of
+For a selected architecture the Atlas returns five distinct notions of
 proximity:
 
 - **Structural neighbours** — built most similarly.
-- **Behavioural neighbours** — most similar learning and generalisation profile.
+- **Behavioural neighbours** — most similar empirical profile.
 - **Ablation neighbours** — depend on their components in similar ways.
-- **Counterfactual neighbours** — differ by one or two features yet behave
+- **Efficiency neighbours** — similar compute/latency/memory trade-offs.
+- **Counterfactual neighbours** — differ by one or two design choices yet behave
   substantially differently.
 
-That last class is the scientifically valuable one. It supports queries like
-*what is the nearest architecture that performs much better?* and *which
-minimally different architecture is substantially more stable?* — which turns
-nearest-neighbour lookup into automated comparative experimentation.
+The last class is the scientifically valuable one. It supports queries like:
+
+- What is the nearest architecture that performs materially better?
+- Which minimally different architecture is substantially more stable?
+- What is the nearest lower-compute architecture with similar accuracy?
+- Which structurally similar architecture has the opposite ablation profile?
+- Which single component change most efficiently moves this model toward a
+  desired behavioural region?
+
+That turns nearest-neighbour lookup into automated comparative experimentation.
 
 ---
 
-## 4. Interaction effects
+## 5. Interaction effects
 
 Single-component ablation misleads, because architectural innovations interact.
-For components R (RMSNorm), P (RoPE), S (SwiGLU), measure not only `Δ_R, Δ_P,
-Δ_S` but
+For components R (RMSNorm) and P (RoPE):
 
 ```
 I_R,P = M(R,P) − M(R) − M(P) + M(∅)
 ```
 
-which asks whether the pair contributes more or less than the sum of its parts.
-That distinguishes:
+— whether the pair contributes more or less than the sum of its parts.
 
-- **synergy** — the two work unusually well together;
+### 5.1 The interaction taxonomy
+
+- **synergy** — two components work unusually well together;
 - **redundancy** — either alone is sufficient;
 - **suppression** — one reduces the value of the other;
-- **conditional dependence** — a component matters only within a family.
+- **conditional dependence** — one matters only when another is present;
+- **family dependence** — the effect appears only in a specific family;
+- **scale dependence** — the effect emerges only above or below a size;
+- **task dependence** — the effect appears only for a task family.
 
 The output is architectural knowledge rather than benchmark reporting. Not
-"SwiGLU adds 0.7 points" but "SwiGLU helps wide models, contributes little to
-narrow ones, and is especially beneficial with pre-normalisation."
+"SwiGLU improves performance by 0.7 points" but "SwiGLU tends to improve wide
+decoder models, contributes little to narrow models, and is especially
+beneficial with pre-normalisation under compute-matched conditions."
 
-### 4.1 Engineering note — this is a design-of-experiments problem, and that changes the plan
+### 5.2 Higher-order structure
 
-Enumerating ablations per architecture explodes: `k` components is `O(k)` runs
-for main effects, `O(k²)` for pairs, `2^k` for the full Shapley decomposition.
-At `k = 8` that is 8, 28 and 256 configurations respectively — **per
-architecture, per seed**. Multiply by a corpus of 100 and it is dead on arrival.
+Pairwise analysis still misses three-way interactions, threshold effects,
+nonlinear scaling, and compensatory redundancy. A complete factorial is
+unaffordable, so intervention selection matters: fractional factorial designs,
+orthogonal arrays, Bayesian optimisation over intervention sets, active
+learning, sequential design, sparse interaction models, hierarchical screening,
+information-gain maximisation. Begin with cheap main-effect screening, then
+spend on interactions that look plausible or scientifically important.
+
+### 5.3 Engineering note — this is a design-of-experiments problem, and that changes the plan
+
+Enumerating ablations per architecture explodes: `k` components costs `O(k)`
+runs for main effects, `O(k²)` for pairs, `2^k` for the full decomposition. At
+`k = 8` that is 8, 28 and 256 configurations **per architecture, per seed**.
+Times a corpus of 100, it is dead on arrival.
 
 The fix is to stop thinking "corpus of architectures, each ablated" and start
-thinking **factorial design over the architectural factor space**. Treat each
-component slot as a factor; then:
+thinking **factorial design over the architectural factor space**:
 
-- A **full factorial** at `k = 8` binary factors is 256 runs and gives every
-  main effect and every interaction to 8th order — far more than anyone needs.
-- A **resolution-V fractional factorial** (2^(8−2) = **64 runs**) gives all 8
-  main effects and all 28 two-way interactions unconfounded with each other.
-  That is the entire content of section 4 for a quarter of the cost.
-- A **Plackett–Burman screening design** (12 runs for up to 11 factors) gives
-  main effects only, and is the right first pass to find which factors are worth
-  the resolution-V budget at all.
+- **Full factorial**, `k = 8` binary factors: 256 runs, every interaction to 8th
+  order — far more than anyone needs.
+- **Resolution-V fractional factorial** (2^(8−2) = **64 runs**): all 8 main
+  effects and all 28 two-way interactions, unconfounded with each other. The
+  entire content of §5 for a quarter of the cost.
+- **Plackett–Burman screen** (12 runs, up to 11 factors): main effects only —
+  the right first pass to find which factors deserve the resolution-V budget.
 
-So the recommended shape is a two-stage design: screen with Plackett–Burman,
-then spend the real budget on a resolution-V design restricted to the factors
-that screening flagged. This is standard industrial DoE and it maps onto the
-spec system exactly — **a design matrix row is a spec file**.
+Recommended shape: screen with Plackett–Burman, then spend the real budget on a
+resolution-V design restricted to the surviving factors. Standard industrial DoE,
+and it maps onto the spec system exactly — **a design-matrix row is a spec
+file**.
 
-This also reframes the ablation signature: `a_i` for an *individual*
-architecture is then estimated from the fitted model (section 7) rather than
-measured directly for every architecture, which is both cheaper and less noisy.
+This also reframes `a_i`: the ablation signature for an *individual*
+architecture is then estimated from the fitted model (§9) rather than measured
+directly for every architecture — cheaper and less noisy.
 
 ---
 
-## 5. The corpus
+## 6. Architectural fingerprints
 
-Six sources, deliberately mixed:
+Each architecture gets an integrated fingerprint: structural features, training
+dynamics, task strengths, efficiency, robustness, ablation sensitivity,
+interaction effects, uncertainty estimates.
 
-1. Canonical architectures extracted from papers (`papers/fetch.py` is already
-   this).
-2. Controlled variants generated by microtorch.
-3. Ablated / substituted versions of canonical models.
-4. Interpolations between known architectures.
-5. Random but valid architectures sampled from a constrained grammar.
-6. User-created models contributed through the Studio.
+> **Architecture profile**
+> - Structurally nearest to decoder-only transformers.
+> - Behaviourally nearest to recurrent-attention hybrids.
+> - Strongest relative advantage: long-context retention.
+> - Primary dependency: rotary positional encoding.
+> - Most redundant component: gated feed-forward block.
+> - Main failure mode: high variance under low-data training.
+> - Distinguishing feature: depth contributes more than width relative to its
+>   nearest matched peers.
 
-**Why this matters more than it looks.** Published models are heavily selected —
-they are the architectures researchers chose to report. Analyse only those and
-you learn *what researchers tend to publish*, not *how architectural features
-behave*. Sources 2–5 are the correction for that selection bias, and they are
-the reason this cannot be done by scraping a leaderboard.
-
-*Engineering note.* Source 5 needs a **constrained grammar** that only emits
-valid, trainable configurations (divisibility of `d` by heads, legal norm
-placements, compatible position encodings). That grammar is a small piece of
-work and is worth building early, because it is also what makes the spec builder
-in the Studio impossible to misconfigure.
+Substantially more informative than a scalar score — and every line is traceable
+to specific runs. The fingerprint must **preserve multiple views of similarity**
+rather than collapsing to a single embedding.
 
 ---
 
-## 6. Confounding, and the protocol
+## 7. The corpus
 
-Architecture performance is massively confounded by parameter count, token
-count, optimiser, LR schedule, regularisation, data quality, batch size,
-training duration, implementation quality, and **tuning effort**. You cannot
-conclude "A beats B" if A got ten times the tuning.
+Seven sources, deliberately mixed:
 
-Minimum protocol: fixed compute budgets; matched parameter counts; matched
-datasets; common optimiser search spaces; multiple seeds; identical evaluation
-pipelines; explicit confidence intervals.
+1. **Canonical published architectures** — reconstructed from papers
+   (`papers/fetch.py` is already this). Connects the corpus to published claims.
+2. **Controlled variants** — one design choice changed at a time: LayerNorm vs
+   RMSNorm, learned vs RoPE, GELU vs SwiGLU, pre- vs post-norm, global vs local
+   attention, shared vs independent parameters.
+3. **Ablated architectures** — components removed, disabled, replaced,
+   simplified.
+4. **Interpolated architectures** — built between known families: gradually
+   increasing recurrence or attention locality, varying MLP-to-attention
+   capacity, depth-to-width ratio, degree of parameter sharing.
+5. **Random valid architectures** — sampled from a constrained grammar.
+6. **User-contributed architectures** — via the Studio, entering the public
+   corpus only after validation, metadata completion and reproducibility checks.
+7. **Failed and negative-result architectures** — preserved deliberately. A
+   corpus containing only successes will exaggerate positive associations and
+   conceal failure regions. This is the single clearest advantage a
+   purpose-built corpus has over the literature.
 
-Several comparison regimes, maintained in parallel:
+*Engineering note.* Source 5 needs a **constrained grammar** emitting only
+valid, trainable configurations (`d` divisible by heads, legal norm placements,
+compatible position encodings). Worth building early — it is also what makes the
+Studio spec builder impossible to misconfigure.
+
+---
+
+## 8. Confounding, and the protocol
+
+The central methodological problem. Performance is affected by parameter count,
+dataset size and quality, token count, training duration, optimiser, schedule,
+batch size, weight decay, dropout, regularisation, augmentation, initialisation,
+precision, compiler behaviour, kernel efficiency, hardware, seed, implementation
+quality, tuning effort, and stopping criteria.
+
+A naive corpus could easily learn that architectures from larger labs perform
+better, or that recent models perform better, when the true cause is compute or
+tuning. The system must distinguish correlation from evidence obtained under
+controlled comparison.
+
+### 8.1 Matched comparison regimes
 
 | Regime | Held constant |
 |---|---|
 | Parameter-matched | approximate parameter count |
 | FLOP-matched | training compute |
+| Token-matched | training examples seen |
+| Wall-clock-matched | elapsed time on defined hardware |
 | Latency-matched | inference-time constraint |
-| Memory-matched | hardware memory budget |
+| Memory-matched | memory budget |
+| Energy-matched | power/energy budget, where measurable |
 | Frontier | nothing — compare on Pareto fronts |
 
 The frontier regime matters because architectural strength is rarely
-one-dimensional, and collapsing it to a scalar is how leaderboards mislead.
+one-dimensional: an architecture may be preferable for lying on a better
+trade-off frontier even without maximising raw accuracy.
 
-*Engineering note — tuning effort is the nastiest confound because it is
-unobservable after the fact.* The only real defence is to make it a fixed part
-of the protocol: every architecture gets the **same LR search budget** (say a
-fixed 5-point grid over the same range), and the budget is recorded in the
-result row alongside the score. An architecture that would have won with more
-tuning simply loses under the stated protocol, and the protocol is published.
-That is honest and reproducible; "we tuned until we were satisfied" is neither.
+### 8.2 Protocol families and versioning
 
-*Engineering note — seeds are not optional here.* On 2026-07-31 a single seed in
-the SRD needle experiment produced what looked like a clean phase-change result;
-three replication seeds returned 0/3 on both pre-registered criteria, and the
-falsifier lane outperformed the mechanism in two of them. Every cell in this
-corpus needs ≥3 seeds, and **seed variance is itself one of the behavioural
-features** (`y_i` already lists it). The Atlas would have caught that result
-automatically, which is a decent argument for building it.
+Define reproducible protocol *families*, not one universal protocol. Each
+specifies dataset, preprocessing, parameter budget, token budget, compute
+budget, optimiser, scheduler, batch size, regularisation, precision, hardware
+class, seed policy, checkpoint policy, stopping criteria, evaluation procedure.
+**Every result records its complete protocol version.**
+
+### 8.3 Hyperparameter fairness
+
+Unequal tuning effort is the nastiest confound because it is unobservable after
+the fact. Options: identical search spaces; identical tuning budgets; fixed
+default recipes; nested optimisation budgets; reporting tuned *and* untuned
+results; explicitly modelling tuning effort as a variable. The corpus must never
+silently compare a heavily tuned architecture against a minimally tuned
+baseline.
+
+*Engineering note.* The practical defence is to make it protocol: every
+architecture gets the **same LR search budget** (e.g. a fixed 5-point grid over
+the same range), recorded in the result row. An architecture that would have won
+with more tuning simply loses under the stated protocol — and the protocol is
+published. "We tuned until satisfied" is neither honest nor reproducible.
+
+### 8.4 Seeds and uncertainty
+
+Every comparison reports multiple seeds, confidence intervals, effect sizes and
+variance decomposition. Small apparent gains must not be presented as meaningful
+when they fall inside run-to-run variance.
+
+*Engineering note.* On 2026-07-31 a single seed in the SRD needle experiment
+produced what looked like a clean phase-change result; three replication seeds
+returned 0/3 on both pre-registered criteria, and the falsifier lane outperformed
+the mechanism in two of them. Every cell needs ≥3 seeds, and **seed variance is
+itself a behavioural feature**. The Atlas would have caught that automatically,
+which is a decent argument for building it.
+
+### 8.5 Implementation confounding
+
+Two implementations of one architecture can behave differently. Record and
+distinguish: architecture specification; implementation; execution backend;
+kernel set; hardware. Matched comparisons should run through the same microtorch
+execution path.
+
+### 8.6 Selection bias
+
+Mark every architecture's source — published, generated, user-submitted,
+ablated, failed, reconstructed — and stratify analyses by it when necessary.
+
+### 8.7 Task and dataset confounding
+
+An innovation may help one task family and harm another. Never collapse all task
+results into one average without preserving task structure.
+
+### 8.8 Temporal confounding
+
+Newer architectures arrive with better software, data and recipes. Publication
+year and implementation generation are candidate confounders and must be
+recorded as such.
 
 ---
 
-## 7. Statistical modelling
+## 9. Statistical analysis
 
-Clustering is not the end. With a large enough corpus, fit models:
+Beyond visualisation and descriptive clustering.
 
+**Regression.**
 ```
 Y = β0 + β1(RMSNorm) + β2(RoPE) + β3(depth) + β4(width)
        + β5(RMSNorm × depth) + ε
 ```
 
-estimating average effects while controlling for measured features. More
-flexible options: random forests; gradient-boosted trees; Gaussian processes;
-graph neural networks over computational graphs; Bayesian hierarchical models;
-mixed-effects models across datasets and seeds.
-
-A **hierarchical model** is the right default because the data are nested — runs
-within architectures, architectures within families, datasets within task types:
-
+**Mixed-effects**, because results are nested — runs within configurations,
+configurations within architectures, architectures within families, tasks within
+task families, datasets within domains:
 ```
-performance_{i,d,s} = α + u_i + v_d + β' x_i + γ'(x_i × d) + ε_{i,d,s}
+performance_{i,d,s} = α + u_i + v_d + β′x_i + γ′(x_i × d) + ε_{i,d,s}
 ```
+This separates architecture-level effects, dataset-level effects, task-specific
+interactions and run-level noise, and answers directly: *which architectural
+properties have general effects, and which are task-dependent?*
 
-which directly answers: *which architectural properties have general effects,
-and which are task-dependent?*
+**Bayesian hierarchical models** pool information across related families,
+quantify uncertainty explicitly, support small samples, and update as
+experiments arrive.
+
+**Tree ensembles** capture nonlinear interactions and give exploratory feature
+importance — not causal explanations.
+
+**Gaussian processes** suit lower-dimensional design spaces, especially for
+active experiment selection and uncertainty-aware interpolation.
+
+**Graph neural networks** can embed computational graphs directly, capturing
+structure hand-engineered features miss. They should supplement, not replace,
+interpretable descriptors.
+
+### 9.1 Causal discipline
+
+Strongest evidence comes from controlled intervention. Observational corpus
+analysis generates hypotheses; causal language is reserved for randomised
+architecture interventions, matched controlled experiments, or justified
+quasi-experimental designs. The interface must visibly distinguish:
+
+**observational association → matched comparison → controlled ablation →
+replicated intervention.**
 
 *Engineering note.* The mixed-effects model is also what makes the fractional
-factorial (section 4.1) pay off: the design gives clean, unconfounded estimates
-for `β` and the interaction terms, and the random effects `u_i, v_d` absorb the
-architecture- and dataset-level noise that would otherwise be read as signal.
-Design and model belong together; picking one without the other wastes the
-compute.
+factorial pay off: the design gives clean unconfounded estimates for `β` and the
+interaction terms, while random effects `u_i, v_d` absorb architecture- and
+dataset-level noise that would otherwise read as signal. Design and model belong
+together; choosing one without the other wastes the compute.
 
 ---
 
-## 8. Architectural fingerprints
+## 10. Evidence grades and reproducibility
 
-The clearest framing of the output. Each model gets a fingerprint composed of
-structure, learning dynamics, task strengths, robustness, efficiency, ablation
-dependence, and interaction effects — rendered as a report:
+Preserve microtorch's verification philosophy. Every result traces to an
+architecture specification, an experiment manifest, a code commit, an
+environment, a dataset version, a protocol version, and one or more raw runs.
 
-> **Architecture profile**
-> - Structurally nearest to GPT-style decoder transformers.
-> - Behaviourally nearest to recurrent-attention hybrids.
-> - Strongest relative advantage: long-context retention.
-> - Primary dependency: rotary positional encoding.
-> - Most redundant component: gated MLP.
-> - Failure mode: high variance under low-data training.
-> - Distinguishing feature: depth contributes more than width relative to its
->   nearest peers.
+The system flags incomplete metadata, failed reproducibility checks, non-matched
+comparisons, missing seeds, suspicious variance, and implementation drift.
 
-Substantially more informative than a scalar score, and — importantly — every
-line of it is a claim traceable to specific runs in the corpus.
+Results carry an **evidence grade**:
 
----
+```
+exploratory → single-run → replicated → matched → controlled intervention
+            → cross-dataset replicated → independently reproduced
+```
 
-## 9. The research questions
-
-- Do structurally similar architectures behave similarly?
-- Are there multiple architectural routes to the same performance profile?
-- Which components are robustly beneficial across model families?
-- Which innovations work only through interactions with other innovations?
-- Which architectures are over-engineered? Which components are redundant?
-- Are published architectural families genuine behavioural families, or mostly
-  historical labels?
-- Do certain structures systematically produce stable training?
-- Can ablation signatures predict generalisation?
-- Can an unseen architecture's performance be estimated from its neighbours?
-- Can we identify underexplored regions of architecture space?
-- Can architecture recommendations be conditioned on a desired capability
-  profile?
+The grade travels with the claim everywhere it is displayed. A fingerprint line
+backed by "single-run" and one backed by "cross-dataset replicated" must never
+look alike in the UI.
 
 ---
 
-## 10. Connection to the paper pipeline
+## 11. The data model
 
-The paper-analysis feature becomes the entry point. microtorch reads a paper and
-extracts claimed innovations, baseline architecture, reported metrics and
-proposed causal explanations, then compares against the corpus:
+Each experiment record contains at least:
+
+**Architecture metadata** — architecture ID; family; source; source paper; code
+version; graph representation; parameter count; component taxonomy entries;
+parent architecture where applicable.
+
+**Training metadata** — dataset; split; preprocessing; optimiser; scheduler;
+batch size; token budget; step budget; compute estimate; hardware; precision;
+seed; protocol version.
+
+**Evaluation metadata** — metrics; evaluation code version; checkpoint policy;
+task family; distribution-shift tests; robustness tests.
+
+**Intervention metadata** — component changed; intervention type; replacement
+component; parent run; expected effect; intervention rationale.
+
+**Reproducibility metadata** — environment lockfile; dependency versions; commit
+hash; hardware details; deterministic settings; validation status.
+
+*Engineering note.* This is a superset of what a spec already holds plus what
+`events.jsonl` already emits. The gap is a **result row** joining them, plus the
+intervention and reproducibility blocks. JSONL is sufficient until the corpus is
+large; a database is not required to start.
+
+---
+
+## 12. Component taxonomy
+
+Essential, and the piece most likely to be underestimated. The same concept
+appears under different names across papers; without canonical categories,
+corpus-level comparison is unreliable.
+
+Canonical categories are needed for: normalisation; activation; positional
+encoding; attention topology; residual connection; feed-forward design;
+recurrence; convolution; routing; sparsity; parameter sharing; memory mechanism;
+output head.
+
+Each component supports **aliases**, **implementation variants**,
+**parent–child relationships**, **compatibility constraints**, and
+**versioning**.
+
+*Engineering note.* The taxonomy subsumes the substitution lattice of §2.3 —
+the legal alternatives for a slot are just the taxonomy's siblings under a
+parent category:
+
+```
+normalisation : {RMSNorm, LayerNorm, none}
+position      : {RoPE, learned, sinusoidal, NoPE}
+activation    : {SwiGLU, GELU-MLP, ReLU-MLP}
+attention     : {exact, kimi-linear, SRD, sliding-window}
+head tying    : {tied, untied}
+residual      : {pre-norm, post-norm}
+```
+
+Compatibility constraints are what the constrained grammar (§7) enforces, so the
+taxonomy is a shared dependency of corpus generation, ablation definition and
+the Studio builder. Build it once, early.
+
+---
+
+## 13. Experiment recommendation
+
+The paper pipeline becomes the entry point. microtorch parses a paper and
+extracts the baseline architecture, claimed innovations, reported metrics,
+stated mechanisms, comparison models and acknowledged limitations, then queries
+the corpus:
 
 > **Paper claim:** RMSNorm improves training stability.
-> **Corpus evidence:** RMSNorm is associated with lower gradient variance in 71%
-> of matched transformer comparisons, but the effect is concentrated in models
-> deeper than 24 layers.
+> **Corpus evidence:** RMSNorm is associated with lower gradient variance in most
+> matched transformer comparisons, but the effect is concentrated in deeper
+> models.
 > **Recommended experiment:** compare LayerNorm and RMSNorm at depths 12, 24 and
-> 48, holding compute constant.
+> 48, holding parameter count, token budget, optimiser and compute constant.
 > **Reason:** existing evidence suggests a depth-dependent interaction.
 
-That is much stronger than auto-generating a generic ablation grid: the system
-is using accumulated evidence to propose **high-information** experiments — the
-ones whose outcome the corpus cannot already predict.
+Not a generic ablation grid — experiments chosen where evidence is uncertain,
+contradictory or underpowered.
+
+**High-information experiments** are prioritised by expected information gain,
+uncertainty reduction, estimated novelty, disagreement between predictive
+models, sparse coverage of architecture space, high variance in prior results,
+or proximity to a Pareto frontier.
+
+**Replication recommendations** fire when a claim rests on one paper, when
+effects are small relative to seed variance, when results depend heavily on one
+recipe, or when published and corpus results disagree.
+
+**Counterfactual recommendations** propose the smallest change likely to improve
+stability, the cheapest change preserving accuracy, the most informative
+ablation, the nearest unexplored variant, or the strongest test of a paper's
+claimed mechanism.
 
 *Engineering note.* "High-information" can be made precise rather than
 rhetorical: rank candidate experiments by expected reduction in posterior
 variance of the coefficient in question (Bayesian optimal experimental design).
-The corpus gives the prior; the design gives the expected information gain. This
-is the feature that would make the tool genuinely worth using rather than
-merely interesting.
+The corpus supplies the prior; the design supplies expected information gain.
+This is the feature that makes the tool worth using rather than merely
+interesting.
 
 ---
 
-## 11. Product shape
+## 14. Worked example
 
-**Option A — microtorch Research Mode.** A feature inside the existing
-ecosystem: parse a paper, reproduce the architecture, generate ablations,
-compare against a corpus, produce an evidence report.
+**Workflow.** Paste an arXiv URL → parse → extract architecture and training
+setup → identify claims → reconstruct the baseline → map each claimed innovation
+onto the component taxonomy → query the corpus for prior evidence → report which
+claims are well supported, weakly supported, contradictory or untested → propose
+a controlled experiment set → estimate compute cost → run → add results to the
+corpus → update the fingerprint → produce a report ranking main effects,
+interactions, uncertainty, robustness and reproducibility.
 
-**Option B — a separate architecture observatory.** Its own identity and
-repository: standardised experiment database, architecture embeddings,
-similarity search, statistical meta-analysis, interactive maps, hypothesis
-generation, experiment recommendation — sharing microtorch's execution engine.
+**Report.**
 
-Both are viable and they are not exclusive: A is the on-ramp to B, and A is
-worth building even if B never happens.
-
-*On naming.* Of the candidates — Architecture Observatory, Model Atlas, ArchLab
-— note that an **observatory observes** and this system's entire epistemic
-advantage is that it **intervenes**. Controlled substitution under a fixed
-protocol is what buys causal traction over scraped leaderboards. "Lab" or
-"Atlas" carry that better than "Observatory"; **Model Atlas** additionally
-matches the map-and-neighbourhood metaphor the interface is built on.
+> **Detected claims.** RMSNorm improves stability. RoPE improves long context.
+> SwiGLU improves capacity.
+>
+> **Corpus context.** RMSNorm: broadly positive in deep decoders, uncertain in
+> shallow encoders. RoPE: strong long-context benefit, mixed short-context.
+> SwiGLU: positive on average, strongly dependent on width and compute budget.
+>
+> **Proposed experiments.** Full architecture; remove each innovation
+> individually; replace each with its canonical baseline; test pairwise
+> combinations; repeat at two scales; ≥5 seeds for high-variance conditions.
+>
+> **Confounding controls.** Matched parameter count; matched training FLOPs;
+> fixed token budget; identical optimiser search budget; identical
+> preprocessing; identical evaluation pipeline; common backend.
+>
+> **Findings.** RoPE produced the largest long-context effect. RMSNorm reduced
+> gradient variance only at greater depth. SwiGLU improved accuracy but
+> increased memory. RoPE and RMSNorm interacted positively. SwiGLU was partly
+> redundant at the smaller scale.
+>
+> **Recommendation.** Retain RoPE across scales. Retain RMSNorm for deep
+> variants. Evaluate a cheaper MLP alternative for constrained deployment.
 
 ---
 
-## 12. Feasibility: what this actually costs
+## 15. Research questions
 
-Concrete numbers, using measured microtorch throughput after the 2026-07-31
-performance work (llama-tiny, d=128, 2 layers, T=128, batch=4: ~1.03 s/step, so
+- Do structurally similar architectures behave similarly?
+- Are there multiple architectural routes to the same performance profile?
+- Which components are robustly beneficial across families?
+- Which effects depend on scale? On task family?
+- Which innovations work only through interaction with other components?
+- Which architectures are over-engineered? Which components are redundant?
+- Which designs systematically produce stable training?
+- Can ablation signatures predict generalisation? Robustness?
+- Can an unseen architecture's performance be estimated from its neighbours?
+- Can embeddings identify underexplored regions?
+- Can architectures be recommended for a desired capability profile?
+- Do published families correspond to genuine behavioural families?
+- **How much apparent architectural progress disappears under matched compute
+  and tuning budgets?**
+- Which claimed innovations survive replication across implementation backends?
+
+The bolded one is the question most likely to produce a paper nobody else can
+write, and it is answerable at small scale.
+
+---
+
+## 16. Product shape
+
+**Repository one — microtorch.** Architecture definition, execution, training,
+evaluation, reproducibility, paper parsing, experiment generation, Studio
+interaction. *Research Mode* lives here: architecture reconstruction, protocol
+execution, ablation generation, experiment scheduling, metric collection, report
+creation.
+
+**Repository two — the Atlas.** Corpus storage, metadata schemas, statistical
+analysis, architecture embeddings, UMAP visualisation, clustering, similarity
+search, evidence synthesis, hypothesis generation, experiment recommendation,
+public dashboards. Depends on microtorch as an execution engine without being
+conceptually identical to it.
+
+**Shared infrastructure**: architecture schemas; experiment manifests; component
+taxonomies; metric definitions; protocol versioning; reproducibility checks;
+result formats.
+
+The split keeps microtorch from carrying every analytical responsibility. The
+two are not exclusive and Research Mode is the on-ramp: it is worth building
+even if the Atlas never happens.
+
+*On naming.* Of Architecture Observatory / Model Atlas / ArchLab — an
+**observatory observes**, and this system's entire epistemic advantage is that
+it **intervenes**. Controlled substitution under a fixed protocol is what buys
+causal traction over scraped leaderboards. "Atlas" and "Lab" carry that better;
+**Atlas** additionally matches the map-and-neighbourhood metaphor the interface
+is built on.
+
+---
+
+## 17. Feasibility
+
+Measured microtorch throughput after the 2026-07-31 performance work
+(llama-tiny, d=128, 2 layers, T=128, batch=4, fused attention: ~1.03 s/step, so
 a 3,000-step run is ~52 minutes).
 
 | Scope | Runs | Serial CPU | 4 concurrent sessions |
 |---|---|---|---|
 | Plackett–Burman screen, 11 factors, 3 seeds | 36 | ~31 h | **~8 h** |
 | Resolution-V design, 8 factors, 3 seeds | 192 | ~166 h | **~42 h** |
-| Naive per-architecture ablation, 100 arch × 6 comps × 3 seeds | 1,800 | ~1,560 h | ~390 h |
+| Naive per-architecture ablation, 100 × 6 × 3 | 1,800 | ~1,560 h | ~390 h |
 
-The screening pass is an overnight job. The resolution-V design is a long
-weekend. The naive approach is sixteen days and buys strictly less. That gap is
-the entire argument for section 4.1.
+The screen is an overnight job; the resolution-V design is a long weekend; the
+naive approach is sixteen days for strictly less information. That gap is the
+whole argument for §5.3.
 
-**What already exists** and does not need building: the execution engine, the
-declarative spec (a design-matrix row *is* a spec), checkpoint/resume for long
-sweeps, the JSONL event stream as the measurement record, early stopping,
-multi-seed CLI support (`srd_needle` already takes a seed argument), and the
-falsifier/pre-registration discipline this whole thing depends on.
+**Already exists**: the execution engine; the declarative spec (a design-matrix
+row *is* a spec); checkpoint/resume for long sweeps; `events.jsonl` as the
+measurement record; early stopping; multi-seed CLI support; and the
+falsifier/pre-registration discipline the whole thing depends on.
 
-**What needs building**, in dependency order:
+**Needs building**, in dependency order:
 1. Derived structural features (parameter count, FLOP estimate) — hours.
-2. A constrained architecture grammar + design-matrix → specs generator — days.
-3. A sweep runner and a results store (JSONL is sufficient; a database is not
-   required until the corpus is large) — days.
-4. Behavioural feature extraction from `events.jsonl` — days.
-5. The statistical layer (mixed-effects fit, interaction estimates) — Python,
-   `statsmodels`/`pymc`, days.
-6. The Studio map view (embedding + click-through) — the visible payoff, and the
-   piece that should be built last because everything above determines what it
-   displays.
+2. Component taxonomy + constrained grammar + design-matrix → specs — days.
+3. Sweep runner and result store (JSONL) — days.
+4. Behavioural extraction from `events.jsonl` — days.
+5. Statistical layer (mixed-effects, interaction estimates) — days.
+6. Studio map view — last, because everything above determines what it displays.
 
 ---
 
-## 13. Risks, stated honestly
+## 18. Risks
 
-**The central external-validity threat: scale.** These experiments run at
-d=128, 2 layers. Many architectural effects are scale-dependent, and some famous
-ones reverse. An Atlas built entirely at tiny scale risks producing a beautiful,
-well-clustered, internally-consistent map of a regime nobody deploys in.
+**Scale — the central external-validity threat.** Experiments run at d=128, 2
+layers. Many architectural effects are scale-dependent and some reverse. An
+Atlas built entirely at tiny scale risks being a beautiful, internally
+consistent map of a regime nobody deploys in. Mitigation: make scale **an axis
+rather than a constant** — measure every effect at three sizes and report the
+*trend*, not the point. A component whose benefit grows with depth is a
+different finding from one that shrinks, and trends extrapolate where point
+estimates do not. Anything not measured across the ladder is labelled
+small-scale-only.
 
-The mitigation is not to pretend otherwise but to **make scale an axis rather
-than a constant**: measure every effect at three model sizes and report the
-*trend* rather than the point estimate. A component whose benefit grows with
-depth is a different finding from one that shrinks, and the trend is often
-extrapolatable where the point estimate is not. Any claim not measured across
-the ladder should be explicitly labelled as small-scale-only.
+**Proxy validity.** Related but distinct: cheap proxy tasks may not predict
+behaviour on real workloads. Model scale explicitly; do not assume transfer.
 
-**Second risk: the corpus measures microtorch, not architectures.** Effects
-could be artefacts of one implementation. Partial defence: the GPT-2 and Qwen
-parity checks already establish that this implementation agrees with the
-reference on known models, and that argument should be cited whenever the corpus
-makes a claim.
+**Benchmark dependence.** Results can become benchmark-specific. Needs diverse
+tasks and clearly labelled domains.
 
-**Third risk: garden of forking paths.** A rich enough feature space plus
-flexible clustering will always yield an interesting-looking story.
-Pre-registration of the analysis, bootstrap stability for clusters, and holding
-out a validation slice of the corpus are the standard defences and should be
-protocol from run one, not retrofitted.
+**Implementation artefacts.** Differences may reflect kernels or code paths, not
+architecture. Common execution infrastructure reduces but does not eliminate
+this; the existing GPT-2 and Qwen parity checks are the standing evidence that
+this implementation agrees with the reference, and should be cited whenever the
+corpus makes a claim.
 
-**Fourth risk: scope.** This is a research programme, not a feature. Option A
-(Research Mode) is a bounded deliverable; Option B is a multi-year project. The
-staged plan below is deliberately arranged so that each stage is independently
-useful if the next never happens.
+**Overinterpretation of embeddings.** UMAP and clustering are exploratory.
+Visible clusters need statistical validation (§3.1).
+
+**Causal overclaiming.** Predictive models find associations. The evidence-grade
+ladder (§10) and the causal discipline of §9.1 exist to keep the interface
+honest.
+
+**Taxonomy ambiguity.** Components are not always cleanly separable; some
+innovations alter several properties at once. The taxonomy needs explicit
+"compound intervention" marking.
+
+**Data leakage and duplication.** The corpus must detect repeated runs, reused
+checkpoints and derivative architectures.
+
+**Contributor bias.** User-submitted data will be uneven. Validation and
+evidence grading are the defence.
+
+**Scope.** This is a research programme, not a feature. The staging below is
+arranged so each stage is independently useful if the next never happens.
 
 ---
 
-## 14. Staged plan
+## 19. Staged plan
 
 **Stage 0 — instrument (days).** Derived structural features; behavioural
 extraction from `events.jsonl`; persist run records instead of discarding them.
-*Independently useful:* every future microtorch run becomes a data point.
+*Useful alone:* every future microtorch run becomes a data point.
 
-**Stage 1 — the grammar and the sweep runner (days).** Constrained architecture
-grammar; design matrix → specs; a runner that executes a sweep with
-checkpoint/resume and writes one result row per run.
-*Independently useful:* multi-seed sweeps become one command, which the SRD line
-needs anyway.
+**Stage 1 — taxonomy, grammar, sweep runner (days).** Component taxonomy;
+constrained grammar; design matrix → specs; a runner with checkpoint/resume
+writing one result row per run.
+*Useful alone:* multi-seed sweeps become one command — which the SRD line needs
+regardless.
 
-**Stage 2 — the screening experiment (one night).** Plackett–Burman over 11
-architectural factors, 3 seeds, one dataset, parameter-matched. Report main
-effects with confidence intervals.
-*Independently useful:* this alone is a publishable negative-or-positive result
-about which architectural factors matter at small scale.
+**Stage 2 — the screening experiment (one night).** Plackett–Burman over ~11
+architectural factors, 3 seeds, one dataset, parameter-matched. Main effects
+with confidence intervals.
+*Useful alone:* a publishable result about which architectural factors matter at
+small scale, positive or negative.
 
 **Stage 3 — the resolution-V design (a weekend).** All main effects and pairwise
-interactions for the factors screening flagged. Fit the mixed-effects model.
-*Independently useful:* the interaction table is the scientific core of the
-whole idea.
+interactions for surviving factors; fit the mixed-effects model.
+*Useful alone:* the interaction table is the scientific core of the idea.
 
-**Stage 4 — the scale ladder (weeks).** Repeat stages 2–3 at three model sizes;
-report trends.
-*This is what converts small-scale findings into defensible claims.*
+**Stage 4 — the scale ladder (weeks).** Repeat 2–3 at three sizes; report
+trends. *This is what converts small-scale findings into defensible claims.*
 
-**Stage 5 — the Atlas surface (weeks).** Embedding, map view, four kinds of
-neighbour, fingerprint reports, paper-vs-corpus comparison.
-*The product.*
+**Stage 5 — fingerprints and neighbours (weeks).** Embeddings, five neighbour
+types, fingerprint reports, evidence grades.
+
+**Stage 6 — the Atlas surface (weeks).** Map view, filtering, Pareto fronts,
+paper-vs-corpus comparison, experiment recommendation.
+
+### 19.1 The minimal viable research programme
+
+A strong first study, and the concrete content of Stages 2–3. A constrained
+transformer design space:
+
+- LayerNorm vs RMSNorm
+- learned positional embeddings vs RoPE
+- GELU vs SwiGLU
+- pre-normalisation vs post-normalisation
+- three depths × three widths
+- two task families
+
+Under fixed parameter and compute budgets, measure validation loss, convergence
+speed, seed variance, gradient statistics, memory, latency and long-context
+degradation. That alone supports main-effect estimation, pairwise interaction
+analysis, all three clusterings, visualisation, and early experiment
+recommendation.
+
+**A narrow but rigorous corpus is worth more than a broad but confounded one.**
+That sentence should govern every scoping decision on this project.
 
 ---
 
-## 15. Why this fits microtorch specifically
+## 20. Why this fits microtorch specifically
 
-Most people cannot build this. It requires an execution engine you control
+Most people cannot build this. It needs an execution engine you control
 end-to-end, a declarative run format, cheap experiments, and — most rarely — a
 research culture that publishes negatives and pre-registers criteria. microtorch
-has all four, and the last one is the scarce ingredient: an atlas assembled by
+has all four, and the last is the scarce ingredient: an atlas assembled by
 someone willing to report that their own mechanism failed to replicate is worth
 considerably more than one assembled by someone who is not.
+
+The deepest idea here is not automation. It is **cumulative architectural
+evidence**: instead of every paper starting from zero, results are preserved and
+integrated across architectures, tasks, interventions, scales and training
+regimes — moving architecture research from isolated benchmark claims toward a
+systematic empirical science.
