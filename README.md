@@ -441,6 +441,11 @@ docs/                 Doxygen config (make docs)
 - Parallel scan for Mamba (training-speed parity with attention)
 - Technique transfer from open-weight frontier reports — attention residuals,
   KDA, Muon optimizer ([TECH_TRANSFER.md](TECH_TRANSFER.md))
+- **The Architecture Atlas** ([ARCHITECTURE_ATLAS.md](ARCHITECTURE_ATLAS.md)):
+  represent an architecture by the pattern of behaviours and dependencies it
+  shows under controlled substitution, not by a scalar score — structural,
+  behavioural and ablation-signature embeddings, interaction effects via
+  fractional-factorial designs, and architectural fingerprints in the Studio
 - **Sparse attention research phase**: survey the current literature and attempt
   original variants — the long-horizon flagship goal
 
