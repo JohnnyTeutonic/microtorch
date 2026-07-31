@@ -12,7 +12,7 @@ Effort key: **S** ≤ a day · **M** a few days · **L** a week+.
 
 | # | Technique | Target lib(s) | Effort | Value | Notes |
 |---|---|---|---|---|---|
-| 1 | **Attention Residuals (AttnRes)** | microtorch, transformer_cpp, dit | S–M | high | Cheapest real win; drops into DiT too. Do first. |
+| 1 | **Attention Residuals (AttnRes)** | microtorch, transformer_cpp, dit | S–M | high | **microtorch DONE 2026-07-31**: nn::AttnResStack (full + block forms, equivalence-pinned, FD-checked, dead-query finding recorded); dit + transformer_cpp remain. |
 | 2 | **KDA (Kimi Delta Attention)** op | microtorch, chimera | M (recurrent) / L (chunkwise+CUDA) | high | Reference impl first (this backlog). Feeds the Chimera paper extension. |
 | 3 | **Muon optimizer (per-head)** | microtorch | S | med–high | **DONE 2026-07-31**: nn::Muon + newton_schulz5, golden-pinned to the reference, per-head receipts, mtstudio hybrid routing + studio dropdown. |
 | 4 | **SiTU-GLU + Quantile Balancing** | transformer_cpp (moe/router) | S–M | med | Bounded GLU stops activation explosion; QB improves load balance. |

@@ -50,7 +50,15 @@ makes every depth-attention uniform at step 0 -- the stack starts as "average
 all sources", the closest AttnRes analogue of a plain residual stream -- and
 the gradient through softmax is nonzero there, which the self-test asserts.
 
-Run directly for a self-test:  python attn_res_reference.py
+FINDING FROM THE C++ PORT (2026-07-31, test_attn_res.cpp): the FIRST
+layer's pseudo-query row (w[0]) is structurally gradient-dead — its source
+list is always the single embedding, and softmax over a singleton is
+constant regardless of the query. This implementation cannot see that:
+the dead-check below sums |grad| over the WHOLE [L+1, d] parameter, and
+rows 1..L carry gradient, so the dead row hides inside a live tensor.
+The C++ port registers queries individually, caught it, and does not
+allocate the dead parameter at all (layer 0 reads the embedding
+directly, which is what the math already does).
 """
 from __future__ import annotations
 

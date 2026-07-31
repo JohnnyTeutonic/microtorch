@@ -297,6 +297,83 @@ void AdamW::zero_grad() {
     microtorch::zero_grad(params_);
 }
 
+// ---- AttnRes ---------------------------------------------------------------
+
+AttnResStack::AttnResStack(std::vector<std::shared_ptr<Module>> owned,
+                           std::vector<std::function<Var(const Var&)>> fns, size_t d,
+                           size_t block_size_)
+    : block_size(block_size_), fns_(std::move(fns)) {
+    if (owned.size() != fns_.size()) {
+        throw std::runtime_error("AttnResStack: owned/fns size mismatch");
+    }
+    for (size_t i = 0; i < owned.size(); ++i) {
+        adopt("f." + std::to_string(i), owned[i]);
+    }
+    // One pseudo-query per layer plus the final aggregation, zero-init
+    // (uniform depth-attention at step 0; see header). Layer 0's query is
+    // NOT allocated: its source list is always the single embedding, and
+    // softmax over a singleton is constant, so that query is structurally
+    // gradient-dead. (The reference stores all queries in one [L+1, d]
+    // tensor, whose per-tensor dead-check cannot see the dead row; found
+    // by this port's per-query registration.) w[l] is layer l's query for
+    // l >= 1; w.back() is the final aggregation; layer 0 reads h1 direct.
+    w.push_back(Var());  // slot 0 intentionally empty
+    for (size_t i = 1; i <= fns_.size(); ++i) {
+        w.push_back(reg("w." + std::to_string(i), Matrix(1, d)));
+    }
+    ones_gamma_ = make_var(Matrix(1, d, 1.0f));
+    Matrix oc(d, 1, 1.0f);
+    ones_col_ = make_var(std::move(oc));
+}
+
+Var AttnResStack::depth_attend(const Var& wq, const std::vector<Var>& sources) const {
+    // Softmax over one source is the identity mixture regardless of the
+    // query — return the source and record nothing.
+    if (sources.size() == 1) return sources[0];
+    // Eq. 9: logits_i = w^T RMSNorm(k_i) per position; softmax over the
+    // SOURCE axis; values mixed raw.
+    std::vector<Var> logits;
+    logits.reserve(sources.size());
+    for (const auto& s : sources) {
+        logits.push_back(ops::matmul(ops::mul_row(ops::rmsnorm(s, ones_gamma_), wq), ones_col_));
+    }
+    Var alpha = ops::softmax_row(ops::concat_cols(logits));  // [T, S]
+    Var out;
+    for (size_t i = 0; i < sources.size(); ++i) {
+        Var term = ops::mul_col(sources[i], ops::slice_cols(alpha, i, i + 1));
+        out = out ? ops::add(out, term) : term;
+    }
+    return out;
+}
+
+Var AttnResStack::forward(const Var& h1) const {
+    if (block_size == 0) {
+        // Full form (Eq. 8-9): attend over embedding + every prior output.
+        std::vector<Var> sources{h1};
+        for (size_t l = 0; l < fns_.size(); ++l) {
+            Var h = depth_attend(w[l], sources);
+            sources.push_back(fns_[l](h));
+        }
+        return depth_attend(w.back(), sources);
+    }
+    // Block form (Eq. 10): sum within blocks, attend across banked blocks;
+    // a partial final block banks too (K3's 9-block layout).
+    std::vector<Var> banked{h1};
+    Var partial;
+    for (size_t l = 0; l < fns_.size(); ++l) {
+        std::vector<Var> sources = banked;
+        if (partial) sources.push_back(partial);
+        Var h = depth_attend(w[l], sources);
+        Var out = fns_[l](h);
+        partial = partial ? ops::add(partial, out) : out;
+        if ((l + 1) % block_size == 0 || l == fns_.size() - 1) {
+            banked.push_back(partial);
+            partial = Var();
+        }
+    }
+    return depth_attend(w.back(), banked);
+}
+
 // ---- Muon ------------------------------------------------------------------
 
 Matrix newton_schulz5(const Matrix& G, int steps) {

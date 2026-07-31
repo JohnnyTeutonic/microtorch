@@ -48,6 +48,11 @@ protected:
         children_.emplace_back(name, m);
         return m;
     }
+    // Register an EXISTING module as a child (AttnResStack wraps layers
+    // constructed by the caller; mod<> only covers in-place construction).
+    void adopt(const std::string& name, std::shared_ptr<Module> child) {
+        children_.emplace_back(name, std::move(child));
+    }
 
 private:
     void collect(const std::string& prefix, std::vector<std::pair<std::string, Var>>& out) const;
@@ -172,6 +177,46 @@ private:
     std::vector<Matrix> m_, v_;
     float b1_, b2_, eps_, wd_;
     long t_ = 0;
+};
+
+// Attention Residuals (AttnRes) — TECH_TRANSFER item 1; Kimi K3 arXiv
+// 2607.24653 section 2.2 Eq. 8-10; reference anchor attn_res_reference.py.
+//
+// A residual stream compresses every earlier layer into one running sum —
+// an RNN over depth. AttnRes replaces that with ATTENTION over depth:
+// layer l's input is a softmax mixture of the embedding and all preceding
+// layer outputs under a learnable per-layer pseudo-query w_l. Keys are
+// parameter-free-RMSNormed sources; values are the raw sources
+// (Eq. 9). Block form (Eq. 10): outputs SUM within blocks of block_size
+// layers and attention runs across banked block representations only,
+// dropping memory from O(L d) to O(N d).
+//
+// Composed entirely from gradchecked tape ops (rmsnorm, mul_row, matmul,
+// softmax_row, mul_col, ...) so this class owns no new calculus.
+// Pseudo-queries init to ZERO: depth-attention starts uniform — the
+// nearest AttnRes analogue of a plain residual stream — and the softmax
+// gradient is nonzero there (asserted in test_attn_res).
+//
+// Layers are passed twice, deliberately: `owned` registers them so their
+// parameters appear in state_dict/parameters(), and `fns` is how they
+// are called (Module has no virtual forward). Callers keep them aligned.
+class AttnResStack : public Module {
+public:
+    // block_size 0 = full form (Eq. 8-9); >= 1 = block form (Eq. 10).
+    // STRUCTURAL FACT the tests pin: block_size 1 must equal the full
+    // form exactly (every block is one layer; the partial-sum branch
+    // never fires).
+    AttnResStack(std::vector<std::shared_ptr<Module>> owned,
+                 std::vector<std::function<Var(const Var&)>> fns, size_t d, size_t block_size = 0);
+    Var forward(const Var& h1) const;
+
+    std::vector<Var> w;  // pseudo-queries [1, d]: one per layer + final
+    size_t block_size;
+
+private:
+    std::vector<std::function<Var(const Var&)>> fns_;
+    Var depth_attend(const Var& wq, const std::vector<Var>& sources) const;
+    Var ones_gamma_, ones_col_;  // no-grad constants for the composition
 };
 
 // Quintic Newton-Schulz orthogonalization (Muon's core; coefficients per
