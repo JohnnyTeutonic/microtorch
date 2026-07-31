@@ -21,9 +21,18 @@
 # lives inside one VSCode window (terminal pane + browser tab), which
 # Game Bar (Win+Alt+R) records as a single app. See RECORDING_GUIDE.md.
 set -e
-CORPUS=${1:?usage: demo_record.sh CORPUS.txt VOCAB.gguf [TINYLLAMA_BIN]}
-VOCAB=${2:?usage: demo_record.sh CORPUS.txt VOCAB.gguf [TINYLLAMA_BIN]}
-TL=${3:-}
+cd "$(dirname "$0")/.."   # repo root, wherever the script is launched from
+
+# Arguments optional: defaults point at the standard sibling-repo layout
+# (override by passing paths, or via DEMO_CORPUS / DEMO_VOCAB / DEMO_TL).
+_SIB=$(cd .. 2>/dev/null && pwd)/transformer_cpp
+CORPUS=${1:-${DEMO_CORPUS:-$_SIB/data/tinystories-txt/train-0-small.txt}}
+VOCAB=${2:-${DEMO_VOCAB:-$_SIB/releases/chat7b.gguf}}
+TL=${3:-${DEMO_TL:-$HOME/tlbuild/tinyllama}}
+[ -f "$CORPUS" ] || { echo "corpus not found: $CORPUS"; \
+  echo "usage: demo_record.sh [CORPUS.txt] [VOCAB.gguf] [TINYLLAMA_BIN]"; exit 1; }
+[ -f "$VOCAB" ] || { echo "vocab gguf not found: $VOCAB"; \
+  echo "usage: demo_record.sh [CORPUS.txt] [VOCAB.gguf] [TINYLLAMA_BIN]"; exit 1; }
 MT=$(command -v ./mtstudio || command -v build/mtstudio || echo "$HOME/mtrel/mtstudio")
 OUT=/tmp/mtdemo_rec
 STEPS=${DEMO_STEPS:-300}

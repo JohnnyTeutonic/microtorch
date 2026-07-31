@@ -10,9 +10,15 @@
 # arXiv step (skipped gracefully offline); tinyllama binary optional for
 # the final chat step.
 set -e
-CORPUS=${1:?usage: demo.sh CORPUS.txt VOCAB.gguf [TINYLLAMA_BIN]}
-VOCAB=${2:?usage: demo.sh CORPUS.txt VOCAB.gguf [TINYLLAMA_BIN]}
-TL=${3:-}
+cd "$(dirname "$0")/.."   # repo root, wherever the script is launched from
+_SIB=$(cd .. 2>/dev/null && pwd)/transformer_cpp
+CORPUS=${1:-${DEMO_CORPUS:-$_SIB/data/tinystories-txt/train-0-small.txt}}
+VOCAB=${2:-${DEMO_VOCAB:-$_SIB/releases/chat7b.gguf}}
+TL=${3:-${DEMO_TL:-$HOME/tlbuild/tinyllama}}
+[ -f "$CORPUS" ] || { echo "corpus not found: $CORPUS"; \
+  echo "usage: demo.sh [CORPUS.txt] [VOCAB.gguf] [TINYLLAMA_BIN]"; exit 1; }
+[ -f "$VOCAB" ] || { echo "vocab gguf not found: $VOCAB"; \
+  echo "usage: demo.sh [CORPUS.txt] [VOCAB.gguf] [TINYLLAMA_BIN]"; exit 1; }
 MT=$(command -v ./mtstudio || command -v build/mtstudio || echo "$HOME/mtrel/mtstudio")
 OUT=/tmp/mtdemo
 step() { printf "\n\033[1;36m== %s ==\033[0m\n" "$*"; }
