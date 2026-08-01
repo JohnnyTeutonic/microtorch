@@ -20,9 +20,13 @@ than in prose):
                                curve; lower = faster descent, sample-
                                efficiency proxy
   grad_norm_mean/max           gradient scale
-  grad_spike_count             instability: steps with grad_norm > 3x the
-                               run median (the same statistic the studio
-                               glow uses per-module, here globally)
+  grad_spike_count             instability: post-warmup steps (first 5%
+                               excluded) with grad_norm > 3x the
+                               post-warmup median — the warmup transient
+                               was ~85% of the old count and is now its
+                               own metric
+  grad_init_transient          max grad_norm in the first 5% of steps /
+                               post-warmup median: how violent was init
   loss_tail_std                late-run noise: std of the last 20% of
                                train-loss samples
   gate_mean_final              SRD only: mean gate at the end (density)
@@ -74,10 +78,20 @@ def behavioural_features(events):
 
     gnorms = [e["grad_norm"] for e in steps if e.get("grad_norm") is not None]
     if gnorms:
-        med = statistics.median(gnorms)
         feats["grad_norm_mean"] = statistics.fmean(gnorms)
         feats["grad_norm_max"] = max(gnorms)
-        feats["grad_spike_count"] = sum(1 for g in gnorms if med > 0 and g > 3 * med)
+        # Instability, NOT the init transient: measured 2026-08-01 on the
+        # Stage-2 corpus, ~85% of >3x-median exceedances sat in the first
+        # 5% of steps (median spike position: the 1% mark) — that is the
+        # warmup story, and it was contaminating the instability story
+        # (ATLAS_STAGE2_RESULTS.md finding #6). Split them: spikes are
+        # counted over the post-warmup 95% against the post-warmup
+        # median; the transient gets its own metric.
+        warm = max(1, len(gnorms) // 20)
+        body = gnorms[warm:] if len(gnorms) > warm + 3 else gnorms
+        med = statistics.median(body)
+        feats["grad_spike_count"] = sum(1 for g in body if med > 0 and g > 3 * med)
+        feats["grad_init_transient"] = (max(gnorms[:warm]) / med) if med > 0 else None
 
     if evals:
         feats["best_val"] = min(e["val_loss"] for e in evals)

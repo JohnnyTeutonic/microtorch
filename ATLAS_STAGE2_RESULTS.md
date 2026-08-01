@@ -73,6 +73,30 @@ scale, and the spike detector thresholds on those norms — so this may
 be the metric, not the physics. Marked for a normalization fix in
 `atlas_extract.py` before Stage 3 leans on that column.
 
+**ADDENDUM 2026-08-01 — flag confirmed, metric fixed, effect resolved.**
+Diagnosis on this corpus's raw events: **~85% of all >3×-median
+exceedances sat in the first 5% of steps** (median spike position: the
+1% mark) — the metric was measuring the *initialization transient*, not
+training instability. `atlas_extract.py` now splits them:
+`grad_spike_count` counts post-warmup steps against the post-warmup
+median, and the new `grad_init_transient` (max warmup grad / post-warmup
+median) carries the init story. Re-analysis of these same 36 runs
+([spike_metric_v2.md](experiments/atlas_stage2/spike_metric_v2.md)):
+
+- the batch→spike effect **vanishes exactly** (t = +3.13 → **0.00**) —
+  finding #6 was pure init-transient artifact;
+- batch reappears where it belongs: `grad_init_transient` t = +2.35
+  (larger batches start more violently relative to steady state), with
+  lr (t = +3.2), d (t = +3.0) and layers (t = +2.1) alongside;
+- **lr survives on the cleaned instability metric** (t = +2.45), so
+  finding #3's "3× the gradient spikes" stands — now measured on
+  post-warmup steps only — and T = 256 shows a mild post-warmup spike
+  cost (t = +2.19) worth watching in Stage 3.
+
+The original tables above are left as reported; the corrected spike
+columns live in the v2 file. Stage 3 extraction uses the fixed metric
+from the start.
+
 ## Cell ranking vs main effects — the seed-lottery lesson, quantified
 
 The per-cell aggregate says the **top-2 cell gap (0.021) is inside
