@@ -14,8 +14,10 @@
 # The terminal only narrates, waits for the done event, and runs the
 # payoff (Atlas row + chat). Storyboard:
 #   1  page   paper view — hover fields, evidence highlights
-#   2  page   click [live dashboard], press ▶ TRAIN
-#   3  page   loss curve descends, node-graph glows, live
+#   2  page   click [live dashboard], fetch 1706.03762 live in the
+#             'from paper' box — architecture lands in the builder
+#   3  page   press ▶ TRAIN — loss curve descends, node-graph glows,
+#             then the exported .safetensors/.gguf appear as downloads
 #   4  term   payoff fires automatically: Atlas row + the model chatting
 # In VSCode: one Simple Browser tab (the script prints the URL). See
 # RECORDING_GUIDE.md.
@@ -120,8 +122,12 @@ echo ""
 openurl "http://localhost:8080/demo.html"
 cue "Everything happens IN THE PAGE from here:"
 echo "     1. [paper -> architecture]  — hover fields, evidence lights up"
-echo "     2. [live dashboard]         — then press its \xe2\x96\xb6 TRAIN button"
-echo "     3. watch the loss curve descend and the node-graph glow"
+echo "     2. [live dashboard]         — type 1706.03762 in the 'from paper'"
+echo "        box and hit fetch: the architecture lands in the editable"
+echo "        builder and the node graph previews it, live off arXiv"
+echo "     3. press the \xe2\x96\xb6 TRAIN button — loss curve descends, node-graph"
+echo "        glows; when it finishes, the .safetensors/.gguf appear as"
+echo "        download links right in the run panel"
 echo ""
 cue "This terminal will notice when training finishes and run the payoff."
 printf "     waiting for the Train button"
