@@ -718,6 +718,108 @@ std::string slurp(const std::string& path) {
     return std::string((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
 }
 
+// The quick-look sampler (ECOSYSTEM.md feature 2): rebuild the spec's
+// model, load its exported safetensors, and generate word-level text
+// with temperature + top-k. ember.cpp remains the real server; this
+// closes the train→poke loop without leaving the studio.
+int sample_cmd(const Spec& s, const std::string& prompt, int n_new, float temp, int topk,
+               unsigned sseed, const std::string& out_file) {
+    auto tokens = read_gguf_vocab(s.vocab_gguf);
+    if (s.vocab_cap > 0 && s.vocab_cap < tokens.size()) tokens.resize(s.vocab_cap);
+    std::map<std::string, int> vocab;
+    for (size_t i = 0; i < tokens.size(); ++i) vocab.emplace(tokens[i], static_cast<int>(i));
+
+    // Same construction switch as run() — the spec is the single source
+    // of architecture truth for both paths.
+    std::shared_ptr<parity::ParityLM> gpt;
+    std::shared_ptr<nn::Llama> llama;
+    std::shared_ptr<parity::AttnResLM> attnres;
+    std::shared_ptr<parity::FlexLM> flex;
+    if (s.family == "flex") {
+        parity::FlexConfig fc;
+        fc.vocab = tokens.size();
+        fc.d = s.d;
+        fc.n_layers = s.layers;
+        fc.n_heads = s.heads;
+        fc.d_ff = s.d_ff ? s.d_ff : 4 * s.d;
+        fc.n_ctx = s.T;
+        if (!s.norm.empty()) fc.norm = s.norm;
+        if (!s.activation.empty()) fc.act = s.activation;
+        if (!s.position.empty()) fc.pos = s.position;
+        flex = std::make_shared<parity::FlexLM>(fc, s.seed);
+    } else if (s.attention == "attnres") {
+        attnres =
+            std::make_shared<parity::AttnResLM>(tokens.size(), s.d, s.heads, s.T, s.seed, s.layers);
+    } else if (s.family == "llama") {
+        nn::LlamaConfig lc;
+        lc.vocab = tokens.size();
+        lc.d = s.d;
+        lc.n_layers = s.layers;
+        lc.n_heads = s.heads;
+        lc.d_ff = s.d_ff ? s.d_ff : 3 * s.d;
+        lc.n_ctx = s.T;
+        llama = std::make_shared<nn::Llama>(lc, s.seed);
+    } else {
+        gpt = std::make_shared<parity::ParityLM>(attn_kind(s.attention), tokens.size(), s.d,
+                                                 s.heads, s.T, s.seed);
+    }
+    nn::Module& model_ref =
+        flex      ? static_cast<nn::Module&>(*flex)
+        : attnres ? static_cast<nn::Module&>(*attnres)
+                  : (llama ? static_cast<nn::Module&>(*llama) : static_cast<nn::Module&>(*gpt));
+    const std::string ckpt = s.out_dir + "/" + s.name + ".safetensors";
+    model_ref.load_state_dict(load_safetensors(ckpt), /*strict=*/true);
+    model_ref.eval();
+    auto fwd = [&](const std::vector<int>& ids) {
+        if (flex) return flex->forward(ids);
+        if (attnres) return attnres->forward(ids);
+        return llama ? llama->forward(ids) : gpt->forward(ids);
+    };
+
+    auto ids = tokenize(prompt, vocab, 100000);
+    if (ids.empty()) throw std::runtime_error("no prompt word is in the model's vocabulary");
+    std::mt19937 gen(sseed);
+    std::string text = prompt;
+    NoGrad ng;
+    for (int t = 0; t < n_new; ++t) {
+        std::vector<int> ctx = ids;
+        if (ctx.size() > s.T) ctx.assign(ids.end() - s.T, ids.end());
+        Var logits = fwd(ctx);
+        const size_t last = logits->data.rows() - 1, V = logits->data.cols();
+        std::vector<std::pair<float, int>> scored(V);
+        for (size_t j = 0; j < V; ++j)
+            scored[j] = {logits->data(last, j) / std::max(temp, 1e-4f), static_cast<int>(j)};
+        // Ban special tokens from generation (standard sampler hygiene;
+        // a small-vocab model otherwise floods the output with <unk>).
+        for (const char* sp : {"<unk>", "<s>", "</s>", "<pad>"}) {
+            auto it = vocab.find(sp);
+            if (it != vocab.end()) scored[it->second].first = -1e30f;
+        }
+        const size_t k = std::min<size_t>(std::max(topk, 1), V);
+        std::partial_sort(scored.begin(), scored.begin() + k, scored.end(),
+                          [](auto& a, auto& b) { return a.first > b.first; });
+        double mx = scored[0].first, z = 0;
+        std::vector<double> p(k);
+        for (size_t j = 0; j < k; ++j) z += (p[j] = std::exp(scored[j].first - mx));
+        std::uniform_real_distribution<double> u(0.0, z);
+        double r = u(gen);
+        int pick = scored[k - 1].second;
+        for (size_t j = 0; j < k; ++j)
+            if ((r -= p[j]) <= 0) {
+                pick = scored[j].second;
+                break;
+            }
+        ids.push_back(pick);
+        text += " " + tokens[pick];
+    }
+    std::printf("%s\n", text.c_str());
+    if (!out_file.empty()) {
+        std::ofstream f(out_file, std::ios::trunc);
+        f << text << "\n";
+    }
+    return 0;
+}
+
 // Accepts "1706.03762", "2302.13971v1", "cs/9901002", or any arxiv.org
 // URL containing one of those (abs/, pdf/, e-print/). Returns the bare
 // id, or "" if nothing that looks like an arXiv id is present — the
@@ -873,6 +975,39 @@ int serve_ui(const std::string& out_dir, int port, const std::string& ui_path,
                 respond(c, "200 OK", "text/plain",
                         pid > 0 ? "fetching " + id + "…" : "fork failed");
             }
+        } else if (line.rfind("POST /sample", 0) == 0) {
+            // In-page quick-look generation: body = the prompt. Forks
+            // "mtstudio sample <spec>" and waits (a tiny model on CPU
+            // answers in seconds); ember.cpp stays the real server.
+            const auto he = line.find("\r\n\r\n");
+            const std::string prompt = he == std::string::npos ? "" : line.substr(he + 4);
+            if (spec_path.empty()) {
+                respond(c, "409 Conflict", "text/plain",
+                        "no spec armed (serve <dir> <port> <spec>)");
+            } else {
+                const std::string sf = out_dir + "/sample.txt";
+                ::unlink(sf.c_str());
+                const pid_t pid = ::fork();
+                if (pid == 0) {
+                    const std::string log = out_dir + "/sample.log";
+                    (void)!::freopen(log.c_str(), "w", stdout);
+                    (void)!::freopen(log.c_str(), "w", stderr);
+                    ::execl("/proc/self/exe", "mtstudio", "sample", spec_path.c_str(), "--prompt",
+                            prompt.empty() ? "once upon a time" : prompt.c_str(), "--out",
+                            sf.c_str(), static_cast<char*>(nullptr));
+                    _exit(127);
+                }
+                int st = 0;
+                ::waitpid(pid, &st, 0);
+                const std::string body = slurp(sf);
+                if (!body.empty()) {
+                    respond(c, "200 OK", "text/plain; charset=utf-8", body);
+                } else {
+                    respond(c, "500 Internal Server Error", "text/plain",
+                            "sampling failed — train (and export safetensors) first; "
+                            "details in sample.log");
+                }
+            }
         } else if (line.rfind("GET /fetchstatus", 0) == 0) {
             const char* s = fetch_pid > 0                            ? "fetching"
                             : fetch_failed                           ? "failed (see fetch.log)"
@@ -930,6 +1065,22 @@ int main(int argc, char** argv) {
     try {
         if ((cmd == "run" || cmd == "plan") && argc >= 3)
             return run(parse_spec(argv[2]), cmd == "plan");
+        if (cmd == "sample" && argc >= 3) {
+            std::string prompt = "once upon a time", out_file;
+            int n_new = 40, topk = 40;
+            float temp = 0.8f;
+            unsigned sseed = 1234;
+            for (int i = 3; i + 1 < argc; i += 2) {
+                const std::string k = argv[i], v = argv[i + 1];
+                if (k == "--prompt") prompt = v;
+                if (k == "--tokens") n_new = std::atoi(v.c_str());
+                if (k == "--temp") temp = static_cast<float>(std::atof(v.c_str()));
+                if (k == "--topk") topk = std::atoi(v.c_str());
+                if (k == "--seed") sseed = static_cast<unsigned>(std::atoi(v.c_str()));
+                if (k == "--out") out_file = v;
+            }
+            return sample_cmd(parse_spec(argv[2]), prompt, n_new, temp, topk, sseed, out_file);
+        }
         if (cmd == "serve" && argc >= 3) {
             const int port = argc > 3 ? std::atoi(argv[3]) : 8123;
             const char* ui = std::getenv("MTSTUDIO_UI");
