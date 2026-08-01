@@ -1,65 +1,86 @@
 # microtorch
 
-**Paste an arXiv ID. Get a model you can chat with. Every hyperparameter
-carries the snippet of the paper it came from.**
+**Drop an arXiv link on a page. Train the paper's actual architecture —
+not the nearest preset — watch its gradients glow layer by layer, export
+a GGUF, and chat with it. One browser tab, one C++ stack you can read in
+an afternoon, every claim carrying its receipt.**
+
+**[▶ Watch the 5-minute walkthrough](docs/media/demo_walkthrough.mp4)** —
+the whole loop, live and unedited: arXiv fetch on camera, evidence view,
+training, export, chat.
 
 ```
-Paste an arXiv ID
+Drop an arXiv link on the studio page
        ↓
 Architecture extracted        papers/fetch.py — every value carries its
        ↓                      evidence snippet from the paper's LaTeX;
-Review the hyperparameters    anything unresolved is reported, never guessed
+Review + edit hyperparameters used-vs-mentioned disambiguation is scored
+       ↓                      and BENCHMARKED; contested calls ask a human
+The paper's model, as written flex family: depth, d_ff, norm, activation,
+       ↓                      position — all constructor-real
+▶ TRAIN (a button, in-page)   loss curve + per-module gradient glow, live
        ↓
-Generate the model            nn::Llama / GPT-2 / Kimi / Mamba / SRD
-       ↓
-Train                         mtstudio run spec.json — one declarative file
-       ↓                      drives arch, data, schedule, export, serving
-Monitor in Studio             live loss curve + per-module gradient glow
-       ↓                      in the browser, tailing the run
-Export GGUF / safetensors     byte-exact, vocabulary embedded
-       ↓
-Launch inference              tinyllama.cpp serves it — a separate engine
-       ↓
-Share the results             a run is one spec file
+Export GGUF / safetensors     byte-exact, vocabulary embedded, download
+       ↓                      links in the page
+Chat with it — same page      tinyllama.cpp, a separately written engine,
+       ↓                      serves the file you just watched train
+Share the run                 one spec file + one JSONL event stream
 ```
 
 ![the full loop: paper → provenance-carrying extraction → train → Atlas row → chat](docs/media/demo.gif)
 
-*Real recording of `tools/demo.sh`: fetches Attention Is All You Need from
-arXiv, extracts the architecture with per-field evidence, trains a
-Llama-family model on the FD-checked tape, emits the run's Atlas row, and
-chats with the exported GGUF through tinyllama.cpp.*
+*Real recordings, no mockups: the GIF is `tools/demo.sh`; the
+[mp4 walkthrough](docs/media/demo_walkthrough.mp4) is the one-tab studio
+flow end to end.*
 
 An educational yet research-capable LLM framework that exposes every major
 component of the modern transformer training stack in readable C++ — while
-remaining compatible with Hugging Face checkpoints.
+remaining compatible with Hugging Face checkpoints, and with a measured
+habit of publishing its negatives next to its wins.
 
-**~8.7K lines of core code. No CUDA required (T4-validated when you want it).
-Builds in under two minutes.**
+**The core engine — tape, ops, layers, Llama family, quant, GGUF — is under
+4,000 lines. The entire stack (studio, run driver, arXiv fetcher, 16 CI-gated
+test suites) stays readable end to end. No CUDA required (T4-validated when
+you want it). Builds in under two minutes.**
 
 ## What makes this different
 
-Minimal autograd engines are a well-populated genre. Four things here are not:
+Minimal autograd engines are a well-populated genre. Six things here are not:
 
 1. **Papers in, running models out — with provenance.** `papers/fetch.py` pulls a
    paper's actual LaTeX source, extracts the architecture, and attaches an
    **evidence snippet to every extracted value**. Fields it cannot resolve are
    reported as unresolved rather than silently guessed. This is constrained
    config-delta extraction with citations, not free-form generation.
-2. **Falsifiers ship inside the modules.** Novel mechanisms carry the experiment
+2. **The paper's architecture is what actually trains.** Extracted depth, d_ff,
+   norm flavor, activation, and position encoding are **constructor-real** via
+   the flex model family — *Attention Is All You Need* trains as
+   512/6/8/2048 with LayerNorm, ReLU and sinusoidal positions; Primer's 110M
+   decoder reconstructs at 114M. The generalization is pinned, not trusted:
+   flex at its defaults reproduces the reference block **bit-for-bit**
+   (`tests/test_flex.cpp`).
+3. **The extraction is measured, not vibed.** A paper *mentions* many
+   alternatives; it *uses* one. The contribution-vs-mention scorer separates
+   them with explainable cues and is benchmarked on real papers with
+   ground-truth architectures — grouped AUROC 1.000 vs 0.952 for naive
+   first-match, **zero wrong assertions** (close calls abstain and ask the
+   human). The benchmark, its caveats and its growth protocol ship in the repo.
+4. **Falsifiers ship inside the modules.** Novel mechanisms carry the experiment
    designed to kill them — `SurpriseRoutedAttention::shuffle_predictor` feeds the
    router a permuted input so the gate keeps its distribution but loses its
    information. When a result fails, [the negative gets
    published](SPARSE_ATTENTION.md), not buried.
-3. **The loop actually closes, across two engines.** A model trained on this tape
+5. **The loop actually closes, across two engines.** A model trained on this tape
    exports to byte-exact GGUF and produces coherent English inside
    `tinyllama.cpp` — a *separately written* inference engine. Both halves of the
-   pipeline are in this stack.
-4. **Verification is the gate, not the afterthought.** Every op is
-   finite-difference checked in CI; GPT-2 logits match the HF reference
-   end-to-end; safetensors round-trips are bit-identical; the GGUF writer's
-   32-byte alignment is regression-tested because getting it wrong once turned a
-   working model into word salad.
+   pipeline are in this stack, and the studio's chat panel talks to it from the
+   same page that trained the model.
+6. **It runs designed experiments on itself.** The
+   [Architecture Atlas](ARCHITECTURE_ATLAS.md) treats architecture comparison as
+   a science: Plackett–Burman screens, token-matched factorials, multi-seed
+   cells, findings published with effect sizes and standard errors — including
+   the finding that its own best-cell ranking was inside seed noise while the
+   designed contrasts ran 6–10σ.
 
 ## Why it exists
 
@@ -138,6 +159,12 @@ polls every two seconds while training proceeds.
   exact run and serve commands. Preset dropdown covers `llama-tiny`,
   `gpt2-nano`, `gpt2-small`, `kimi-tiny`, `srd-tiny`, `attnres-tiny`, plus
   editable d/layers/heads overrides (`arch.custom`).
+- **Architecture diagram** — a labeled block diagram (pure SVG, still zero
+  dependencies) of exactly what the current spec builds: tokens → embed →
+  [norm → attention → ⊕ → norm → FFN → ⊕] × L → head, with family-aware
+  labels, per-head dims, residual arcs (replaced by an attention-over-depth
+  annotation for `attnres`), and a rough parameter estimate. Redraws on every
+  keystroke.
 - **From paper** (serve mode) — drag an arxiv.org link onto the page (or type
   the id): the server forks `papers/fetch.py` and **everything extracted
   becomes constructor-real** — d, layers, heads, d_ff, *and the flavors*
@@ -145,12 +172,15 @@ polls every two seconds while training proceeds.
   positions) land in the editable builder via the flex family, so the model
   you train is the paper's architecture, not the nearest preset (verified:
   Attention Is All You Need trains as 512/6/8/2048 layernorm+relu+sinusoidal;
-  Primer's 110M decoder reconstructs at 114M with rmsnorm+swiglu). Fields the
-  fetcher can't build yet are reported, never silently swapped. The
-  architecture diagram redraws, the evidence view is one click away, ▶ train
-  runs in the same tab, and the exported `.safetensors`/`.gguf` end as
-  download links. The whole paper → config → train → export loop happens in
-  one page.
+  Primer's 110M decoder reconstructs at 114M). Contested extractions and
+  fields the fetcher can't build yet are reported, never silently applied.
+  The diagram redraws, the evidence view is one click away, ▶ train runs in
+  the same tab, and the exported `.safetensors`/`.gguf` end as download
+  links.
+- **Chat** — talks to `tinyllama_server`'s `/chat` API: the GGUF this page
+  just exported, served by a separately written engine, answering in the
+  same tab. The whole paper → config → train → export → **chat** loop is one
+  page.
 
 ### Custom configuration — the spec format
 
@@ -219,7 +249,10 @@ can consume a run.
 | Cross-entropy loss | ✅ | Fused softmax backward |
 | Python bindings | ✅ | pybind11, numpy interop (`-DMICROTORCH_BUILD_PYTHON=ON`) |
 | **Run studio** | ✅ | Declarative spec → train/eval/export/serve; `plan` dry-run; resume |
-| **Live dashboard** | ✅ | Loss + val + gate chart, per-module gradient glow, spec builder |
+| **Live dashboard** | ✅ | Loss + val + gate chart, per-module gradient glow, spec builder, SVG architecture diagram, in-page chat |
+| **Flex family (paper-faithful)** | ✅ | Any depth; d_ff, LayerNorm/RMSNorm, GELU/ReLU/SwiGLU, learned/sinusoidal all spec-real; bitwise equivalence pin at defaults (`test_flex`, 6 receipts) |
+| **From-paper flow** | ✅ | Drag an arXiv link → scored extraction (grouped AUROC 1.000, 0 wrong assertions on the 10-paper bench) → editable spec → ▶ train → artifact downloads → chat |
+| **Atlas experiment engine** | ✅ | `mtsweep` (grid/PB12/linked factors, resumable, OMP-aware) + `atlas_analyze` (main effects, seed-based SEs); Stage 2 findings published |
 | LoRA | ✅ | `LoRALinear`: frozen base + rank-r adapters, `merged_weight()` |
 | Quantization | ✅ | int8 blockwise (absmax/block), `QLinear` ~3.7x smaller weights |
 | QLoRA | ✅ | `QLoRALinear`: quantized frozen base + trainable adapters |
@@ -327,6 +360,36 @@ preserving the gate's distribution while destroying its alignment. It passed at
 positions across five runs. **The recall-performance claim did not replicate
 across seeds and that failure is written up in full**, including what survived
 and what the next pre-registered test is.
+
+## The Architecture Atlas — a cumulative science of neural architectures
+
+Leaderboards rank; they don't explain. The
+[Atlas](ARCHITECTURE_ATLAS.md) treats architecture comparison the way
+industrial statistics treats process optimization: designed experiments,
+multi-seed cells, effect sizes with standard errors, and published
+findings — negative ones included. Every mtstudio run already emits its
+Atlas row (structural echo + behavioural metrics); `tools/mtsweep.py`
+materializes whole designs (grid, Plackett–Burman, linked token-matched
+factors) as spec files, and `tools/atlas_analyze.py` turns the rows into
+main-effects tables.
+
+**Stage 2 is complete** — a 7-factor Plackett–Burman screen, 36 runs in
+one night on a laptop CPU ([full writeup](ATLAS_STAGE2_RESULTS.md), raw
+rows in [experiments/atlas_stage2/](experiments/atlas_stage2/)):
+
+| Finding | Evidence |
+|---|---|
+| **Muon is the strongest factor in the screen** — better final loss *and* a measured throughput price | loss-AUC t = −10.8, best_val −0.34 (t = −6.2), −148 tok/s (t = −2.4) |
+| **Learning rate decouples speed from quality** — faster early descent, 3× the gradient spikes, zero final-loss gain | half-gap t = −8.8; spikes t = +3.5; best_val n.s. |
+| **Head count doesn't matter at this scale** — a genuine null, recorded | \|t\| ≤ 0.5 on every metric |
+| **Best-cell ranking was inside seed noise while the designed contrasts ran 6–10σ** — the case for designed experiments over leaderboard-style cell-hunting, demonstrated in our own data | top-2 cell gap 0.021 < seed noise 0.027 |
+
+**Stage 3 is running**: a full 2⁴ factorial on the survivors
+({optimizer, context, lr, d} × 3 seeds, 48 runs) with **token-matched
+context** — T=128×1200 steps vs T=256×600 steps, both exactly 614,400
+tokens, de-aliasing "longer context" from "more data". Interactions are
+the point: the full factorial leaves all six two-way effects
+unconfounded.
 
 ## Verification philosophy
 
@@ -480,10 +543,11 @@ docs/                 Doxygen config (make docs)
 - Technique transfer from open-weight frontier reports — attention residuals,
   KDA, Muon optimizer ([TECH_TRANSFER.md](TECH_TRANSFER.md))
 - **The Architecture Atlas** ([ARCHITECTURE_ATLAS.md](ARCHITECTURE_ATLAS.md)):
-  represent an architecture by the pattern of behaviours and dependencies it
-  shows under controlled substitution, not by a scalar score — structural,
-  behavioural and ablation-signature embeddings, interaction effects via
-  fractional-factorial designs, and architectural fingerprints in the Studio
+  Stages 0–2 are **done** (structural echo in every run, taxonomy + constrained
+  grammar, the PB12 screen with published findings) and Stage 3 (token-matched
+  2⁴ factorial, interactions) is running; ahead lie the scale ladder,
+  fingerprints/neighbours, and the Atlas surface — architectural fingerprints
+  in the Studio
 - **Sparse attention research phase**: survey the current literature and attempt
   original variants — the long-horizon flagship goal
 
