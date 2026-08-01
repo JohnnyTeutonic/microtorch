@@ -76,7 +76,7 @@
   <h2>from paper — arXiv &rarr; architecture</h2>
   <div class="form">
     <label>arXiv <input id="p-id" size="30"
-      placeholder="1706.03762 or an arxiv.org URL"></label>
+      placeholder="e.g. 1706.03762 · or drop a link"></label>
     <button id="p-go">&#8681; fetch architecture</button>
     <span id="p-status" class="legend"></span>
   </div>
@@ -129,6 +129,13 @@
 </div>
 
 <div class="panel">
+  <h2>architecture — what this spec builds</h2>
+  <svg id="arch-svg" viewBox="0 0 1040 190" width="100%"
+    preserveAspectRatio="xMidYMid meet"></svg>
+  <div class="legend" id="arch-cap"></div>
+</div>
+
+<div class="panel">
   <h2>run</h2>
   <div class="stats">
     <div class="stat"><div class="k">step</div><div class="v" id="s-step">–</div></div>
@@ -150,6 +157,23 @@
     <span class="sw" style="background:var(--loss)"></span>train
     <span class="sw" style="background:var(--val)"></span>val
     <span class="sw" style="background:var(--gate)"></span>gate (SRD)
+  </div>
+</div>
+
+<div class="panel" id="chat-panel">
+  <h2>chat — tinyllama.cpp serving your exported gguf</h2>
+  <div class="form">
+    <label>endpoint <input id="c-ep" size="24" value="http://localhost:8081"></label>
+    <span class="legend">start it with:&nbsp;
+      <code>tinyllama_server &lt;out_dir&gt;/&lt;name&gt;.gguf 8081</code>
+      — a separately written engine reads the file this page exported</span>
+  </div>
+  <div id="c-hist" style="background:#0a0d12;border:1px solid var(--border);
+    border-radius:6px;padding:.7rem;min-height:5rem;max-height:16rem;
+    overflow-y:auto;margin-bottom:.6rem;font-size:.85rem"></div>
+  <div class="form" style="flex-wrap:nowrap">
+    <input id="c-msg" style="flex:1" placeholder="once upon a time">
+    <button id="c-send">send</button>
   </div>
 </div>
 
@@ -414,6 +438,107 @@ function drawGrads() {
   host.appendChild(cap);
 }
 
+// ---- architecture diagram: the spec as a labeled block diagram ------
+// Redrawn on every builder edit (and after a paper fetch), so the SVG
+// always shows exactly what `mtstudio run` would build from the JSON.
+const PRESET_DIMS = {   // mirrors tools/mtstudio.cpp PRESETS {d,layers,heads,T}
+  "llama-tiny": [128, 2, 4, 128], "gpt2-nano": [128, 2, 4, 128],
+  "gpt2-small": [256, 4, 8, 256], "kimi-tiny": [128, 2, 4, 128],
+  "srd-tiny": [128, 2, 4, 128], "attnres-tiny": [128, 2, 4, 128],
+};
+function archState() {
+  const v = id => document.getElementById(id).value;
+  const p = v("b-preset"), base = PRESET_DIMS[p] || [128, 2, 4, 128];
+  const llama = p.startsWith("llama");
+  const attn = p.startsWith("kimi") ? "kimi linear"
+             : p.startsWith("srd") ? "surprise-routed"
+             : p.startsWith("attnres") ? "softmax" : "softmax";
+  return {
+    preset: p, llama,
+    d: +v("b-d") || base[0], L: +v("b-layers") || base[1],
+    H: +v("b-heads") || base[2], T: +v("b-T") || base[3],
+    cap: +v("b-cap") || 4096,
+    attn, attnres: p.startsWith("attnres"),
+    norm: llama ? "RMSNorm" : "LayerNorm",
+    pos: llama ? "RoPE" : "learned pos",
+    act: llama ? "SwiGLU" : "GELU",
+    ff: llama ? 3 : 4,
+  };
+}
+function drawArchDiagram() {
+  const a = archState(), s = [];
+  const box = (x, y, w, h, line1, line2, stroke, dash) => {
+    s.push(`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="6"
+      fill="#0a0d12" stroke="${stroke || "#30363d"}"
+      ${dash ? 'stroke-dasharray="5 4"' : ""}/>`);
+    if (line1) s.push(`<text x="${x + w / 2}" y="${y + (line2 ? h / 2 - 3 : h / 2 + 4)}"
+      text-anchor="middle" fill="#c9d1d9" font-size="11">${line1}</text>`);
+    if (line2) s.push(`<text x="${x + w / 2}" y="${y + h / 2 + 12}"
+      text-anchor="middle" fill="#8b949e" font-size="10">${line2}</text>`);
+  };
+  const arrow = (x1, x2, y) => s.push(
+    `<line x1="${x1}" y1="${y}" x2="${x2 - 5}" y2="${y}" stroke="#8b949e"/>`,
+    `<path d="M ${x2 - 5} ${y - 3.5} L ${x2} ${y} L ${x2 - 5} ${y + 3.5} Z"
+      fill="#8b949e"/>`);
+  const plus = (x, y) => s.push(
+    `<circle cx="${x}" cy="${y}" r="9" fill="#0a0d12" stroke="#8b949e"/>`,
+    `<text x="${x}" y="${y + 4}" text-anchor="middle" fill="#c9d1d9"
+      font-size="12">+</text>`);
+  const MID = 96, BH = 44, BY = MID - BH / 2;
+
+  box(10, BY, 74, BH, "tokens", "T = " + a.T);
+  arrow(84, 100, MID);
+  box(100, BY, 92, BH, "embed", "d = " + a.d + " · " + a.pos);
+  arrow(192, 208, MID);
+
+  // The repeated block, expanded once: norm -> attn -> (+) -> norm ->
+  // ffn -> (+), residual arcs overhead. attnres swaps the arcs for
+  // attention over depth (nn::AttnResStack).
+  const GX = 208, GW = 560;
+  box(GX, 22, GW, 146, "", "", "#30363d", true);
+  s.push(`<text x="${GX + 10}" y="40" fill="#58a6ff" font-size="11"
+    font-weight="bold">block × ${a.L}</text>`);
+  box(GX + 22, BY, 58, BH, a.norm, "");
+  arrow(GX + 80, GX + 94, MID);
+  box(GX + 94, BY, 120, BH, a.attn + " attn", a.H + " heads · " +
+    (a.d / a.H) + "/head", "#58a6ff");
+  arrow(GX + 214, GX + 231, MID);
+  plus(GX + 240, MID);
+  arrow(GX + 249, GX + 263, MID);
+  box(GX + 263, BY, 58, BH, a.norm, "");
+  arrow(GX + 321, GX + 335, MID);
+  box(GX + 335, BY, 130, BH, a.act + " FFN", a.ff + "d = " + a.ff * a.d,
+    "#a371f7");
+  arrow(GX + 465, GX + 482, MID);
+  plus(GX + 491, MID);
+  if (a.attnres) {
+    s.push(`<text x="${GX + GW / 2}" y="60" text-anchor="middle"
+      fill="#f0883e" font-size="10">residual stream replaced: attention
+      over depth (every sublayer output is a key/value)</text>`);
+  } else {
+    // residual arcs: input -> each (+)
+    const arc = (x0, x1) => s.push(`<path d="M ${x0} ${BY} C ${x0} 52,
+      ${x1} 52, ${x1} ${MID - 9}" fill="none" stroke="#8b949e"
+      stroke-dasharray="3 3"/>`);
+    arc(GX + 51, GX + 240);
+    arc(GX + 292, GX + 491);
+  }
+  arrow(GX + 500, GX + GW + 16, MID);
+  box(GX + GW + 16, BY, 74, BH, a.norm, "final");
+  arrow(GX + GW + 90, GX + GW + 104, MID);
+  box(GX + GW + 104, BY, 128, BH, "head", "d → vocab (≤" + a.cap + ")");
+
+  $("arch-svg").innerHTML = s.join("");
+  const params = 2 * a.cap * a.d + a.L *
+    (4 * a.d * a.d + 2 * a.ff * a.d * a.d) + a.cap * a.d;
+  $("arch-cap").textContent = a.preset + " · " +
+    (a.llama ? "llama family (RMSNorm / RoPE / SwiGLU)"
+             : "gpt2 family (LayerNorm / learned positions / GELU)") +
+    " · rough params ≈ " + (params / 1e6).toFixed(2) + "M " +
+    "(embeddings + blocks + head; exact count is printed by the run's " +
+    "model event)";
+}
+
 // ---- spec builder: form -> spec.json (mtstudio's input format) ----
 function buildSpec() {
   const v = id => document.getElementById(id).value;
@@ -443,6 +568,7 @@ function buildSpec() {
   document.getElementById("b-cmd").textContent =
     "then:  ./mtstudio run spec.json   ·   watch live:  ./mtstudio serve " +
     spec.out_dir;
+  drawArchDiagram();
   return txt;
 }
 document.querySelectorAll(".form input, .form select")
@@ -529,7 +655,11 @@ function applyArch(cfg) {
 let fetchTimer = null;
 function doFetch() {
   const id = $("p-id").value.trim();
-  if (!id) return;
+  if (!id) {
+    $("p-status").textContent =
+      "type an arXiv id (e.g. 1706.03762) or drop an arxiv.org link on the page";
+    return;
+  }
   $("p-status").textContent = "fetching…";
   $("p-result").textContent = "";
   fetch("fetch", { method: "POST", body: id }).then(r => r.text()).then(t => {
@@ -557,6 +687,37 @@ function doFetch() {
 }
 $("p-go").addEventListener("click", doFetch);
 $("p-id").addEventListener("keydown", e => { if (e.key === "Enter") doFetch(); });
+
+// ---- chat: POST /chat on a running tinyllama_server (CORS is open on
+// its side). The demo payoff: the gguf this page exported, served by a
+// separately written engine, answering in the same page.
+function chatLine(who, text) {
+  const d = document.createElement("div");
+  d.style.marginBottom = ".35rem";
+  d.innerHTML = '<span style="color:' +
+    (who === "you" ? "var(--accent)" : "var(--val)") + '">' + who +
+    "</span> · " + text.replace(/&/g, "&amp;").replace(/</g, "&lt;");
+  $("c-hist").appendChild(d);
+  $("c-hist").scrollTop = $("c-hist").scrollHeight;
+}
+function chatSend() {
+  const msg = $("c-msg").value.trim();
+  if (!msg) return;
+  $("c-msg").value = "";
+  chatLine("you", msg);
+  $("c-send").disabled = true;
+  fetch($("c-ep").value.replace(/\/$/, "") + "/chat", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ user_input: msg, max_new_tokens: 48, top_k: 1 }),
+  }).then(r => r.json())
+    .then(j => chatLine("model", j.reply || JSON.stringify(j)))
+    .catch(() => chatLine("model",
+      "(no server at " + $("c-ep").value + " — start tinyllama_server " +
+      "on your exported gguf first)"))
+    .finally(() => { $("c-send").disabled = false; $("c-msg").focus(); });
+}
+$("c-send").addEventListener("click", chatSend);
+$("c-msg").addEventListener("keydown", e => { if (e.key === "Enter") chatSend(); });
 
 if (location.protocol.startsWith("http")) {
   poll();

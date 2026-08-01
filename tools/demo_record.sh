@@ -12,13 +12,17 @@
 # [paper -> architecture] / [live dashboard] toggle, and the dashboard
 # carries a ▶ TRAIN button that launches the armed spec via POST /train.
 # The terminal only narrates, waits for the done event, and runs the
-# payoff (Atlas row + chat). Storyboard:
-#   1  page   paper view — hover fields, evidence highlights
-#   2  page   click [live dashboard], fetch 1706.03762 live in the
-#             'from paper' box — architecture lands in the builder
-#   3  page   press ▶ TRAIN — loss curve descends, node-graph glows,
-#             then the exported .safetensors/.gguf appear as downloads
-#   4  term   payoff fires automatically: Atlas row + the model chatting
+# payoff (Atlas row + chat server). Storyboard (studio tab opens FIRST
+# so the flow reads fetch -> evidence -> train -> chat, nothing
+# pre-decided on camera; the up-front fetch.py call is network
+# insurance only):
+#   1  page   [studio] fetch 1706.03762 live — architecture lands in
+#             the editable builder, the block diagram redraws
+#   2  page   [evidence] tab — every value cites the paper's LaTeX
+#   3  page   ▶ TRAIN — loss curve, node-graph glow, then artifact
+#             download links
+#   4  page   terminal starts tinyllama_server on the exported gguf;
+#             the in-page chat panel talks to it (endpoint :8081)
 # In VSCode: one Simple Browser tab (the script prints the URL). See
 # RECORDING_GUIDE.md.
 set -e
@@ -59,7 +63,7 @@ trap cleanup EXIT
 
 rm -rf "$OUT"; mkdir -p "$OUT"
 
-step "SCENE 1 — paper -> architecture, every value with its evidence"
+step "warming the arXiv cache (insurance only — the on-camera fetch is live)"
 python3 papers/fetch.py 1706.03762 --json /tmp/mtdemo_arch.json \
     --emit-html "$OUT/paper.html" 2>/dev/null || true
 
@@ -79,10 +83,10 @@ cat > "$OUT/demo.html" <<'HTML'
   iframe { flex:1; border:0; width:100%; }
 </style></head><body>
 <nav>
-  <button id="bp" class="on">paper &rarr; architecture</button>
-  <button id="bd">live dashboard</button>
+  <button id="bd" class="on">studio</button>
+  <button id="bp">evidence: paper &rarr; architecture</button>
 </nav>
-<iframe id="fr" src="/paper.html"></iframe>
+<iframe id="fr" src="/"></iframe>
 <script>
   const fr = document.getElementById('fr');
   const bp = document.getElementById('bp'), bd = document.getElementById('bd');
@@ -121,13 +125,15 @@ echo "        http://localhost:8080/demo.html"
 echo ""
 openurl "http://localhost:8080/demo.html"
 cue "Everything happens IN THE PAGE from here:"
-echo "     1. [paper -> architecture]  — hover fields, evidence lights up"
-echo "     2. [live dashboard]         — type 1706.03762 in the 'from paper'"
+echo "     1. [studio] opens first — type 1706.03762 in the 'from paper'"
 echo "        box and hit fetch: the architecture lands in the editable"
-echo "        builder and the node graph previews it, live off arXiv"
-echo "     3. press the \xe2\x96\xb6 TRAIN button — loss curve descends, node-graph"
-echo "        glows; when it finishes, the .safetensors/.gguf appear as"
-echo "        download links right in the run panel"
+echo "        builder and the DIAGRAM redraws, live off arXiv"
+echo "     2. [evidence] tab — every extracted value cites the paper's LaTeX"
+echo "     3. back on [studio], press \xe2\x96\xb6 TRAIN — loss curve descends,"
+echo "        node-graph glows; exported .safetensors/.gguf become"
+echo "        download links when it finishes"
+echo "     4. this terminal then starts the chat server — talk to the model"
+echo "        in the page's chat panel"
 echo ""
 cue "This terminal will notice when training finishes and run the payoff."
 printf "     waiting for the Train button"
@@ -140,8 +146,18 @@ step "the run is now an Atlas data point"
 python3 tools/atlas_extract.py "$OUT" | head -20
 
 step "chat with it — a separately written engine reads the GGUF"
-if [ -n "$TL" ] && [ -x "$TL" ]; then
+TLS=${DEMO_TLS:-$HOME/tlbuild/tinyllama_server}
+if [ -x "$TLS" ]; then
+  "$TLS" "$OUT/demo.gguf" 8081 localhost > /dev/null 2>&1 &
+  CHAT_PID=$!
+  trap 'cleanup; kill "${CHAT_PID:-}" 2>/dev/null || true' EXIT
+  sleep 2
+  cue "chat server is UP — use the page's chat panel (endpoint :8081)"
+  step "paper to chatting model, one stack, every claim receipted"
+  cue "leave this running while you record; Ctrl-C here ends the demo"
+  wait "$CHAT_PID"
+elif [ -x "$TL" ]; then
   "$TL" "$OUT/demo.gguf" "$OUT/demo.gguf" 4 prompt "once upon a time" \
       --max-tokens 40 -ngl 0 --top-k 1 --raw-prompt 2>/dev/null | tail -2
+  step "done — paper to chatting model, one stack, every claim receipted"
 fi
-step "done — paper to chatting model, one stack, every claim receipted"
