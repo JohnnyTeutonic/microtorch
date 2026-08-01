@@ -21,7 +21,7 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/JohnnyTeutonic/microtorch"
+Homepage = "https://github.com/JohnnyTeutonic/paperkiln"
 
 [tool.scikit-build]
 cmake.args = ["-DMICROTORCH_BUILD_PYTHON=ON", "-DCMAKE_BUILD_TYPE=Release"]

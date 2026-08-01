@@ -2,7 +2,7 @@
 # CUDA validation for microtorch's device seam — run on Colab (T4 is fine),
 # never locally. Usage in a Colab cell:
 #
-#   !git clone https://github.com/JohnnyTeutonic/microtorch.git
+#   !git clone https://github.com/JohnnyTeutonic/paperkiln.git
 #   # transformer_cpp must sit next to microtorch (same layout as the repo):
 #   !git clone <transformer_cpp remote> transformer_cpp
 #   !bash microtorch/tools/colab_cuda_validate.sh

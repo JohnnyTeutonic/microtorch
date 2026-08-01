@@ -26,7 +26,7 @@ import sys
 import tarfile
 from dataclasses import dataclass, field
 
-UA = "microtorch-paper-fetcher/0.1 (+https://github.com/JohnnyTeutonic/microtorch)"
+UA = "paperkiln-paper-fetcher/0.1 (+https://github.com/JohnnyTeutonic/paperkiln)"
 
 
 # --------------------------------------------------------------------------

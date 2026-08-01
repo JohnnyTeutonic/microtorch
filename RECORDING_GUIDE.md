@@ -101,7 +101,7 @@ when to switch. The scene list:
 | 2 | browser | `localhost:8080/paper.html` (auto-opened) — hover a row, evidence highlights |
 | 3 | terminal | the one-file spec; `plan` resolves it; training launches in the background |
 | 4 | browser | `localhost:8080/` (auto-opened) — loss curve descending, node-graph glowing, LIVE while training runs |
-| 5 | terminal | the Atlas row, then the model CHATTING through tinyllama.cpp |
+| 5 | terminal | the Atlas row, then the model CHATTING through ember.cpp |
 
 Everything is served over localhost — the paper page too — so there are no
 file:// URLs and no WSL path gymnastics; the script opens the tabs for you.

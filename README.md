@@ -1,4 +1,10 @@
-# microtorch
+# paperkiln
+
+*Formerly `microtorch` — renamed 2026-08-01; GitHub redirects the old
+URL. Its sibling engines renamed with it: **coalfire.cpp** (formerly
+transformer/transformer_cpp, the original C++ trainer) and **ember.cpp**
+(formerly tinyllama.cpp, the inference half). The C++ namespace and
+header paths keep `microtorch` for now — code stability over branding.*
 
 **Drop an arXiv link on a page. Train the paper's actual architecture —
 not the nearest preset — watch its gradients glow layer by layer, export
@@ -22,7 +28,7 @@ The paper's model, as written flex family: depth, d_ff, norm, activation,
        ↓
 Export GGUF / safetensors     byte-exact, vocabulary embedded, download
        ↓                      links in the page
-Chat with it — same page      tinyllama.cpp, a separately written engine,
+Chat with it — same page      ember.cpp, a separately written engine,
        ↓                      serves the file you just watched train
 Share the run                 one spec file + one JSONL event stream
 ```
@@ -75,7 +81,7 @@ Minimal autograd engines are a well-populated genre. Six things here are not:
    published](SPARSE_ATTENTION.md), not buried.
 5. **The loop actually closes, across two engines.** A model trained on this tape
    exports to byte-exact GGUF and produces coherent English inside
-   `tinyllama.cpp` — a *separately written* inference engine. Both halves of the
+   `ember.cpp` — a *separately written* inference engine. Both halves of the
    pipeline are in this stack, and the studio's chat panel talks to it from the
    same page that trained the model.
 6. **It runs designed experiments on itself.** The
@@ -88,7 +94,7 @@ Minimal autograd engines are a well-populated genre. Six things here are not:
 ## Why it exists
 
 PyTorch is 4M+ lines; understanding *why* your gradient is wrong means reading
-dispatcher internals. microtorch takes the opposite bet: every operation is a
+dispatcher internals. paperkiln takes the opposite bet: every operation is a
 readable forward + hand-derived backward pair, every backward is verified against
 finite differences, and the whole tape fits in
 [one header](include/microtorch/autograd.hpp).
@@ -106,8 +112,8 @@ That makes it three things at once:
 ## Quick start
 
 ```bash
-git clone git@github.com:JohnnyTeutonic/microtorch.git
-cd microtorch
+git clone git@github.com:JohnnyTeutonic/paperkiln.git
+cd paperkiln
 mkdir build && cd build
 cmake .. -DCMAKE_BUILD_TYPE=Release
 make -j$(nproc)
@@ -120,7 +126,7 @@ ctest --output-on-failure     # gradchecks + unit + integration tests
 
 *The same loop driven from the terminal (`tools/demo.sh`): fetch,
 evidence, train on the FD-checked tape, the run's Atlas row, and a chat
-with the exported GGUF through tinyllama.cpp.*
+with the exported GGUF through ember.cpp.*
 
 One JSON file describes the whole lifecycle; `mtstudio` executes it.
 
@@ -133,7 +139,7 @@ One JSON file describes the whole lifecycle; `mtstudio` executes it.
 That spec trains a Llama-family model (RMSNorm + RoPE + SwiGLU, tied embeddings)
 on TinyStories with early stopping, checkpoint/resume and a JSONL event stream,
 then exports safetensors **and** a GGUF with the vocabulary embedded. Feeding
-that GGUF straight into tinyllama.cpp (the serve command it prints):
+that GGUF straight into ember.cpp (the serve command it prints):
 
 > **prompt:** once upon a time
 > **model (300 training steps, d=128):** she was a little big he had very time
@@ -254,7 +260,7 @@ can consume a run.
 | Gradient checkpointing | ✅ | `checkpoint(fn, x)` rematerializes block interiors on backward: loss+grads **bit-identical**, live tape nodes after forward 211→11 (GPT-2) / 229→9 (Llama) (`test_checkpointing`) |
 | Fused attention | ✅ | `fused_attention`: GEMMs + one in-place scale/mask/softmax pass, one tape node per head, mask never materialized; 12 FD receipts; 1.87x wall-clock (2.19x with batching) |
 | Checkpoint IO | ✅ | safetensors load **and** save (HF round-trip) |
-| GGUF export | ✅ | `export_gguf_llama`: state_dict → .gguf for tinyllama.cpp |
+| GGUF export | ✅ | `export_gguf_llama`: state_dict → .gguf for ember.cpp |
 | Cross-entropy loss | ✅ | Fused softmax backward |
 | Python bindings | ✅ | pybind11, numpy interop (`-DMICROTORCH_BUILD_PYTHON=ON`) |
 | **Run studio** | ✅ | Declarative spec → train/eval/export/serve; `plan` dry-run; resume |
@@ -461,15 +467,15 @@ free-form code generation.
 
 ## The training → inference pipeline
 
-microtorch is the training half of a two-engine pipeline:
+paperkiln is the training half of a two-engine pipeline:
 
 ```
-HF checkpoint ──load_safetensors──► microtorch (fine-tune on the tape)
+HF checkpoint ──load_safetensors──► paperkiln (fine-tune on the tape)
                                         │
                               export_gguf_llama(path, state_dict, cfg)
                                         │
                                         ▼
-                              .gguf ──► tinyllama.cpp (inference engine)
+                              .gguf ──► ember.cpp (inference engine)
 ```
 
 ```cpp

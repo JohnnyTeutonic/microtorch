@@ -71,7 +71,7 @@ python3 papers/fetch.py 1706.03762 --json /tmp/mtdemo_arch.json \
 # toggle, so a VSCode Simple Browser tab never needs a companion.
 cat > "$OUT/demo.html" <<'HTML'
 <!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
-<title>microtorch demo</title><style>
+<title>paperkiln demo</title><style>
   * { box-sizing:border-box; margin:0; }
   body { background:#0d1117; height:100vh; display:flex; flex-direction:column;
          font:13px ui-monospace,Consolas,monospace; }
