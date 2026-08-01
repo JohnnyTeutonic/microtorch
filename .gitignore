@@ -40,3 +40,4 @@ docs/xml/
 .DS_Store
 debugging.log
 *.log
+papers/.cache/

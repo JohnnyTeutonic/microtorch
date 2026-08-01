@@ -660,8 +660,12 @@ function poll() {
 // ---- from-paper flow: POST /fetch, poll /fetchstatus, land the
 // extracted architecture in the (editable) spec builder + node graph.
 function applyArch(cfg) {
-  const g = {};
-  for (const [k, f] of Object.entries(cfg.fields || {})) g[k] = f.value;
+  const g = {}, verdicts = {}, runners = {};
+  for (const [k, f] of Object.entries(cfg.fields || {})) {
+    g[k] = f.value;
+    verdicts[k] = f.verdict || "extracted";
+    if (f.runner_up) runners[k] = f.runner_up.value;
+  }
   if (g.d_model) $("b-d").value = g.d_model;
   if (g.n_layers) $("b-layers").value = g.n_layers;
   if (g.n_heads) $("b-heads").value = g.n_heads;
@@ -671,18 +675,29 @@ function applyArch(cfg) {
   // Flavors: everything the fetcher extracted that the trainer can
   // build becomes spec-real (the flex family / llama block). What it
   // can't build yet is REPORTED, never silently swapped.
+  // Only a "used" verdict from the contribution-vs-mention scorer may
+  // auto-fill a flavor; contested calls are surfaced for the human.
   const approx = [];
-  const setSel = (id, val, supported) => {
+  const setSel = (id, key, supported) => {
+    const val = g[key];
     if (!val) return;
+    if (verdicts[key] === "contested") {
+      approx.push(key + " contested: " + val +
+                  (runners[key] ? " vs " + runners[key] : "") +
+                  " — check the evidence view, pick by hand");
+      return;
+    }
     if (supported.includes(val)) $(id).value = val;
     else approx.push(val + " not trainable yet (family default used)");
   };
-  setSel("b-norm", g.norm, ["layernorm", "rmsnorm"]);
-  setSel("b-act", g.activation, ["gelu", "relu", "swiglu"]);
-  setSel("b-pos", g.positional, ["learned", "sinusoidal", "rope"]);
+  setSel("b-norm", "norm", ["layernorm", "rmsnorm"]);
+  setSel("b-act", "activation", ["gelu", "relu", "swiglu"]);
+  setSel("b-pos", "positional", ["learned", "sinusoidal", "rope"]);
   // rope implies the llama block; everything else trains as flex on a
   // gpt2-dims preset (its d/L/H are overridden above anyway).
-  $("b-preset").value = g.positional === "rope" ? "llama-tiny" : "gpt2-nano";
+  $("b-preset").value =
+    g.positional === "rope" && verdicts.positional === "used"
+      ? "llama-tiny" : "gpt2-nano";
   applyArch.approx = approx;
   buildSpec();
   // Architecture preview through the node graph: one uniform node per

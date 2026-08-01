@@ -81,6 +81,13 @@ def detex(tex: str) -> str:
 class Finding:
     value: int | str
     evidence: str
+    # Flavor fields only (norm/activation/positional): contribution-vs-
+    # mention scoring. verdict: "used" (clear winner), "contested"
+    # (runner-up too close — report both, never auto-apply). Numeric
+    # fields keep verdict None.
+    verdict: str | None = None
+    score: float | None = None
+    runner_up: dict | None = None
 
 
 @dataclass
@@ -90,6 +97,9 @@ class Arch:
     fields: dict[str, Finding] = field(default_factory=dict)
     unresolved: list[str] = field(default_factory=list)
     variants: list[dict[str, int]] = field(default_factory=list)
+    # Flavor values seen in the text but judged mention-only (baselines,
+    # related work): reported for transparency, never applied.
+    mentions: dict[str, list] = field(default_factory=dict)
 
 
 def _num(s: str) -> int:
@@ -161,6 +171,166 @@ FLAVOR = {
                    ("sinusoidal", r"sinusoid"),
                    ("learned", r"learned\s+position")],
 }
+
+# ---- contribution-vs-mention scoring for the flavor fields -------------
+# A paper MENTIONS many alternatives (baselines, related work, "such as"
+# lists); it USES one. First-match extraction confused the two (observed:
+# Primer's activation is squared ReLU, but SwiGLU matched from a
+# related-work sentence; ALiBi's own paper matched the rotary BASELINE it
+# compares against). Every candidate match is scored by explainable cues
+# in its context window plus the section it sits in; the field's verdict
+# is "used" only when a clear winner exists. Weights are validated by
+# papers/flavor_bench.py (AUROC over ground-truth-labeled real papers).
+USE_CUES = [
+    (r"\bwe\s+(?:use|used|adopt|employ|apply|train|choose|chose|opt)\b", 3.0),
+    (r"\b(?:add|adds|adding|incorporate[sd]?|swap(?:ped)?\s+in)\b", 2.0),
+    (r"\b(?:uses|using|adopts|employs|equipped\s+with|is\s+applied|are\s+applied)\b", 2.0),
+    (r"\bwe\s+(?:introduce|propose)\b", 3.0),
+    (r"\bfollowed\s+by\b", 2.0),
+    (r"\benhancements?\b|\bmodifications?\b|\bour\s+(?:model|architecture|implementation)\b",
+     2.0),
+]
+MENTION_CUES = [
+    (r"\bsuch\s+as\b|\be\.g\.|\bfor\s+(?:example|instance)\b", -3.0),
+    (r"\bcompared?\s+(?:to|with|against)\b|\bbaselines?\b|\balternatives?\b", -3.0),
+    (r"\binstead\s+of\b|\bunlike\b|\brather\s+than\b", -2.0),
+    (r"\bprior\s+work\b|\bprevious\s+work\b|\bexisting\b|\brelated\s+work\b", -2.0),
+    (r"\bimproves?\s+(?:over|upon|on)\b|\boutperform", -2.5),
+    (r"\bover\s+the\b", -1.5),  # "a lead in perplexity over the sinusoidal model"
+    (r"\bfuture\s+work\b|\bcould\b|\bmight\b", -1.0),
+    # Ablation phrasing: tried-and-compared is not the architecture.
+    (r"\bexperimented\s+with\b|\bwe\s+also\s+tr(?:ied|y)\b|\bablations?\b|"
+     r"\bnearly\s+identical\b|\bno\s+significant\b|\bvariants?\b", -2.5),
+]
+# Attribution cues that read as related-work ONLY when no usage verb is
+# nearby: "we use rotary embeddings introduced by [cite]" is a usage
+# statement with attribution, not a mention.
+WEAK_MENTION_CUES = [
+    (r"\bproposed\s+by\b|\bintroduced\s+by\b|\bsuggested\b", -1.0),
+]
+SECTION_WEIGHTS = {"method": 1.5, "abstract": 1.0, "other": 0.0, "related": -3.0}
+WIN_THRESHOLD = 1.5   # winner must clear this to be "used"
+WIN_MARGIN = 1.5      # ... and beat the runner-up by this, else "contested"
+
+SEC_RE = re.compile(r"\\(?:section|subsection|chapter)\*?\s*\{([^{}]*)\}")
+
+
+def classify_section(title: str) -> str:
+    t = title.lower()
+    if re.search(r"related|background|prior|previous\s+work|comparison", t):
+        return "related"
+    if re.search(r"method|model|architecture|approach|setup|training|implementation|design",
+                 t):
+        return "method"
+    return "other"
+
+
+def split_sections(tex: str) -> list[tuple[str, str]]:
+    """[(section_class, detexed_text)] — text before the first \\section
+    (title/abstract territory) is classed 'abstract'."""
+    parts = []
+    last, cls = 0, "abstract"
+    for m in SEC_RE.finditer(tex):
+        parts.append((cls, tex[last:m.start()]))
+        cls, last = classify_section(m.group(1)), m.end()
+    parts.append((cls, tex[last:]))
+    return [(c, detex(t)) for c, t in parts if t.strip()]
+
+
+def score_match(seg_text: str, m: re.Match, sec_class: str) -> tuple[float, list[str]]:
+    """Score one candidate occurrence; returns (score, cue names) so every
+    number is explainable."""
+    before = seg_text[max(0, m.start() - 120):m.start()]
+    after = seg_text[m.end():m.end() + 80]
+    window = before + " " + after
+    score = SECTION_WEIGHTS[sec_class]
+    cues = [f"section:{sec_class}"]
+    used_cue = False
+    for pat, w in USE_CUES:
+        if re.search(pat, window, flags=re.IGNORECASE):
+            score += w
+            used_cue = True
+            cues.append(pat[:24])
+    for pat, w in MENTION_CUES:
+        if re.search(pat, window, flags=re.IGNORECASE):
+            score += w
+            cues.append(pat[:24])
+    # Config/table ROW only (tight window): "norm & layernorm". A '&'
+    # somewhere else in a 200-char window is just tabular noise.
+    if "&" in seg_text[max(0, m.start() - 15):m.end() + 15]:
+        score += 2.0
+        used_cue = True
+        cues.append("config-row")
+    # A modified variant is NOT the base flavor: Primer's contribution is
+    # "squared/squaring ReLU", which must not count as relu.
+    if re.search(r"(?:squar(?:ed|ing)|leaky|parametric|gated|approximate[ds]?)\s*$",
+                 before, flags=re.IGNORECASE):
+        score -= 4.0
+        cues.append("modified-variant")
+    # Plus-compound baseline naming: "Transformer+GELU" is a named
+    # comparison config, not this paper's choice.
+    if re.search(r"\+\s*$", before):
+        score -= 2.5
+        cues.append("plus-compound")
+    # Possessive attribution: "the Transformer's ReLU" belongs to that
+    # architecture, not to this paper.
+    if re.search(r"[A-Za-z0-9]'s\s*$", before):
+        score -= 3.0
+        cues.append("possessive-attribution")
+    # Attribution / citation density only count against a candidate when
+    # nothing in the window asserts usage.
+    if not used_cue:
+        for pat, w in WEAK_MENTION_CUES:
+            if re.search(pat, window, flags=re.IGNORECASE):
+                score += w
+                cues.append(pat[:24])
+        if len(re.findall(r"\\cite[tp]?\{|\\citet\b|\\citep\b", window)) >= 2:
+            score -= 1.5
+            cues.append("cite-dense")
+    # "replace X with Y": Y (preceded by 'with') is used, X (followed by
+    # 'with ...') is the thing REMOVED — sign depends on which side the
+    # match sits, so handle it here rather than in the window cues.
+    if re.search(r"replace[sd]?\b[^.]{0,60}$", before, flags=re.IGNORECASE):
+        if re.search(r"with\s+(?:the\s+)?$", before, flags=re.IGNORECASE):
+            score += 3.0
+            cues.append("replace-target")
+        elif re.search(r"^\s*(?:\w+\s+){0,3}(?:with|by)\b", after, flags=re.IGNORECASE):
+            score -= 3.0
+            cues.append("replace-source")
+    return score, cues
+
+
+def score_flavors(sections: list[tuple[str, str]]) -> dict[str, list[dict]]:
+    """Per flavor field: candidates sorted by score (best first), each
+    {value, score, evidence, cues, n}."""
+    out: dict[str, list[dict]] = {}
+    for fieldname, flavors in FLAVOR.items():
+        cands = []
+        for value, pat in flavors:
+            best, best_ev, best_cues, n = None, "", [], 0
+            others = [p for v, p in flavors if v != value]
+            for sec_class, seg in sections:
+                for m in re.finditer(pat, seg):
+                    n += 1
+                    sc, cues = score_match(seg, m, sec_class)
+                    # Enumeration: another alternative of the SAME field
+                    # within a tight radius means a comparison list
+                    # ("the sinusoidal, rotary and T5 bias models").
+                    near = seg[max(0, m.start() - 45):m.end() + 45]
+                    if any(re.search(p, near) for p in others):
+                        sc -= 1.5
+                        cues = cues + ["enumeration"]
+                    if best is None or sc > best:
+                        snippet = seg[max(0, m.start() - 30):m.end() + 30]
+                        best, best_ev, best_cues = sc, " ".join(snippet.split()), cues
+            if n:
+                # repetition: contributions recur (setup, tables, results)
+                best += min(n - 1, 3) * 0.5
+                cands.append({"value": value, "score": round(best, 2),
+                              "evidence": best_ev, "cues": best_cues, "n": n})
+        if cands:
+            out[fieldname] = sorted(cands, key=lambda c: -c["score"])
+    return out
 
 
 # Header-keyword -> field map for model-size tables (LLaMA Table 2 style:
@@ -258,15 +428,32 @@ def extract(arxiv_id: str, tex: str) -> Arch:
         if fieldname not in arch.fields:
             arch.unresolved.append(fieldname)
 
-    for fieldname, flavors in FLAVOR.items():
-        for value, pat in flavors:
-            m = re.search(pat, text)
-            if m:
-                snippet = text[max(0, m.start() - 30):m.end() + 30]
-                arch.fields[fieldname] = Finding(value, " ".join(snippet.split()))
-                break
-        if fieldname not in arch.fields:
+    # Flavor fields go through contribution-vs-mention scoring: a value
+    # is only ASSERTED ("used") when a clear winner exists; close calls
+    # are "contested" (both reported); mention-only matches stay
+    # unresolved with the mentions listed — reported, never guessed.
+    flavor_scores = score_flavors(split_sections(tex))
+    for fieldname in FLAVOR:
+        cands = flavor_scores.get(fieldname, [])
+        if not cands:
             arch.unresolved.append(fieldname)
+            continue
+        top = cands[0]
+        second = cands[1] if len(cands) > 1 else None
+        if top["score"] >= WIN_THRESHOLD and (
+                second is None or top["score"] - second["score"] >= WIN_MARGIN):
+            arch.fields[fieldname] = Finding(
+                top["value"], top["evidence"], verdict="used", score=top["score"])
+        elif top["score"] >= WIN_THRESHOLD:
+            arch.fields[fieldname] = Finding(
+                top["value"], top["evidence"], verdict="contested",
+                score=top["score"],
+                runner_up={"value": second["value"], "score": second["score"],
+                           "evidence": second["evidence"]})
+        else:
+            arch.unresolved.append(fieldname)
+        arch.mentions[fieldname] = [
+            {"value": c["value"], "score": c["score"]} for c in cands]
 
     # Model-size tables fill whatever prose left unresolved. Row 0 (the
     # smallest listed model) is taken as THE config; others are variants.
@@ -288,12 +475,20 @@ def extract(arxiv_id: str, tex: str) -> Arch:
 # --------------------------------------------------------------------------
 
 def to_json(arch: Arch) -> dict:
+    def field_json(f: Finding) -> dict:
+        d: dict = {"value": f.value, "evidence": f.evidence}
+        if f.verdict:
+            d["verdict"] = f.verdict
+            d["score"] = f.score
+        if f.runner_up:
+            d["runner_up"] = f.runner_up
+        return d
     return {
         "arxiv_id": arch.arxiv_id,
         "title": arch.title,
-        "fields": {k: {"value": f.value, "evidence": f.evidence}
-                   for k, f in arch.fields.items()},
+        "fields": {k: field_json(f) for k, f in arch.fields.items()},
         "unresolved": arch.unresolved,
+        "mentions": arch.mentions,
         "variants": arch.variants,
     }
 
@@ -310,12 +505,20 @@ def emit_html(arch: Arch) -> str:
     for i, (k, f) in enumerate(arch.fields.items()):
         v = _html.escape(str(f.value))
         ev = _html.escape(f.evidence)
+        status = "extracted" if not f.verdict else f.verdict
         rows.append(
             f'<tr class="fld" data-i="{i}"><td class="k">{_html.escape(k)}</td>'
-            f'<td class="v">{v}</td><td class="st ok">extracted</td></tr>')
+            f'<td class="v">{v}</td><td class="st ok">{status}</td></tr>')
+        extra = ""
+        if f.runner_up:
+            ru = f.runner_up
+            extra = (f'<div class="ev">contested with <b>'
+                     f'{_html.escape(str(ru["value"]))}</b> '
+                     f'({ru["score"]}): &ldquo;'
+                     f'{_html.escape(ru.get("evidence", ""))}&rdquo;</div>')
         snips.append(
             f'<div class="snip" data-i="{i}"><div class="sk">{_html.escape(k)}'
-            f' = {v}</div><div class="ev">&ldquo;{ev}&rdquo;</div></div>')
+            f' = {v}</div><div class="ev">&ldquo;{ev}&rdquo;</div>{extra}</div>')
     for k in arch.unresolved:
         rows.append(
             f'<tr><td class="k">{_html.escape(k)}</td><td class="v">&mdash;</td>'
@@ -442,9 +645,19 @@ def main() -> int:
 
     print(f"arXiv:{arch.arxiv_id}  {arch.title or ''}".strip())
     for k, f in arch.fields.items():
-        print(f"  {k:15} = {f.value!s:8}  [{f.evidence[:70]}]")
+        tag = f" ({f.verdict} {f.score})" if f.verdict else ""
+        print(f"  {k:15} = {f.value!s:8}{tag}  [{f.evidence[:60]}]")
+        if f.runner_up:
+            print(f"  {'':15}   vs {f.runner_up['value']} "
+                  f"({f.runner_up['score']}) — contested, verify by hand")
     if arch.unresolved:
         print(f"  unresolved: {', '.join(arch.unresolved)}")
+    dropped = {k: v for k, v in arch.mentions.items() if k in arch.unresolved}
+    if dropped:
+        summary = "; ".join(
+            f"{k}: " + ", ".join(f"{c['value']}({c['score']})" for c in v)
+            for k, v in dropped.items())
+        print(f"  mention-only (not applied): {summary}")
 
     if args.json:
         with open(args.json, "w", encoding="utf-8") as fh:

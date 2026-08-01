@@ -82,6 +82,41 @@ def test_compact_notation() -> None:
     print("compact-notation extraction ok:", got, got2)
 
 
+FIXTURE_MENTION_ONLY = r"""
+Prior work has explored alternatives such as SwiGLU \cite{a} \cite{b},
+compared against strong baselines. Our search discovers squaring ReLU
+activations, a novel modification.
+"""
+
+FIXTURE_REPLACE = r"""
+We replace LayerNorm with RMSNorm in every block of our model.
+"""
+
+FIXTURE_CONTESTED = r"""
+We use LayerNorm for the encoder blocks. We use RMSNorm for the decoder
+blocks.
+"""
+
+
+def test_contribution_vs_mention() -> None:
+    # Mention-only: nothing asserted, mentions reported.
+    a1 = extract("0000.00005", FIXTURE_MENTION_ONLY)
+    assert "activation" in a1.unresolved, a1.fields
+    assert any(c["value"] == "swiglu" for c in a1.mentions.get("activation", []))
+    # Replacement: the target is used, the source is not.
+    a2 = extract("0000.00006", FIXTURE_REPLACE)
+    f = a2.fields["norm"]
+    assert f.value == "rmsnorm" and f.verdict == "used", (f.value, f.verdict)
+    # Symmetric usage: contested, runner-up carried, nothing asserted
+    # silently.
+    a3 = extract("0000.00007", FIXTURE_CONTESTED)
+    f3 = a3.fields.get("norm")
+    assert f3 is not None and f3.verdict == "contested", f3
+    assert f3.runner_up is not None
+    print("contribution-vs-mention ok: mention-only abstains, "
+          f"replace->{a2.fields['norm'].value}, symmetric->contested")
+
+
 def test_unresolved_reported() -> None:
     arch = extract("0000.00002", r"A paper with no architecture at all.")
     assert "d_model" in arch.unresolved and "norm" in arch.unresolved
@@ -109,6 +144,7 @@ def test_emit_html() -> None:
 
 if __name__ == "__main__":
     test_compact_notation()
+    test_contribution_vs_mention()
     test_prose()
     test_table()
     test_unresolved_reported()

@@ -361,10 +361,27 @@ guessed. `--emit-cpp` generates compilable microtorch code (GPT-2-family
 `GPT2Config` or, when it detects RMSNorm/RoPE, a Llama-family
 `LlamaExportConfig`).
 
+Flavor fields (norm/activation/position) go through **contribution-vs-mention
+scoring**: a paper *mentions* many alternatives (baselines, related work,
+"such as" lists) but *uses* one, and first-match extraction confuses the two.
+Every candidate occurrence is scored by explainable cues — usage verbs,
+"replace X with Y" direction, config-table rows, section class (related-work
+penalized), ablation/comparative phrasing, possessive attribution ("the
+Transformer's ReLU"), plus-compound baseline names ("Transformer+GELU") — and
+a value is asserted only when a clear winner exists; close calls are
+**contested** (both candidates shown with evidence, nothing auto-applied).
+Measured on `papers/flavor_bench.py`, ten real papers with ground-truth
+architectures: **grouped AUROC 1.000** (the per-paper used-vs-mentioned
+ranking; naive first-match 0.952), pooled AUROC 0.783 vs 0.763, and **zero
+wrong assertions** — where first-match extraction claimed RoPE for the ALiBi
+paper and SwiGLU for Primer (whose real activation, squared ReLU, is outside
+the lattice — the correct answer is to abstain, and the scorer does).
+
 Validated live against: *Attention Is All You Need* (d_model=512, N=6, h=8,
 d_ff=2048, sinusoidal), *LLaMA* (4096/32/32 from its model-size table +
-RMSNorm/SwiGLU/RoPE), *TinyLlama* (22 layers, 32 heads, vocab 32000). Offline
-fixture tests: `python papers/test_fetch.py` — no network needed in CI.
+RMSNorm/SwiGLU/RoPE), *TinyLlama* (22 layers, 32 heads, vocab 32000), plus
+the ten-paper flavor benchmark above. Offline fixture tests:
+`python papers/test_fetch.py` — no network needed in CI.
 
 This is the constrained config-delta approach: most transformer papers are deltas
 over a known skeleton, so extraction is pattern-matching with provenance, not
