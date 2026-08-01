@@ -139,12 +139,18 @@ polls every two seconds while training proceeds.
   `gpt2-nano`, `gpt2-small`, `kimi-tiny`, `srd-tiny`, `attnres-tiny`, plus
   editable d/layers/heads overrides (`arch.custom`).
 - **From paper** (serve mode) — drag an arxiv.org link onto the page (or type
-  the id): the server forks `papers/fetch.py`, the extracted d/layers/heads/T
-  land in the editable builder fields, the node graph previews the
-  architecture, and the diff-to-paper evidence view is one click away. Then
-  press ▶ train in the same tab — and when the run finishes, the exported
-  `.safetensors`/`.gguf` appear as download links. The whole
-  paper → config → train → export loop happens in one page.
+  the id): the server forks `papers/fetch.py` and **everything extracted
+  becomes constructor-real** — d, layers, heads, d_ff, *and the flavors*
+  (LayerNorm vs RMSNorm, GELU/ReLU/SwiGLU, learned/sinusoidal/RoPE
+  positions) land in the editable builder via the flex family, so the model
+  you train is the paper's architecture, not the nearest preset (verified:
+  Attention Is All You Need trains as 512/6/8/2048 layernorm+relu+sinusoidal;
+  Primer's 110M decoder reconstructs at 114M with rmsnorm+swiglu). Fields the
+  fetcher can't build yet are reported, never silently swapped. The
+  architecture diagram redraws, the evidence view is one click away, ▶ train
+  runs in the same tab, and the exported `.safetensors`/`.gguf` end as
+  download links. The whole paper → config → train → export loop happens in
+  one page.
 
 ### Custom configuration — the spec format
 

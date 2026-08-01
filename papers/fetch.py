@@ -109,6 +109,8 @@ PATTERNS: dict[str, list[str]] = {
         rf"d_\{{model\}}\s*=\s*{NUM}",
         rf"(?:model|hidden|embedding)[ -](?:dimension(?:ality)?|size|width)\s*(?:of|=|:|is|&)?\s*\$?{NUM}",
         rf"dimension\s*\(?d_?(?:model)?\)?\s*(?:of|=|:|&)\s*{NUM}",
+        # ALiBi phrasing: "16 transformer layers of dimension 1024"
+        rf"layers\s+of\s+dimension\s+{NUM}",
         rf"\bdim(?:ension)?\s*&\s*{NUM}",
         rf"\bhidden\s*&\s*{NUM}",
     ],
@@ -117,6 +119,9 @@ PATTERNS: dict[str, list[str]] = {
         rf"stack\s+of\s+\$?N\s*=\s*\$?{NUM}",
         rf"{NUM}\s+(?:identical\s+|transformer\s+|decoder\s+|hidden\s+)?layers\b",
         rf"(?:n[ _]?layers?|\#?\s*layers?|depth)\s*(?:=|of|:|&)\s*\$?{NUM}",
+        # Primer phrasing: "(d_{model}=768, d_{ff}=3072, L=12)" — capital
+        # L after a delimiter, so a lone variable L elsewhere can't match.
+        rf"[\(,]\s*L\s*=\s*{NUM}\)?",
         rf"\blayers?\s*&\s*{NUM}",
     ],
     "n_heads": [

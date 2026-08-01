@@ -61,6 +61,27 @@ def test_table() -> None:
     print("table extraction ok:", got, "variants:", len(arch.variants))
 
 
+FIXTURE_COMPACT = r"""
+The model has 16 transformer layers of dimension 1024. Each decoder is
+110M parameters ($d_{model}=768$, $d_{ff}=3072$, L=12).
+"""
+
+
+def test_compact_notation() -> None:
+    # Real phrasings that used to slip through: ALiBi's "layers of
+    # dimension 1024" and Primer's "(d_model=768, d_ff=3072, L=12)".
+    arch = extract("0000.00003", FIXTURE_COMPACT)
+    got = {k: f.value for k, f in arch.fields.items()}
+    assert got["n_layers"] == 16, got   # first match wins (prose order)
+    assert got["d_ff"] == 3072, got
+    assert got["d_model"] in (768, 1024), got
+    # The L=12 pattern alone, without the ALiBi sentence:
+    arch2 = extract("0000.00004", r"Each decoder is ($d_{model}=768$, L=12).")
+    got2 = {k: f.value for k, f in arch2.fields.items()}
+    assert got2["n_layers"] == 12, got2
+    print("compact-notation extraction ok:", got, got2)
+
+
 def test_unresolved_reported() -> None:
     arch = extract("0000.00002", r"A paper with no architecture at all.")
     assert "d_model" in arch.unresolved and "norm" in arch.unresolved
@@ -87,6 +108,7 @@ def test_emit_html() -> None:
 
 
 if __name__ == "__main__":
+    test_compact_notation()
     test_prose()
     test_table()
     test_unresolved_reported()

@@ -37,8 +37,13 @@ TAXONOMY = {
     "family": {
         "status": "implemented",
         "path": None,  # chosen via arch.preset; see PRESET_OF_FAMILY
-        "alternatives": ["gpt2", "llama"],
-        "aliases": {"gpt-2": "gpt2", "decoder": "gpt2", "llama2": "llama"},
+        # flex = the paper-faithful decoder (tools/parity_model.hpp
+        # FlexLM): norm/activation/position/d_ff/depth all
+        # constructor-real. Selected server-side by the presence of
+        # flavor knobs, so its preset is just a dims donor.
+        "alternatives": ["gpt2", "llama", "flex"],
+        "aliases": {"gpt-2": "gpt2", "decoder": "gpt2", "llama2": "llama",
+                    "paper": "flex"},
     },
     "attention": {
         "status": "implemented",
@@ -67,35 +72,55 @@ TAXONOMY = {
            "range": [1e-3, 2e-3, 3e-3]},
     "batch": {"status": "implemented", "path": "train.batch",
               "range": [1, 2, 4]},
-    # ---- planned lattices (ARCHITECTURE_ATLAS section 12) ----
-    "norm": {"status": "planned",
-             "alternatives": ["rmsnorm", "layernorm", "none"],
+    # ---- flavor slots: IMPLEMENTED 2026-08-01 (the flex family) ----
+    # Formerly planned; norm "none" and position "nope" wait for a knob
+    # and stay out of the implemented lattices on purpose.
+    "norm": {"status": "implemented", "path": "arch.custom.norm",
+             "alternatives": ["layernorm", "rmsnorm"],
              "aliases": {"rms": "rmsnorm", "ln": "layernorm"}},
-    "position": {"status": "planned",
-                 "alternatives": ["rope", "learned", "sinusoidal", "nope"],
+    "position": {"status": "implemented", "path": "arch.custom.position",
+                 "alternatives": ["learned", "sinusoidal", "rope"],
                  "aliases": {"rotary": "rope", "absolute": "learned"}},
-    "activation": {"status": "planned",
-                   "alternatives": ["swiglu", "gelu-mlp", "relu-mlp"],
-                   "aliases": {"swish-glu": "swiglu", "gelu": "gelu-mlp"}},
+    "activation": {"status": "implemented", "path": "arch.custom.activation",
+                   "alternatives": ["gelu", "relu", "swiglu"],
+                   "aliases": {"swish-glu": "swiglu", "gelu-mlp": "gelu",
+                               "relu-mlp": "relu"}},
+    # ---- planned lattices (ARCHITECTURE_ATLAS section 12) ----
     "residual": {"status": "planned",
                  "alternatives": ["pre-norm", "post-norm", "attnres"],
                  "aliases": {"preln": "pre-norm", "postln": "post-norm"}},
 }
 
-PRESET_OF_FAMILY = {"gpt2": "gpt2-nano", "llama": "llama-tiny"}
+# flex rides a gpt2-dims preset; the flavor knobs in the spec are what
+# select the family server-side (mtstudio parse_spec family resolution).
+PRESET_OF_FAMILY = {"gpt2": "gpt2-nano", "llama": "llama-tiny",
+                    "flex": "gpt2-nano"}
+FLAVOR_SLOTS = ("norm", "activation", "position")
 
 # Compatibility constraints, each a (predicate, message) over a flat
 # {slot: value} assignment. The grammar's whole job is that sample()
-# can never emit an assignment violating one of these.
+# can never emit an assignment violating one of these. They mirror
+# mtstudio parse_spec exactly.
 CONSTRAINTS = [
     (lambda a: a["d"] % a["heads"] == 0,
      "d must divide by heads"),
-    (lambda a: a["family"] != "llama" or a["attention"] == "exact",
-     "llama family is exact-attention only (kimi/srd are gpt2-family lanes)"),
-    (lambda a: a["family"] != "gpt2" or a["layers"] == 2,
-     "gpt2 family is the 2-block parity model"),
     (lambda a: a["d"] // a["heads"] >= 8,
      "head_dim below 8 is degenerate at these scales"),
+    (lambda a: a["family"] != "llama" or
+     (a["attention"] == "exact" and a["position"] == "rope" and
+      a["norm"] == "rmsnorm" and a["activation"] == "swiglu"),
+     "llama family is the fixed rope/rmsnorm/swiglu block (exact attention)"),
+    (lambda a: a["family"] != "gpt2" or
+     (a["layers"] == 2 and a["norm"] == "layernorm" and
+      a["activation"] == "gelu" and a["position"] == "learned"),
+     "gpt2 family is the 2-block parity model with fixed flavors "
+     "(vary them via the flex family)"),
+    (lambda a: a["family"] != "flex" or
+     (a["attention"] == "exact" and a["position"] != "rope"),
+     "flex family: exact attention, position learned|sinusoidal "
+     "(rope means the llama block)"),
+    (lambda a: a["position"] != "rope" or a["family"] == "llama",
+     "rope lives inside the llama block"),
 ]
 
 
@@ -147,6 +172,11 @@ def assignment_to_spec(a, base=None):
         path = TAXONOMY[slot].get("path")
         if not path:
             continue
+        # Flavor knobs in the spec are what SELECT the flex family
+        # server-side, so gpt2/llama assignments (whose flavors the
+        # constraints pin to the family defaults) must omit them.
+        if slot in FLAVOR_SLOTS and a["family"] != "flex":
+            continue
         d = spec
         keys = path.split(".")
         for k in keys[:-1]:
@@ -166,11 +196,26 @@ def spec_assignment(spec):
             d = d[k]
         return d
     preset = get("arch.preset", "")
-    family = "llama" if str(preset).startswith("llama") else "gpt2"
+    # Family resolution mirrors mtstudio parse_spec: rope forces llama,
+    # any other flavor knob means flex, else the preset's family.
+    pos = canonical("position", get("arch.custom.position"))
+    flavored = any(get("arch.custom." + s) for s in FLAVOR_SLOTS)
+    if pos == "rope" or (str(preset).startswith("llama") and not flavored):
+        family = "llama"
+    elif flavored:
+        family = "flex"
+    else:
+        family = "gpt2"
     a = {"family": family}
     defaults = {"d": 128, "layers": 2, "heads": 4, "T": 128,
                 "lr": 3e-3, "batch": 1, "attention": "exact",
                 "optimizer": "adamw"}
+    if family == "llama":
+        defaults.update(norm="rmsnorm", activation="swiglu",
+                        position="rope")
+    else:
+        defaults.update(norm="layernorm", activation="gelu",
+                        position="learned")
     if str(preset).startswith("kimi"):
         defaults["attention"] = "kimi"
     if str(preset).startswith("srd"):
@@ -187,34 +232,52 @@ def validate_spec_file(path):
     return violations(spec_assignment(spec))
 
 
+ROUND_TRIP_SLOTS = ("family", "attention", "optimizer", "d", "layers",
+                    "heads", "T", "lr", "batch", "norm", "activation",
+                    "position")
+
+
 def selftest():
     # canonicalisation
     assert canonical("attention", "softmax") == "exact"
     assert canonical("norm", "rms") == "rmsnorm"
+    assert canonical("activation", "gelu-mlp") == "gelu"
     # violations caught
-    bad = {"family": "llama", "attention": "kimi", "d": 100, "heads": 8,
-           "layers": 2, "T": 128, "lr": 3e-3, "batch": 1, "optimizer": "adamw"}
+    flav = {"norm": "rmsnorm", "activation": "swiglu", "position": "rope"}
+    bad = dict({"family": "llama", "attention": "kimi", "d": 100, "heads": 8,
+                "layers": 2, "T": 128, "lr": 3e-3, "batch": 1,
+                "optimizer": "adamw"}, **flav)
     v = violations(bad)
     assert any("divide" in m for m in v), v
     assert any("llama" in m for m in v), v
     bad2 = dict(bad, family="gpt2", attention="kimi", d=128, layers=4)
     assert any("2-block" in m for m in violations(bad2))
-    # sampler: everything valid, decent diversity
-    s = sample(40, seed=3)
-    assert len(s) == 40
+    # rope outside llama refused; flex sinusoidal accepted
+    bad3 = dict(bad2, family="flex", attention="exact", layers=4,
+                norm="layernorm", activation="relu", position="rope")
+    assert any("rope" in m for m in violations(bad3))
+    ok = dict(bad3, position="sinusoidal")
+    assert not violations(ok), violations(ok)
+    # sampler: everything valid, decent diversity, all families reachable
+    s = sample(60, seed=3)
+    assert len(s) == 60
     assert all(not violations(a) for a in s)
-    assert len({json.dumps(a, sort_keys=True) for a in s}) > 25
-    # round-trip: sampled assignment -> spec -> assignment
-    a = s[0]
-    spec = assignment_to_spec(a, base={"data": {"T": 999}})
-    back = spec_assignment(spec)
-    for slot in ("family", "attention", "optimizer", "d", "layers",
-                 "heads", "T", "lr", "batch"):
-        assert back[slot] == a[slot], (slot, back[slot], a[slot])
-    # planned slots carry their lattices
-    assert "nope" in alternatives("position")
-    print("SELFTEST OK: aliases, constraints, sampler validity+diversity, "
-          "spec round-trip, planned lattices")
+    assert len({json.dumps(a, sort_keys=True) for a in s}) > 35
+    assert {a["family"] for a in s} == {"gpt2", "llama", "flex"}
+    # round-trip: sampled assignment -> spec -> assignment, flavors
+    # included (gpt2/llama omit flavor paths; their constrained
+    # defaults must round-trip identically)
+    for fam in ("gpt2", "llama", "flex"):
+        a = next(x for x in s if x["family"] == fam)
+        spec = assignment_to_spec(a, base={"data": {"T": 999}})
+        back = spec_assignment(spec)
+        for slot in ROUND_TRIP_SLOTS:
+            assert back[slot] == a[slot], (fam, slot, back[slot], a[slot])
+    # planned slots still carry their lattices
+    assert "post-norm" in alternatives("residual")
+    print("SELFTEST OK: aliases, constraints (flex+rope), sampler "
+          "validity+diversity+family coverage, 3-family spec round-trip, "
+          "planned lattices")
     return 0
 
 

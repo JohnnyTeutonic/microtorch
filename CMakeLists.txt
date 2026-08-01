@@ -117,6 +117,10 @@ add_executable(test_inplace tests/test_inplace.cpp)
 target_link_libraries(test_inplace PRIVATE microtorch)
 add_test(NAME inplace COMMAND test_inplace)
 
+add_executable(test_flex tests/test_flex.cpp)
+target_link_libraries(test_flex PRIVATE microtorch)
+add_test(NAME flex COMMAND test_flex)
+
 add_executable(test_attn_res tests/test_attn_res.cpp)
 target_link_libraries(test_attn_res PRIVATE microtorch)
 add_test(NAME attn_res COMMAND test_attn_res)

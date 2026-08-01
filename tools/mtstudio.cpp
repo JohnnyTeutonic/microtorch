@@ -40,9 +40,12 @@ namespace {
 struct Spec {
     std::string name = "run";
     // arch
-    std::string family = "gpt2";      // gpt2 | llama
+    std::string family = "gpt2";      // gpt2 | llama | flex
     std::string attention = "exact";  // exact | kimi | srd (gpt2 family)
     size_t d = 128, layers = 2, heads = 4, T = 128;
+    // Paper-faithful flavor knobs (the flex family; empty = family default).
+    std::string norm, activation, position;
+    size_t d_ff = 0;  // 0 = family default (4d gpt2/flex, 3d llama)
     // data
     std::string corpus, vocab_gguf;
     size_t vocab_cap = 4096;
@@ -101,6 +104,39 @@ Spec parse_spec(const std::string& path) {
         s.layers = c.value("layers", s.layers);
         s.heads = c.value("heads", s.heads);
         s.attention = c.value("attention", s.attention);
+        s.norm = c.value("norm", s.norm);
+        s.activation = c.value("activation", s.activation);
+        s.position = c.value("position", s.position);
+        s.d_ff = c.value("d_ff", s.d_ff);
+    }
+    // Family resolution for the flavor knobs. RoPE lives inside the llama
+    // block (rmsnorm/swiglu come with it); every other flavor combination
+    // is the flex family — the paper-faithful decoder.
+    if (s.position == "rope") {
+        if ((!s.norm.empty() && s.norm != "rmsnorm") ||
+            (!s.activation.empty() && s.activation != "swiglu"))
+            throw std::runtime_error(
+                "position=rope currently implies the llama block "
+                "(rmsnorm + swiglu); drop the conflicting norm/activation "
+                "or pick position=learned|sinusoidal for the flex family");
+        s.family = "llama";
+    } else if (!s.norm.empty() || !s.activation.empty() || !s.position.empty()) {
+        if (s.attention != "exact")
+            throw std::runtime_error(
+                "flavor knobs (norm/activation/position) require exact "
+                "attention; kimi/srd/attnres are their own presets");
+        s.family = "flex";
+    }
+    // The 2-block ParityLM cannot honor depth; flex CAN, and with
+    // layernorm/gelu/learned it is the same block bit-for-bit (the
+    // tests/test_flex.cpp equivalence pin). Promote rather than
+    // silently truncate. kimi/srd stay 2-block and must say so.
+    if (s.family == "gpt2" && s.layers != 2) {
+        if (s.attention == "exact")
+            s.family = "flex";
+        else if (s.attention == "kimi" || s.attention == "srd")
+            throw std::runtime_error(
+                "kimi/srd presets are 2-block parity models (layers must be 2)");
     }
 
     const json data = j.value("data", json::object());
@@ -202,8 +238,10 @@ int run(const Spec& s, bool plan_only) {
     if (plan_only) return 0;
     if (s.corpus.empty() || s.vocab_gguf.empty())
         throw std::runtime_error("spec needs data.corpus and data.vocab");
-    if (s.family != "llama" && s.layers != 2)
-        throw std::runtime_error("gpt2 family: layers must be 2 (parity model)");
+    // Only the kimi/srd parity lanes are depth-fixed; flex and llama take
+    // any depth, and attnres wires s.layers into its stack.
+    if (s.family == "gpt2" && s.attention != "attnres" && s.layers != 2)
+        throw std::runtime_error("kimi/srd parity lanes: layers must be 2");
 
     std::system(("mkdir -p " + s.out_dir).c_str());
     Events ev(s.out_dir + "/events.jsonl");
@@ -231,10 +269,35 @@ int run(const Spec& s, bool plan_only) {
     std::shared_ptr<parity::ParityLM> gpt;
     std::shared_ptr<nn::Llama> llama;
     std::shared_ptr<parity::AttnResLM> attnres;
-    if (s.attention == "attnres") {
+    std::shared_ptr<parity::FlexLM> flex;
+    if (s.family == "flex") {
+        // The paper-faithful decoder: every extracted flavor is
+        // constructor-real (norm/activation/position/d_ff/depth).
+        parity::FlexConfig fc;
+        fc.vocab = tokens.size();
+        fc.d = s.d;
+        fc.n_layers = s.layers;
+        fc.n_heads = s.heads;
+        fc.d_ff = s.d_ff ? s.d_ff : 4 * s.d;
+        fc.n_ctx = s.T;
+        if (!s.norm.empty()) fc.norm = s.norm;
+        if (!s.activation.empty()) fc.act = s.activation;
+        if (!s.position.empty()) fc.pos = s.position;
+        if (fc.norm != "layernorm" && fc.norm != "rmsnorm")
+            throw std::runtime_error("unknown norm " + fc.norm);
+        if (fc.act != "gelu" && fc.act != "relu" && fc.act != "swiglu")
+            throw std::runtime_error("unknown activation " + fc.act);
+        if (fc.pos != "learned" && fc.pos != "sinusoidal")
+            throw std::runtime_error("unknown position " + fc.pos + " (rope = llama family)");
+        flex = std::make_shared<parity::FlexLM>(fc, s.seed);
+        if (s.ckpt_act)
+            throw std::runtime_error(
+                "train.checkpoint_activations requires the llama family for now");
+    } else if (s.attention == "attnres") {
         // TECH_TRANSFER item 1 as a preset: the residual stream replaced
         // by attention over depth (nn::AttnResStack, K3 block form).
-        attnres = std::make_shared<parity::AttnResLM>(tokens.size(), s.d, s.heads, s.T, s.seed);
+        attnres =
+            std::make_shared<parity::AttnResLM>(tokens.size(), s.d, s.heads, s.T, s.seed, s.layers);
         if (s.ckpt_act) {
             throw std::runtime_error(
                 "train.checkpoint_activations requires the llama family for now");
@@ -245,7 +308,7 @@ int run(const Spec& s, bool plan_only) {
         lc.d = s.d;
         lc.n_layers = s.layers;
         lc.n_heads = s.heads;
-        lc.d_ff = 3 * s.d;
+        lc.d_ff = s.d_ff ? s.d_ff : 3 * s.d;
         lc.n_ctx = s.T;
         llama = std::make_shared<nn::Llama>(lc, s.seed);
         llama->checkpoint_blocks = s.ckpt_act;
@@ -259,9 +322,17 @@ int run(const Spec& s, bool plan_only) {
     }
     // Atlas stage-0 structural echo: the run's identity as a data point.
     nn::Module& model_pick =
-        attnres ? static_cast<nn::Module&>(*attnres)
-                : (llama ? static_cast<nn::Module&>(*llama) : static_cast<nn::Module&>(*gpt));
+        flex      ? static_cast<nn::Module&>(*flex)
+        : attnres ? static_cast<nn::Module&>(*attnres)
+                  : (llama ? static_cast<nn::Module&>(*llama) : static_cast<nn::Module&>(*gpt));
     const size_t n_params = model_pick.parameter_count();
+    // Resolved flavor labels — what the constructed model ACTUALLY is,
+    // family defaults filled in (the Atlas structural echo must never
+    // under-describe the data point).
+    const std::string r_norm = flex ? flex->cfg.norm : (llama ? "rmsnorm" : "layernorm");
+    const std::string r_act = flex ? flex->cfg.act : (llama ? "swiglu" : "gelu");
+    const std::string r_pos = flex ? flex->cfg.pos : (llama ? "rope" : "learned");
+    const size_t r_dff = flex ? flex->cfg.d_ff : (llama ? llama->cfg.d_ff : 4 * s.d);
     ev.emit({{"event", "model"},
              {"family", s.family},
              {"attention", s.attention},
@@ -269,6 +340,10 @@ int run(const Spec& s, bool plan_only) {
              {"layers", s.layers},
              {"heads", s.heads},
              {"T", s.T},
+             {"norm", r_norm},
+             {"activation", r_act},
+             {"position", r_pos},
+             {"d_ff", r_dff},
              {"vocab", tokens.size()},
              {"batch", s.batch},
              {"accum", s.accum},
@@ -278,6 +353,7 @@ int run(const Spec& s, bool plan_only) {
              {"params", n_params}});
     nn::Module& model_ref = model_pick;
     auto fwd = [&](const std::vector<int>& ids, size_t seq_len = 0) {
+        if (flex) return flex->forward(ids, seq_len);
         if (attnres) return attnres->forward(ids, seq_len);
         return llama ? llama->forward(ids, seq_len) : gpt->forward(ids, seq_len);
     };

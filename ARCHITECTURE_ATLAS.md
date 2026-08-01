@@ -809,9 +809,14 @@ signal-vs-seed-noise verdict in the aggregate). Verified end-to-end on a
 slots with alternatives + aliases, compatibility constraints as predicates,
 `sample()` drawing random VALID architectures (corpus source 5),
 `validate()` wired into mtsweep so no compute is ever spent on an illegal
-config, and the not-yet-spec-expressible slots (norm/position/activation/
-residual) declared as PLANNED lattices so the taxonomy is ready the day
-the spec grows each knob. Stage 1 complete.
+config. Stage 1 complete.
+**UPDATE 2026-08-01 (same day): norm/position/activation went planned →
+IMPLEMENTED** — the flex family (`tools/parity_model.hpp` FlexLM) makes
+them spec-expressible (`arch.custom.norm/activation/position/d_ff`, any
+depth), with a bitwise equivalence pin against ParityLM at the family
+defaults. The design space §12 sketches is now three slots wider and
+sample() draws from all three families (gpt2/llama/flex). Only
+`residual` (post-norm) remains a planned lattice.
 
 **Stage 2 — the screening experiment (one night).** Plackett–Burman over ~11
 architectural factors, 3 seeds, one dataset, parameter-matched. Main effects

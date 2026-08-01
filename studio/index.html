@@ -103,6 +103,28 @@
       style="width:5em"></label>
     <label>heads <input id="b-heads" type="number" placeholder="preset"
       style="width:5em"></label>
+    <label>d_ff <input id="b-dff" type="number" placeholder="family"
+      style="width:5.5em"></label>
+    <label>norm
+      <select id="b-norm">
+        <option value="">family default</option>
+        <option value="layernorm">layernorm</option>
+        <option value="rmsnorm">rmsnorm</option>
+      </select></label>
+    <label>activation
+      <select id="b-act">
+        <option value="">family default</option>
+        <option value="gelu">gelu</option>
+        <option value="relu">relu</option>
+        <option value="swiglu">swiglu</option>
+      </select></label>
+    <label>position
+      <select id="b-pos">
+        <option value="">family default</option>
+        <option value="learned">learned</option>
+        <option value="sinusoidal">sinusoidal</option>
+        <option value="rope">rope (llama block)</option>
+      </select></label>
     <label>corpus <input id="b-corpus" size="38"
       value="/path/to/corpus.txt"></label>
     <label>vocab gguf <input id="b-vocab" size="38"
@@ -449,20 +471,28 @@ const PRESET_DIMS = {   // mirrors tools/mtstudio.cpp PRESETS {d,layers,heads,T}
 function archState() {
   const v = id => document.getElementById(id).value;
   const p = v("b-preset"), base = PRESET_DIMS[p] || [128, 2, 4, 128];
-  const llama = p.startsWith("llama");
+  // Family resolution mirrors mtstudio parse_spec: rope forces llama;
+  // any other flavor knob means the flex family (paper-faithful).
+  const flavored = v("b-norm") || v("b-act") || v("b-pos");
+  const llama = v("b-pos") === "rope" || (p.startsWith("llama") && !flavored);
+  const flex = !llama && !!flavored;
   const attn = p.startsWith("kimi") ? "kimi linear"
              : p.startsWith("srd") ? "surprise-routed"
-             : p.startsWith("attnres") ? "softmax" : "softmax";
+             : "softmax";
+  const d = +v("b-d") || base[0];
+  const NORMS = { layernorm: "LayerNorm", rmsnorm: "RMSNorm" };
+  const ACTS = { gelu: "GELU", relu: "ReLU", swiglu: "SwiGLU" };
+  const POSS = { learned: "learned pos", sinusoidal: "sinusoidal", rope: "RoPE" };
   return {
-    preset: p, llama,
-    d: +v("b-d") || base[0], L: +v("b-layers") || base[1],
+    preset: p, llama, flex,
+    d, L: +v("b-layers") || base[1],
     H: +v("b-heads") || base[2], T: +v("b-T") || base[3],
     cap: +v("b-cap") || 4096,
     attn, attnres: p.startsWith("attnres"),
-    norm: llama ? "RMSNorm" : "LayerNorm",
-    pos: llama ? "RoPE" : "learned pos",
-    act: llama ? "SwiGLU" : "GELU",
-    ff: llama ? 3 : 4,
+    norm: NORMS[v("b-norm")] || (llama ? "RMSNorm" : "LayerNorm"),
+    pos: POSS[v("b-pos")] || (llama ? "RoPE" : "learned pos"),
+    act: ACTS[v("b-act")] || (llama ? "SwiGLU" : "GELU"),
+    dff: +v("b-dff") || (llama ? 3 : 4) * d,
   };
 }
 function drawArchDiagram() {
@@ -507,8 +537,7 @@ function drawArchDiagram() {
   arrow(GX + 249, GX + 263, MID);
   box(GX + 263, BY, 58, BH, a.norm, "");
   arrow(GX + 321, GX + 335, MID);
-  box(GX + 335, BY, 130, BH, a.act + " FFN", a.ff + "d = " + a.ff * a.d,
-    "#a371f7");
+  box(GX + 335, BY, 130, BH, a.act + " FFN", "d_ff = " + a.dff, "#a371f7");
   arrow(GX + 465, GX + 482, MID);
   plus(GX + 491, MID);
   if (a.attnres) {
@@ -529,11 +558,15 @@ function drawArchDiagram() {
   box(GX + GW + 104, BY, 128, BH, "head", "d → vocab (≤" + a.cap + ")");
 
   $("arch-svg").innerHTML = s.join("");
+  const ffmats = a.act === "SwiGLU" ? 3 : 2;
   const params = 2 * a.cap * a.d + a.L *
-    (4 * a.d * a.d + 2 * a.ff * a.d * a.d) + a.cap * a.d;
-  $("arch-cap").textContent = a.preset + " · " +
-    (a.llama ? "llama family (RMSNorm / RoPE / SwiGLU)"
-             : "gpt2 family (LayerNorm / learned positions / GELU)") +
+    (4 * a.d * a.d + ffmats * a.d * a.dff) + a.cap * a.d;
+  const fam = a.flex
+    ? "flex family — paper-faithful (" + a.norm + " / " + a.pos + " / " +
+      a.act + ")"
+    : a.llama ? "llama family (RMSNorm / RoPE / SwiGLU)"
+              : "gpt2 family (LayerNorm / learned positions / GELU)";
+  $("arch-cap").textContent = a.preset + " · " + fam +
     " · rough params ≈ " + (params / 1e6).toFixed(2) + "M " +
     "(embeddings + blocks + head; exact count is printed by the run's " +
     "model event)";
@@ -546,6 +579,10 @@ function buildSpec() {
   if (v("b-d")) custom.d = +v("b-d");
   if (v("b-layers")) custom.layers = +v("b-layers");
   if (v("b-heads")) custom.heads = +v("b-heads");
+  if (v("b-dff")) custom.d_ff = +v("b-dff");
+  if (v("b-norm")) custom.norm = v("b-norm");
+  if (v("b-act")) custom.activation = v("b-act");
+  if (v("b-pos")) custom.position = v("b-pos");
   const arch = Object.keys(custom).length
     ? { preset: v("b-preset"), custom } : { preset: v("b-preset") };
   const spec = {
@@ -628,8 +665,25 @@ function applyArch(cfg) {
   if (g.d_model) $("b-d").value = g.d_model;
   if (g.n_layers) $("b-layers").value = g.n_layers;
   if (g.n_heads) $("b-heads").value = g.n_heads;
+  if (g.d_ff) $("b-dff").value = g.d_ff;
   if (g.context_length) $("b-T").value = Math.min(g.context_length, 512);
   if (cfg.arxiv_id) $("b-name").value = "arxiv-" + cfg.arxiv_id;
+  // Flavors: everything the fetcher extracted that the trainer can
+  // build becomes spec-real (the flex family / llama block). What it
+  // can't build yet is REPORTED, never silently swapped.
+  const approx = [];
+  const setSel = (id, val, supported) => {
+    if (!val) return;
+    if (supported.includes(val)) $(id).value = val;
+    else approx.push(val + " not trainable yet (family default used)");
+  };
+  setSel("b-norm", g.norm, ["layernorm", "rmsnorm"]);
+  setSel("b-act", g.activation, ["gelu", "relu", "swiglu"]);
+  setSel("b-pos", g.positional, ["learned", "sinusoidal", "rope"]);
+  // rope implies the llama block; everything else trains as flex on a
+  // gpt2-dims preset (its d/L/H are overridden above anyway).
+  $("b-preset").value = g.positional === "rope" ? "llama-tiny" : "gpt2-nano";
+  applyArch.approx = approx;
   buildSpec();
   // Architecture preview through the node graph: one uniform node per
   // module the extracted config implies. Real glow arrives with grads.
@@ -644,9 +698,12 @@ function applyArch(cfg) {
   drawGrads();
   const un = (cfg.unresolved || []).length
     ? " · unresolved: " + cfg.unresolved.join(", ") : "";
+  const ap = (applyArch.approx || []).length
+    ? ' · <span style="color:var(--val)">' + applyArch.approx.join("; ") +
+      "</span>" : "";
   $("p-result").innerHTML =
     (cfg.title ? "<b>" + cfg.title + "</b> · " : "") +
-    "extracted " + Object.keys(g).length + " fields" + un +
+    "extracted " + Object.keys(g).length + " fields" + un + ap +
     ' · <a href="/paper.html" target="_blank" style="color:var(--accent)">' +
     "evidence: diff-to-paper view</a> · values landed in the builder " +
     "below — edit freely, then train";
