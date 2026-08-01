@@ -20,6 +20,12 @@ of what extract() would actually apply ("used"/"contested" fields).
 Ground truth sources: the papers themselves (each architecture statement
 is quotable) — Vaswani §3, LLaMA §2, PaLM §2, BLOOM §3.1, GPT-NeoX §2.1,
 Pythia §2.1, RoFormer, ALiBi §3, Primer §4 (squared ReLU), T5 §2.1.
+
+SAMPLE-SIZE CAVEAT (STUDIO_PLAN.md §13.1): 10 papers / 31 pairs is
+enough to kill the observed failure modes, not enough for a stable
+AUROC estimate — grow TRUTH toward 30-50 papers and report bootstrap
+CIs (resampling papers, the independent unit) before quoting these
+numbers anywhere load-bearing.
 """
 from __future__ import annotations
 

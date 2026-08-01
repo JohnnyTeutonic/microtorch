@@ -111,7 +111,16 @@ def materialise(sweep, runs, out_root):
     for i, r in enumerate(runs):
         spec = copy.deepcopy(base)
         for path, value in r["factors"].items():
-            set_dotted(spec, path, value)
+            # LINKED factor: a dict level sets several spec paths at
+            # once (the factor name is then a label, not a path). This
+            # is how token-matched context works: {"data.T": 256,
+            # "train.steps": 600} vs {"data.T": 128, "train.steps":
+            # 1200} varies context length at constant tokens seen.
+            if isinstance(value, dict):
+                for p2, v2 in value.items():
+                    set_dotted(spec, p2, v2)
+            else:
+                set_dotted(spec, path, value)
         set_dotted(spec, "train.seed", r["seed"])
         name = f"run_{i:03d}_c{r['cell']:02d}_s{r['seed']}"
         spec["name"] = name
@@ -139,8 +148,11 @@ def find_mtstudio(cli):
     raise SystemExit("mtstudio binary not found; pass --mtstudio PATH")
 
 
-def run_all(spec_paths, binary, jobs):
-    threads = max(1, (os.cpu_count() or 4) // max(1, jobs))
+def run_all(spec_paths, binary, jobs, omp=None):
+    # omp overrides the even split — the polite profile for a machine
+    # someone is USING (e.g. streaming): --jobs 1 --omp 4 leaves half
+    # the cores untouched instead of soaking all of them.
+    threads = omp or max(1, (os.cpu_count() or 4) // max(1, jobs))
     env = dict(os.environ,
                OMP_NUM_THREADS=str(threads),
                OMP_WAIT_POLICY="PASSIVE")
@@ -166,7 +178,11 @@ def aggregate(runs, spec_paths, names, out_root):
     for r, (_, out_dir) in zip(runs, spec_paths):
         row = extract_row(out_dir)
         row["cell"] = r["cell"]
-        row.update({f"factor.{k}": v for k, v in r["factors"].items()})
+        # Dict (linked) levels serialize to a stable string so the
+        # analyzer can sort/group them like any two-level factor.
+        row.update({f"factor.{k}":
+                    (json.dumps(v, sort_keys=True) if isinstance(v, dict) else v)
+                    for k, v in r["factors"].items()})
         rows.append(row)
     rows_path = os.path.join(out_root, "atlas_rows.jsonl")
     with open(rows_path, "w", encoding="utf-8") as f:
@@ -229,7 +245,21 @@ def selftest():
     _, combos_pb, _ = expand({"factors": {f"f{i}": [0, 1] for i in range(11)},
                               "design": "pb12", "seeds": [1]})
     assert len(combos_pb) == 12
-    print("SELFTEST OK: pb12 balanced+orthogonal, grid/pb expansion, dotted set")
+    # Linked factor: a dict level lands on ALL its paths (token-matched
+    # context is the motivating case).
+    import tempfile
+    with tempfile.TemporaryDirectory() as td:
+        sw = {"base": {"data": {}, "train": {}},
+              "factors": {"ctx": [{"data.T": 128, "train.steps": 1200},
+                                  {"data.T": 256, "train.steps": 600}]},
+              "seeds": [1]}
+        _, _, lruns = expand(sw)
+        paths = materialise(sw, lruns, td)
+        specs = [json.load(open(p)) for p, _ in paths]
+        got = {(s["data"]["T"], s["train"]["steps"]) for s in specs}
+        assert got == {(128, 1200), (256, 600)}, got
+    print("SELFTEST OK: pb12 balanced+orthogonal, grid/pb expansion, "
+          "dotted set, linked factors")
     return 0
 
 
@@ -237,6 +267,9 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("sweep", nargs="?")
     ap.add_argument("--jobs", type=int, default=1)
+    ap.add_argument("--omp", type=int, help="OMP threads per worker "
+                    "(default: cores // jobs); lower it to stay polite "
+                    "on a machine in active use")
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--mtstudio")
     ap.add_argument("--selftest", action="store_true")
@@ -258,7 +291,7 @@ def main():
             print(f"  {p}")
         return
     binary = find_mtstudio(args.mtstudio)
-    run_all(spec_paths, binary, args.jobs)
+    run_all(spec_paths, binary, args.jobs, args.omp)
     aggregate(runs, spec_paths, names, out_root)
 
 

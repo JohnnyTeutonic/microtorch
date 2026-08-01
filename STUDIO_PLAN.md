@@ -298,6 +298,33 @@ CI-testable (papers/test_fetch.py runs without network). An optional
 LLM-assist pass for gnarly papers is a possible v2 layer on top; the
 deterministic core stays the default and the fallback.
 
+### 13.1 Flavor-benchmark growth (sample size, noted 2026-08-01)
+
+The contribution-vs-mention scorer's numbers (grouped AUROC 1.000,
+pooled 0.783, 0 wrong assertions — papers/flavor_bench.py) rest on
+**10 papers / 31 candidate-label pairs / 7 grouped comparisons**. That
+is enough to kill the observed failure modes but NOT enough to call the
+estimate stable — at n=31 the AUROC's own sampling error is wide, and a
+perfect grouped score over 7 groups is exactly what a small sample can
+gift. Jonathan's requirement: grow the sample until the law of large
+numbers is doing the work, then write the result up properly.
+
+Protocol for the write-up:
+- Grow TRUTH to **30–50 papers (~120+ pairs)**: encoder-only and
+  seq2seq families (BERT, RoBERTa, T5 variants, DeBERTa's relative
+  positions), more designed negatives (papers whose true flavor is
+  outside the lattice, like Primer), and papers with adversarial
+  related-work density. Every fetched-and-hand-verified paper becomes
+  one TRUTH row — the table is built to accumulate.
+- Report **bootstrap confidence intervals** (resample papers, not
+  pairs — papers are the independent unit) for grouped and pooled
+  AUROC, alongside verdict accuracy and the abstention rate.
+- Keep the two hard gates (no wrong assertions; grouped >= naive) and
+  add a CI-band gate once n supports it.
+- Where it lands: a short methods section in whatever paper/README
+  section presents the from-paper pipeline — the claim "we measured
+  the disambiguator" is only as strong as its n.
+
 ## 8. Open decisions (deliberately deferred)
 
 - BPE tokenizer training in-box vs word-level default (start word-level).

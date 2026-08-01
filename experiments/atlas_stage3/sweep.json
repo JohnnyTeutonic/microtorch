@@ -1,0 +1,22 @@
+{
+  "_comment": "Atlas Stage 3 (ATLAS_STAGE2_RESULTS.md prescription): full 2^4 factorial on the Stage-2 survivors {optimizer, context, lr, d} x 3 seeds = 48 runs at 3x the Stage-2 token budget. 'ctx' is a LINKED factor: T and steps co-vary so both levels see the same 614k tokens (T*batch*steps) — de-aliasing 'longer context' from 'more data', the honest fix for Stage 2 finding #2. heads=4, layers=2, batch=4 held fixed.",
+  "base": {
+    "arch": {"preset": "llama-tiny", "custom": {}},
+    "data": {"corpus": "/mnt/c/Users/jonat/OneDrive/Documents/research_portfolio_complete/transformer_cpp/data/tinystories-txt/train-0-small.txt",
+              "vocab": "/mnt/c/Users/jonat/OneDrive/Documents/research_portfolio_complete/transformer_cpp/releases/chat7b.gguf",
+              "vocab_cap": 4096},
+    "train": {"batch": 4, "eval_every": 100, "checkpoint_every": 1000000,
+               "gradmap_every": 0},
+    "export": {"formats": []}
+  },
+  "factors": {
+    "arch.custom.d": [128, 192],
+    "train.lr": [0.001, 0.003],
+    "train.optimizer": ["adamw", "muon"],
+    "ctx": [{"data.T": 128, "train.steps": 1200},
+             {"data.T": 256, "train.steps": 600}]
+  },
+  "design": "grid",
+  "seeds": [1, 2, 3],
+  "out_root": "/tmp/atlas_stage3"
+}

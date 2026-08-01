@@ -836,6 +836,15 @@ in our own data. Full writeup with caveats and the Stage 3 prescription:
 **Stage 3 — the resolution-V design (a weekend).** All main effects and pairwise
 interactions for surviving factors; fit the mixed-effects model.
 *Useful alone:* the interaction table is the scientific core of the idea.
+**STATUS 2026-08-01: RUNNING.** Full 2^4 factorial (affordable, so better
+than fractional) on the Stage-2 survivors {optimizer, context, lr, d} × 3
+seeds = 48 runs at 3× the Stage-2 token budget. Context is a LINKED
+factor (T=128/1200 steps vs T=256/600 steps, both 614,400 tokens at
+batch 4) — de-aliasing "longer context" from "more data", the fix Stage
+2's finding #2 demanded. Manifest: `experiments/atlas_stage3/sweep.json`.
+Launched in the polite profile (nice 19, 1 worker × 4 OMP threads) while
+the machine is in active use; mtsweep resumes, so the worker count rises
+when the machine frees up.
 
 **Stage 4 — the scale ladder (weeks).** Repeat 2–3 at three sizes; report
 trends. *This is what converts small-scale findings into defensible claims.*
