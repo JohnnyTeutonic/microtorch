@@ -113,8 +113,18 @@ def test_contribution_vs_mention() -> None:
     f3 = a3.fields.get("norm")
     assert f3 is not None and f3.verdict == "contested", f3
     assert f3.runner_up is not None
+    # Explicit rejection is a VETO: "we choose not to adopt X" anywhere
+    # makes X ineligible for "used", whatever its best sentence scored
+    # (the Falcon failure, 2026-08-01).
+    a4 = extract("0000.00008", r"""
+We evaluate gated units extensively and we use SwiGLU in early runs.
+After ablations, we choose not to adopt SwiGLU. Our final model uses
+the GELU activation throughout.""")
+    f4 = a4.fields.get("activation")
+    assert f4 is None or f4.value != "swiglu", f4
     print("contribution-vs-mention ok: mention-only abstains, "
-          f"replace->{a2.fields['norm'].value}, symmetric->contested")
+          f"replace->{a2.fields['norm'].value}, symmetric->contested, "
+          "explicit rejection vetoes")
 
 
 def test_unresolved_reported() -> None:

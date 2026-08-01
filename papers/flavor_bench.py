@@ -38,8 +38,12 @@ from fetch import FLAVOR, extract, fetch_source, score_flavors, split_sections
 CACHE = pathlib.Path(__file__).parent / ".cache"
 
 # paper -> field -> the value this paper USES (None = the true value is
-# outside our lattice, so every in-lattice candidate is a negative).
+# outside the candidate lattice, so every candidate is a negative —
+# abstention is the only correct output). Truth = what the paper's own
+# text asserts about ITS model; fields we are not certain of are simply
+# omitted rather than guessed.
 TRUTH: dict[str, dict[str, str | None]] = {
+    # ---- original ten (2026-08-01) ----
     "1706.03762": {"norm": "layernorm", "activation": "relu",
                    "positional": "sinusoidal"},          # Transformer
     "2302.13971": {"norm": "rmsnorm", "activation": "swiglu",
@@ -57,6 +61,39 @@ TRUTH: dict[str, dict[str, str | None]] = {
     "2304.01373": {"norm": "layernorm",
                    "positional": "rope"},                # Pythia
     "1910.10683": {"activation": "relu"},                # T5
+    # ---- growth batch (2026-08-01, STUDIO_PLAN 13.1) ----
+    "1810.04805": {"norm": "layernorm", "activation": "gelu",
+                   "positional": "learned"},             # BERT
+    "1907.11692": {"norm": "layernorm", "activation": "gelu",
+                   "positional": "learned"},             # RoBERTa
+    "1909.11942": {"norm": "layernorm", "activation": "gelu",
+                   "positional": "learned"},             # ALBERT
+    "2005.14165": {"norm": "layernorm",
+                   "positional": "learned"},             # GPT-3
+    "2205.01068": {"norm": "layernorm", "activation": "relu",
+                   "positional": "learned"},             # OPT
+    "2211.09085": {"activation": "gelu",
+                   "positional": "learned"},             # Galactica
+    "2006.03654": {"norm": "layernorm", "activation": "gelu",
+                   "positional": None},                  # DeBERTa (relative)
+    "1906.08237": {"norm": "layernorm",
+                   "positional": None},                  # XLNet (rel. two-stream)
+    "2004.05150": {"norm": "layernorm", "activation": "gelu",
+                   "positional": "learned"},             # Longformer
+    "2307.09288": {"norm": "rmsnorm", "activation": "swiglu",
+                   "positional": "rope"},                # Llama 2
+    "2401.02385": {"norm": "rmsnorm", "activation": "swiglu",
+                   "positional": "rope"},                # TinyLlama
+    "2309.16609": {"norm": "rmsnorm", "activation": "swiglu",
+                   "positional": "rope"},                # Qwen
+    "2401.02954": {"norm": "rmsnorm", "activation": "swiglu",
+                   "positional": "rope"},                # DeepSeek LLM
+    "2403.08295": {"norm": "rmsnorm", "activation": "geglu",
+                   "positional": "rope"},                # Gemma (GeGLU!)
+    "2311.16867": {"norm": "layernorm", "activation": "gelu",
+                   "positional": "rope"},                # Falcon
+    "2112.11446": {"norm": "rmsnorm",
+                   "positional": None},                  # Gopher (relative)
 }
 
 
@@ -89,6 +126,25 @@ def auroc(pairs: list[tuple[float, int]]) -> float | None:
     return wins / (len(pos) * len(neg))
 
 
+def bootstrap_ci(per_paper, stat, n_boot=2000, seed=0):
+    """95% percentile CI resampling PAPERS (the independent unit — the
+    STUDIO_PLAN 13.1 protocol), not pairs. per_paper: paper_id ->
+    whatever `stat` consumes for a resampled list of papers."""
+    import random
+    rng = random.Random(seed)
+    ids = list(per_paper.keys())
+    vals = []
+    for _ in range(n_boot):
+        sample = [per_paper[rng.choice(ids)] for _ in ids]
+        v = stat(sample)
+        if v is not None:
+            vals.append(v)
+    if len(vals) < n_boot // 2:
+        return None  # too many degenerate resamples to trust a CI
+    vals.sort()
+    return vals[int(0.025 * len(vals))], vals[int(0.975 * len(vals))]
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--offline", action="store_true")
@@ -103,6 +159,9 @@ def main() -> int:
     # the mentioned ones?"); pooled additionally measures cross-paper
     # score calibration, which the used/contested threshold relies on.
     grouped: list[tuple[list[tuple[float, int]], list[tuple[float, int]]]] = []
+    # paper -> {"pairs": [(score,label)...], "groups": [[(s,l)...] per
+    # field]} — the resampling unit for the bootstrap CIs.
+    by_paper: dict[str, dict] = {}
     verdict_ok, verdict_bad, contested = 0, [], 0
     n_papers = 0
 
@@ -125,6 +184,10 @@ def main() -> int:
                 g_new.append((c["score"], label))
                 g_old.append((prio[c["value"]], label))
             grouped.append((g_new, g_old))
+            bp = by_paper.setdefault(arxiv_id, {"pairs": [], "groups": []})
+            bp["pairs"].extend(g_new)
+            if g_new:
+                bp["groups"].append(g_new)
             if args.verbose:
                 pretty = ", ".join(f"{c['value']}:{c['score']}" for c in cands)
                 print(f"  {arxiv_id} {fieldname:11} truth={true_val}  [{pretty}]")
@@ -155,11 +218,22 @@ def main() -> int:
     g_new = sum(ga_new) / len(ga_new) if ga_new else None
     g_old = sum(ga_old) / len(ga_old) if ga_old else None
     a_new, a_old = auroc(scored), auroc(naive)
+    def stat_grouped(sample):
+        vals = [auroc(g) for p in sample for g in p["groups"]]
+        vals = [v for v in vals if v is not None]
+        return sum(vals) / len(vals) if vals else None
+
+    def stat_pooled(sample):
+        return auroc([pr for p in sample for pr in p["pairs"]])
+
+    ci_g = bootstrap_ci(by_paper, stat_grouped)
+    ci_p = bootstrap_ci(by_paper, stat_pooled)
+    fmt = lambda ci: f"  [95% CI {ci[0]:.3f}–{ci[1]:.3f}]" if ci else ""
     print(f"grouped AUROC (per paper+field, the deployed decision): "
-          f"scorer {g_new:.3f}   naive {g_old:.3f}   "
+          f"scorer {g_new:.3f}{fmt(ci_g)}   naive {g_old:.3f}   "
           f"({len(ga_new)} groups)")
     print(f"pooled AUROC (cross-paper calibration):                "
-          f"scorer {a_new:.3f}   naive {a_old:.3f}")
+          f"scorer {a_new:.3f}{fmt(ci_p)}   naive {a_old:.3f}")
     for fieldname, pairs in sorted(per_field.items()):
         a = auroc(pairs)
         print(f"  {fieldname:11} pooled "

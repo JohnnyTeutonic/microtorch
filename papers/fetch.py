@@ -200,8 +200,20 @@ MENTION_CUES = [
     (r"\bfuture\s+work\b|\bcould\b|\bmight\b", -1.0),
     # Ablation phrasing: tried-and-compared is not the architecture.
     (r"\bexperimented\s+with\b|\bwe\s+also\s+tr(?:ied|y)\b|\bablations?\b|"
-     r"\bnearly\s+identical\b|\bno\s+significant\b|\bvariants?\b", -2.5),
+     r"\bnearly\s+identical\b|\bvariants?\b", -2.5),
 ]
+# Rejection-class cues, named so score_flavors can PROPAGATE them: an
+# explicit rejection at any occurrence ("we choose not to adopt X",
+# "(no X)", "little gains from X") marks the CANDIDATE, because it
+# beats a usage-looking sentence about X somewhere else in the paper.
+NEG_RESULT_RE = (r"\b(?:no|little|few)\s+(?:additional|significant|clear|meaningful)?\s*"
+                 r"(?:\w+\s+)?gains?\b|"
+                 r"\b(?:did|do|does)\s+not\s+(?:find|improve|help|observe|yield)\b|"
+                 r"\bnot\s+worth\b")
+DECLINED_RE = (r"\b(?:choose|chose|opt(?:ed)?|decided?)\s+not\s+to\b|"
+               r"\bagainst\s+(?:using|adopting)\b")
+MENTION_CUES += [(NEG_RESULT_RE, -3.0), (DECLINED_RE, -4.0)]
+REJECTION_CUES = {"explicit-negation", "negative-result", "declined"}
 # Attribution cues that read as related-work ONLY when no usage verb is
 # nearby: "we use rotary embeddings introduced by [cite]" is a usage
 # statement with attribution, not a mention.
@@ -242,6 +254,16 @@ def score_match(seg_text: str, m: re.Match, sec_class: str) -> tuple[float, list
     number is explainable."""
     before = seg_text[max(0, m.start() - 120):m.start()]
     after = seg_text[m.end():m.end() + 80]
+    # SENTENCE-scoped: cues must not leak across sentence boundaries
+    # ("we use learned embeddings. We experimented with ALiBi" — the
+    # "we use" belongs to the learned sentence, not to ALiBi). Truncate
+    # at the nearest sentence terminator on each side.
+    cut = before.rfind(". ")
+    if cut != -1:
+        before = before[cut + 2:]
+    cut = after.find(". ")
+    if cut != -1:
+        after = after[:cut + 1]
     window = before + " " + after
     score = SECTION_WEIGHTS[sec_class]
     cues = [f"section:{sec_class}"]
@@ -267,6 +289,16 @@ def score_match(seg_text: str, m: re.Match, sec_class: str) -> tuple[float, list
                  before, flags=re.IGNORECASE):
         score -= 4.0
         cues.append("modified-variant")
+    # Explicit negation: "minor tweaks (no SwiGLU, etc.)".
+    if re.search(r"\b(?:no|without)\s+$", before, flags=re.IGNORECASE):
+        score -= 4.0
+        cues.append("explicit-negation")
+    # Named markers for the rejection classes (weights already applied
+    # via MENTION_CUES; the names drive candidate-level propagation).
+    if re.search(NEG_RESULT_RE, window, flags=re.IGNORECASE):
+        cues.append("negative-result")
+    if re.search(DECLINED_RE, window, flags=re.IGNORECASE):
+        cues.append("declined")
     # Plus-compound baseline naming: "Transformer+GELU" is a named
     # comparison config, not this paper's choice.
     if re.search(r"\+\s*$", before):
@@ -277,6 +309,17 @@ def score_match(seg_text: str, m: re.Match, sec_class: str) -> tuple[float, list
     if re.search(r"[A-Za-z0-9]'s\s*$", before):
         score -= 3.0
         cues.append("possessive-attribution")
+    # Passive replacement, match on the REMOVED side: "the standard
+    # ReLU non-linearity is replaced by GeGLU".
+    if re.search(r"^\s*(?:\w+[- ]?){0,3}(?:is|are|was|were)\s+replaced\s+(?:by|with)\b",
+                 after, flags=re.IGNORECASE):
+        score -= 3.0
+        cues.append("passive-replace-source")
+    # Borrowed-setup attribution right after the match: "sinusoidal
+    # weights as in [Vaswani]" — describing another work's recipe.
+    if re.search(r"^\s*(?:\w+\s+){0,2}as\s+in\b", after, flags=re.IGNORECASE):
+        score -= 2.0
+        cues.append("as-in-attribution")
     # Attribution / citation density only count against a candidate when
     # nothing in the window asserts usage.
     if not used_cue:
@@ -308,11 +351,13 @@ def score_flavors(sections: list[tuple[str, str]]) -> dict[str, list[dict]]:
         cands = []
         for value, pat in flavors:
             best, best_ev, best_cues, n = None, "", [], 0
+            rejected = False
             others = [p for v, p in flavors if v != value]
             for sec_class, seg in sections:
                 for m in re.finditer(pat, seg):
                     n += 1
                     sc, cues = score_match(seg, m, sec_class)
+                    rejected = rejected or bool(REJECTION_CUES & set(cues))
                     # Enumeration: another alternative of the SAME field
                     # within a tight radius means a comparison list
                     # ("the sinusoidal, rotary and T5 bias models").
@@ -326,6 +371,12 @@ def score_flavors(sections: list[tuple[str, str]]) -> dict[str, list[dict]]:
             if n:
                 # repetition: contributions recur (setup, tables, results)
                 best += min(n - 1, 3) * 0.5
+                if rejected:
+                    # Marker only — the verdict layer makes a rejected
+                    # candidate ineligible for "used"; docking the score
+                    # here just distorts the ranking (measured: grouped
+                    # AUROC dropped when this carried a -2.5).
+                    best_cues = best_cues + ["rejection-elsewhere"]
                 cands.append({"value": value, "score": round(best, 2),
                               "evidence": best_ev, "cues": best_cues, "n": n})
         if cands:
@@ -440,7 +491,12 @@ def extract(arxiv_id: str, tex: str) -> Arch:
             continue
         top = cands[0]
         second = cands[1] if len(cands) > 1 else None
-        if top["score"] >= WIN_THRESHOLD and (
+        if "rejection-elsewhere" in top["cues"]:
+            # The paper explicitly rejected this candidate somewhere
+            # ("we choose not to adopt X", "(no X)"): it may never be
+            # ASSERTED, whatever its best local sentence scored.
+            arch.unresolved.append(fieldname)
+        elif top["score"] >= WIN_THRESHOLD and (
                 second is None or top["score"] - second["score"] >= WIN_MARGIN):
             arch.fields[fieldname] = Finding(
                 top["value"], top["evidence"], verdict="used", score=top["score"])

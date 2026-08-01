@@ -309,6 +309,16 @@ perfect grouped score over 7 groups is exactly what a small sample can
 gift. Jonathan's requirement: grow the sample until the law of large
 numbers is doing the work, then write the result up properly.
 
+**STATUS 2026-08-01 (same day): grown to 26 papers / 69 pairs / 17
+groups, bootstrap CIs implemented (resampling papers).** The prediction
+above came true on schedule: the perfect 1.000 deflated to grouped
+**0.882 [95% CI 0.750–1.000]** — still above naive (0.863), pooled
+0.788 [0.694–0.908] vs 0.754, and 0 wrong assertions held only after
+four new cue classes earned it (sentence-scoped windows, negative
+ablation results, passive replacement, declined-adoption VETO — the
+Falcon "we choose not to adopt SwiGLU" case). Next milestone: 40+
+papers, then the CI-band gate.
+
 Protocol for the write-up:
 - Grow TRUTH to **30–50 papers (~120+ pairs)**: encoder-only and
   seq2seq families (BERT, RoBERTa, T5 variants, DeBERTa's relative

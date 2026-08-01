@@ -70,10 +70,13 @@ Minimal autograd engines are a well-populated genre. Six things here are not:
    (`tests/test_flex.cpp`).
 3. **The extraction is measured, not vibed.** A paper *mentions* many
    alternatives; it *uses* one. The contribution-vs-mention scorer separates
-   them with explainable cues and is benchmarked on real papers with
-   ground-truth architectures — grouped AUROC 1.000 vs 0.952 for naive
-   first-match, **zero wrong assertions** (close calls abstain and ask the
-   human). The benchmark, its caveats and its growth protocol ship in the repo.
+   them with explainable cues and is benchmarked on **26 real papers** with
+   ground-truth architectures: grouped AUROC 0.882 [bootstrap 95% CI
+   0.750–1.000] vs 0.863 for naive first-match, pooled 0.788 [0.694–0.908]
+   vs 0.754, and **zero wrong assertions** — explicit rejections ("we choose
+   not to adopt SwiGLU") veto a candidate outright, and close calls abstain
+   and ask the human. The benchmark, its CIs and its growth protocol ship in
+   the repo.
 4. **Falsifiers ship inside the modules.** Novel mechanisms carry the experiment
    designed to kill them — `SurpriseRoutedAttention::shuffle_predictor` feeds the
    router a permuted input so the gate keeps its distribution but loses its
@@ -448,12 +451,16 @@ penalized), ablation/comparative phrasing, possessive attribution ("the
 Transformer's ReLU"), plus-compound baseline names ("Transformer+GELU") — and
 a value is asserted only when a clear winner exists; close calls are
 **contested** (both candidates shown with evidence, nothing auto-applied).
-Measured on `papers/flavor_bench.py`, ten real papers with ground-truth
-architectures: **grouped AUROC 1.000** (the per-paper used-vs-mentioned
-ranking; naive first-match 0.952), pooled AUROC 0.783 vs 0.763, and **zero
-wrong assertions** — where first-match extraction claimed RoPE for the ALiBi
-paper and SwiGLU for Primer (whose real activation, squared ReLU, is outside
-the lattice — the correct answer is to abstain, and the scorer does).
+Measured on `papers/flavor_bench.py`, **26 real papers** with ground-truth
+architectures (Vaswani through Gemma, including designed negatives whose
+true flavor is outside the lattice): **grouped AUROC 0.882** [bootstrap 95%
+CI 0.750–1.000, resampling papers] vs 0.863 for naive first-match, pooled
+0.788 [0.694–0.908] vs 0.754, and **zero wrong assertions** — where
+first-match extraction claimed RoPE for the ALiBi paper and SwiGLU for
+Primer *and* Falcon ("we choose not to adopt SwiGLU" now vetoes the
+candidate outright). The first 10-paper cut scored a grouped 1.000 — the
+larger sample deflated that honestly, which is exactly what the benchmark
+is for; the growth protocol continues (STUDIO_PLAN §13.1).
 
 Validated live against: *Attention Is All You Need* (d_model=512, N=6, h=8,
 d_ff=2048, sinusoidal), *LLaMA* (4096/32/32 from its model-size table +
