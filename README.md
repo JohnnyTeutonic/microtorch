@@ -27,11 +27,14 @@ Chat with it — same page      tinyllama.cpp, a separately written engine,
 Share the run                 one spec file + one JSONL event stream
 ```
 
-![the full loop: paper → provenance-carrying extraction → train → Atlas row → chat](docs/media/demo.gif)
+![the one-tab studio loop: live arXiv fetch → architecture diagram → ▶ train → loss curve → artifact downloads → chat panel](docs/media/studio_loop.gif)
 
-*Real recordings, no mockups: the GIF is `tools/demo.sh`; the
-[mp4 walkthrough](docs/media/demo_walkthrough.mp4) is the one-tab studio
-flow end to end.*
+*Cut from the real recording, no mockups — the live arXiv fetch, the
+spec builder and architecture diagram, ▶ TRAIN, the loss curve filling
+in, and the finish line: exported artifacts as download links with the
+chat panel waiting below. The
+[full 5-minute walkthrough](docs/media/demo_walkthrough.mp4) plays on
+click.*
 
 An educational yet research-capable LLM framework that exposes every major
 component of the modern transformer training stack in readable C++ — while
@@ -112,6 +115,12 @@ ctest --output-on-failure     # gradchecks + unit + integration tests
 ```
 
 ## The studio — spec in, chatting model out
+
+![the terminal loop: paper → provenance-carrying extraction → train → Atlas row → chat](docs/media/demo.gif)
+
+*The same loop driven from the terminal (`tools/demo.sh`): fetch,
+evidence, train on the FD-checked tape, the run's Atlas row, and a chat
+with the exported GGUF through tinyllama.cpp.*
 
 One JSON file describes the whole lifecycle; `mtstudio` executes it.
 
