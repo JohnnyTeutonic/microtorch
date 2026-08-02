@@ -12,8 +12,35 @@ top.*
 | Engine | Is | Is not |
 |---|---|---|
 | **paperkiln** | The research studio: any architecture the taxonomy can express, every gradient FD-checked, every run an Atlas row. Flexibility and receipts. | The fastest trainer (tape overhead, CPU-first, fp32-only today) |
-| **coalfire.cpp** | The industrial burn: hard-coded vanilla transformer, CUDA + fp16 mixed precision, a mature training loop. Speed for the one architecture it knows. | Flexible — it cannot train kimi/srd/attnres/flex, and should not learn to |
+| **coalfire.cpp** | The **kernel authority and scale trainer**: the hand-written CUDA corpus (pre-LLM, learned off the manuals — stride layouts, cuBLAS conventions, fp16 mixed precision, the alignment lessons) that paperkiln already links as `transformer_core`, plus the mature hard-coded training loop that burns vanilla architectures fast. | Flexible — it cannot train kimi/srd/attnres/flex, and should not learn to |
 | **ember.cpp** | The serving half: GGUF + safetensors, quantized types, HTTP `/chat`, web UI. | A training system |
+
+### 1.1 coalfire's genuine roles (not a legacy shrine — load-bearing)
+
+The build system already tells the truth: paperkiln's CMake links
+`transformer_core` as a static library, `MICROTORCH_CUDA` routes every
+`device::matmul` through coalfire's kernels, and `tools/sync_vendor.sh`
+exists to keep the vendored copy fresh. Four roles, all structural:
+
+1. **Kernel authority.** New CUDA work — phase B resident tensors, fp16
+   on the tape, and eventually sparse kernels — lands in coalfire's
+   kernel tree FIRST and vendor-syncs into paperkiln. The flagship's
+   GPU engine is, permanently, the corpus that was debugged by hand
+   before code assistants existed. That provenance is also a
+   portfolio differentiator no green-field repo can claim.
+2. **Scale trainer.** When paperkiln graduates a vanilla-shaped
+   architecture, coalfire trains it at CUDA/fp16 speed (the C4
+   translator + C1 adapter make this a button, not a story).
+3. **Independent witness.** The C2 golden pin is symmetric: two
+   independently written trainers agreeing on logits is a verification
+   asset neither has alone. coalfire checks paperkiln as much as the
+   reverse — the same discipline that made ember's argmax-parity
+   serving trustworthy.
+4. **Sparse kernel forge.** The sparse-attention phase (§5) needs
+   fast kernels, not just taped reference implementations: research is
+   *designed* in paperkiln (taxonomy, Atlas cells, falsifiers) and its
+   winning kernels are *forged* in coalfire — sliding-window CUDA
+   belongs there. Work in this direction already exists in the tree.
 
 The story that makes this coherent: **search and verify small in the
 kiln, burn the winner at scale in the coalfire, keep it glowing in
@@ -70,17 +97,22 @@ ember parses real BPE tokenizers already. Porting ember's BPE reader
 into the training side upgrades both trainers' data pipeline at once
 and closes the biggest realism gap vs the small-LM literature.
 
-**Non-goal:** porting flex/kimi/srd/attnres into coalfire. The long-run
-convergence is the opposite — CUDA phase B + fp16 in paperkiln (below)
-gradually absorbs coalfire's performance advantage, and coalfire
-remains the stable, hired-off-the-strength-of-it precedent engine.
+**Non-goal:** porting flex/kimi/srd/attnres into coalfire — flexibility
+lives on the tape. But the converse is NOT a retirement plan: CUDA
+phase B and fp16 in paperkiln are built ON coalfire's kernels (§1.1
+role 1), so paperkiln getting faster makes coalfire MORE load-bearing,
+not less. The division of labor is permanent: coalfire owns the
+kernels and the scale burns; paperkiln owns the architectures and the
+receipts.
 
 ## 4. Feature candidates (paperkiln-side), ranked
 
 1. **CUDA phase B: resident device tensors.** Params uploaded once,
-   activations on-device. THE unlock: makes fp16/bf16 worth building
-   (the deferred STUDIO_PLAN item), erodes the need for a second
-   trainer, and turns the T4-validated seam into real speed.
+   activations on-device — built on coalfire's kernel corpus (new
+   kernels land there first, per §1.1). THE unlock: makes fp16/bf16
+   worth building (the deferred STUDIO_PLAN item; coalfire's
+   half_precision_kernels.cu is waiting) and turns the T4-validated
+   seam into real speed.
 2. **In-studio sampler.** `mtstudio sample ckpt --prompt ...` + a
    generate box in the dashboard fed by a `sample` event. Closes the
    train→poke loop without leaving the page (ember stays the real
@@ -119,6 +151,8 @@ implementations. The Atlas is the instrument that makes it so:
   default control — then one routing/block-sparse variant. Same
   receipts as everything else: FD gradchecks, batch pins, equivalence
   pins where exact cases exist (window ≥ T must equal full attention).
+  Reference implementations live on the tape; their FAST kernels are
+  forged in coalfire (§1.1 role 4) and vendor-synced back.
 - **Phase S2 — the measuring stick.** A fixed evaluation cell: LM loss
   + needle retrieval + long-context degradation, ≥3 seeds, run through
   mtsweep. Every attention variant faces the same cell. The SRD
