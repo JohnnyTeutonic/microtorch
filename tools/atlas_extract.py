@@ -90,7 +90,14 @@ def behavioural_features(events):
         warm = max(1, len(gnorms) // 20)
         body = gnorms[warm:] if len(gnorms) > warm + 3 else gnorms
         med = statistics.median(body)
-        feats["grad_spike_count"] = sum(1 for g in body if med > 0 and g > 3 * med)
+        spikes = sum(1 for g in body if med > 0 and g > 3 * med)
+        feats["grad_spike_count"] = spikes
+        # RATE per 1,000 post-warmup steps: token-matched designs vary the
+        # step count (Stage 3: 600 vs 1200 steps at equal tokens), which
+        # makes a raw COUNT mechanically higher in longer runs — the
+        # Stage-3 ctx→spikes "signal" was partly that. Rate is the
+        # cross-budget-comparable column; the count stays for continuity.
+        feats["grad_spike_rate"] = 1000.0 * spikes / len(body) if body else None
         feats["grad_init_transient"] = (max(gnorms[:warm]) / med) if med > 0 else None
 
     if evals:

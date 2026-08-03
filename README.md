@@ -270,7 +270,8 @@ can consume a run.
 | **Live dashboard** | ✅ | Loss + val + gate chart, per-module gradient glow, spec builder, SVG architecture diagram, in-page chat |
 | **Flex family (paper-faithful)** | ✅ | Any depth; d_ff, LayerNorm/RMSNorm, GELU/ReLU/SwiGLU, learned/sinusoidal all spec-real; bitwise equivalence pin at defaults (`test_flex`, 6 receipts) |
 | **From-paper flow** | ✅ | Drag an arXiv link → scored extraction (grouped AUROC 1.000, 0 wrong assertions on the 10-paper bench) → editable spec → ▶ train → artifact downloads → chat |
-| **Atlas experiment engine** | ✅ | `mtsweep` (grid/PB12/linked factors, resumable, OMP-aware) + `atlas_analyze` (main effects, seed-based SEs); Stage 2 findings published |
+| **Atlas experiment engine** | ✅ | `mtsweep` (grid/PB12/fold-over PB12f, linked factors, aliasing advisories, resumable, OMP-aware) + `atlas_analyze` (main effects + two-way interactions, seed-based SEs); Stages 2–3 findings published |
+| **Atlas viewer** | ✅ | `studio/atlas.html` (+ `/atlas` in serve mode): in-page effects, clickable interaction heatmap, seed spreads — client math pinned to the Python analyzer on real Stage 3 rows |
 | LoRA | ✅ | `LoRALinear`: frozen base + rank-r adapters, `merged_weight()` |
 | Quantization | ✅ | int8 blockwise (absmax/block), `QLinear` ~3.7x smaller weights |
 | QLoRA | ✅ | `QLoRALinear`: quantized frozen base + trainable adapters |

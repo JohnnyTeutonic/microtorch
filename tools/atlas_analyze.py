@@ -32,7 +32,8 @@ import statistics
 import sys
 
 LOSS_LIKE = {"best_val", "final_train_loss", "loss_auc_norm",
-             "loss_tail_std", "grad_spike_count", "grad_init_transient"}
+             "loss_tail_std", "grad_spike_count", "grad_spike_rate",
+             "grad_init_transient"}
 DEFAULT_METRICS = ["best_val", "loss_auc_norm", "steps_to_half_gap",
                    "grad_spike_count", "tokens_per_second"]
 

@@ -82,14 +82,43 @@ def expand(sweep):
     design = sweep.get("design", "grid")
     if design == "grid":
         combos = list(itertools.product(*[factors[n] for n in names]))
-    elif design == "pb12":
+    elif design in ("pb12", "pb12f"):
         for n in names:
             if len(factors[n]) != 2:
-                raise SystemExit(f"pb12 factor {n} needs exactly 2 levels")
+                raise SystemExit(f"{design} factor {n} needs exactly 2 levels")
+        rows_ = pb12_matrix(len(names))
+        if design == "pb12f":
+            # FOLD-OVER (the Stage-2 lesson institutionalised): append the
+            # mirror of every row. The combined 24-run design is
+            # resolution IV — main effects come out CLEAR of two-way
+            # interactions, which plain PB12 aliases. Costs one more
+            # night; buys immunity to the exact failure Stage 3 exposed
+            # (the lr main effect that was two conditional effects
+            # cancelling).
+            rows_ = rows_ + [[-s for s in r] for r in rows_]
         combos = [tuple(factors[n][0 if s < 0 else 1] for n, s in zip(names, r))
-                  for r in pb12_matrix(len(names))]
+                  for r in rows_]
     else:
         raise SystemExit(f"unknown design {design}")
+
+    # Aliasing advisory (the token-matching lesson, automated): a factor
+    # on data.T or train.batch at fixed train.steps varies TOKENS SEEN
+    # alongside the named quantity — Stage 2's "T=256 is better" was
+    # "more data" wearing "longer context" clothes until Stage 3
+    # token-matched it with a linked factor. Warn at design time.
+    budget_paths = {"data.T": "context length", "train.batch": "batch size"}
+    linked_paths = set()
+    for levels in factors.values():
+        for lv in levels:
+            if isinstance(lv, dict):
+                linked_paths.update(lv.keys())
+    for name in names:
+        if name in budget_paths and "train.steps" not in linked_paths:
+            print(f"WARNING: factor {name} varies {budget_paths[name]} AND "
+                  f"tokens-seen at fixed steps — its effect will alias "
+                  f"data budget. Consider a LINKED factor pairing it with "
+                  f"train.steps (see experiments/atlas_stage3/sweep.json).",
+                  file=sys.stderr)
 
     seeds = sweep.get("seeds", [7])
     runs = []
@@ -245,6 +274,34 @@ def selftest():
     _, combos_pb, _ = expand({"factors": {f"f{i}": [0, 1] for i in range(11)},
                               "design": "pb12", "seeds": [1]})
     assert len(combos_pb) == 12
+    # Fold-over: 24 rows, and RESOLUTION IV — every main-effect column is
+    # orthogonal to every two-way interaction column in the combined
+    # design (sum over rows of col_i * col_j*col_k == 0), which is
+    # exactly the property plain PB12 lacks.
+    m = pb12_matrix(7)
+    mf = m + [[-s for s in r] for r in m]
+    for i in range(7):
+        for j in range(7):
+            for k in range(j + 1, 7):
+                dot = sum(r[i] * r[j] * r[k] for r in mf)
+                assert dot == 0, (i, j, k, dot)
+    _, combos_f, _ = expand({"factors": {f"f{i}": [0, 1] for i in range(7)},
+                             "design": "pb12f", "seeds": [1]})
+    assert len(combos_f) == 24
+    # Aliasing advisory fires for an unlinked data.T factor.
+    import contextlib
+    import io
+    err = io.StringIO()
+    with contextlib.redirect_stderr(err):
+        expand({"factors": {"data.T": [128, 256], "train.lr": [1e-3, 3e-3]},
+                "seeds": [1]})
+    assert "tokens-seen" in err.getvalue(), err.getvalue()
+    err2 = io.StringIO()
+    with contextlib.redirect_stderr(err2):
+        expand({"factors": {"ctx": [{"data.T": 128, "train.steps": 1200},
+                                    {"data.T": 256, "train.steps": 600}]},
+                "seeds": [1]})
+    assert "tokens-seen" not in err2.getvalue(), err2.getvalue()
     # Linked factor: a dict level lands on ALL its paths (token-matched
     # context is the motivating case).
     import tempfile
@@ -259,7 +316,8 @@ def selftest():
         got = {(s["data"]["T"], s["train"]["steps"]) for s in specs}
         assert got == {(128, 1200), (256, 600)}, got
     print("SELFTEST OK: pb12 balanced+orthogonal, grid/pb expansion, "
-          "dotted set, linked factors")
+          "dotted set, linked factors, pb12f fold-over resolution-IV, "
+          "aliasing advisory (fires unlinked, silent linked)")
     return 0
 
 
