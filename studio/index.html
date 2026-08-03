@@ -63,6 +63,8 @@
 </head>
 <body>
 <h1>paperkiln <span class="accent">studio</span>
+  <a id="atlas-link" href="/atlas" style="display:none;color:var(--dim);
+    font-size:.8rem;margin-left:.8rem">atlas: designed-experiment viewer →</a>
   <button id="train" style="display:none;float:right">&#9654; train</button></h1>
 <div id="status">no run loaded</div>
 
@@ -809,6 +811,7 @@ if (location.protocol.startsWith("http")) {
   poll();
   setInterval(poll, 2000);
   $("paper").style.display = "";   // server-side fetch needs serve mode
+  $("atlas-link").style.display = "";
   // Served with an armed spec? Show the in-page Train button — the whole
   // demo drives from the browser, no terminal commands.
   fetch("spec").then(r => {

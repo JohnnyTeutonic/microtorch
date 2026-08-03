@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>paperkiln atlas</title>
+<style>
+  :root {
+    --bg: #0d1117; --panel: #161b22; --border: #30363d;
+    --text: #c9d1d9; --dim: #8b949e; --accent: #58a6ff;
+    --good: #3fb950; --bad: #f85149; --warn: #f0883e;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text);
+         font: 14px/1.5 ui-monospace, "Cascadia Code", Consolas, monospace;
+         padding: 1.2rem; max-width: 1100px; margin: 0 auto; }
+  h1 { font-size: 1.15rem; margin-bottom: .2rem; }
+  h1 .accent { color: var(--accent); }
+  #status { color: var(--dim); margin-bottom: 1rem; }
+  .drop { border: 2px dashed var(--border); border-radius: 8px;
+          padding: 2rem; text-align: center; color: var(--dim);
+          margin-bottom: 1rem; cursor: pointer; }
+  .drop.armed { border-color: var(--accent); color: var(--accent); }
+  .panel { background: var(--panel); border: 1px solid var(--border);
+           border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
+  .panel h2 { font-size: .95rem; color: var(--dim); margin-bottom: .6rem;
+              text-transform: uppercase; letter-spacing: .06em; }
+  table { border-collapse: collapse; width: 100%; font-size: .85rem; }
+  th, td { border: 1px solid var(--border); padding: .3rem .55rem;
+           text-align: right; }
+  th:first-child, td:first-child { text-align: left; }
+  th { color: var(--dim); font-weight: normal; }
+  .sig { color: var(--good); font-weight: bold; }
+  .legend { color: var(--dim); font-size: .78rem; margin-top: .5rem; }
+  select { background: #0a0d12; color: var(--text);
+           border: 1px solid var(--border); border-radius: 4px;
+           padding: .25rem .45rem; font: inherit; }
+  #imx { border-collapse: collapse; }
+  #imx td.cell { width: 4.2rem; height: 2.2rem; text-align: center;
+                 cursor: pointer; }
+  #cellmeans { margin-top: .8rem; }
+</style>
+</head>
+<body>
+<h1>paperkiln <span class="accent">atlas</span> — designed-experiment viewer</h1>
+<div id="status">no sweep loaded</div>
+
+<div class="drop" id="drop">
+  drop an <b>atlas_rows.jsonl</b> here (any mtsweep out_root) · or click to
+  pick · main effects, two-way interactions and seed spreads are computed
+  in-page, the same mathematics as tools/atlas_analyze.py
+  <input type="file" id="file" accept=".jsonl,.json" hidden>
+</div>
+
+<div class="panel" id="p-metric" style="display:none">
+  <h2>metric</h2>
+  <select id="metric"></select>
+  <span class="legend" id="metric-note"></span>
+</div>
+
+<div class="panel" id="p-effects" style="display:none">
+  <h2>main effects</h2>
+  <div id="effects"></div>
+  <div class="legend">effect = mean(high) − mean(low); SE from run spread;
+    |t| ≥ 2 flagged. For loss-like metrics negative = high level better.
+    A screen (PB12) estimates these ONLY — interactions below need a full
+    factorial.</div>
+</div>
+
+<div class="panel" id="p-inter" style="display:none">
+  <h2>two-way interactions (full 2-level factorials only)</h2>
+  <table id="imx"></table>
+  <div id="cellmeans" class="legend">click a cell for its 2×2 means —
+    a signal interaction means the two factors are NOT additive; read
+    these four numbers before acting on either main effect alone.</div>
+</div>
+
+<div class="panel" id="p-cells" style="display:none">
+  <h2>cells (mean ± sd over seeds)</h2>
+  <div id="cells"></div>
+  <div class="legend" id="cellverdict"></div>
+</div>
+
+<script>
+"use strict";
+// ---- pure compute (mirrors tools/atlas_analyze.py; node-testable) ----
+const LOSS_LIKE = new Set(["best_val", "final_train_loss", "loss_auc_norm",
+                           "loss_tail_std", "grad_spike_count",
+                           "grad_init_transient"]);
+const META = new Set(["cell", "seed", "name", "out_dir", "complete",
+                      "steps_requested", "final_step", "early_stopped",
+                      "n_evals"]);
+
+function mean(a) { return a.reduce((s, x) => s + x, 0) / a.length; }
+function sd(a) {
+  if (a.length < 2) return NaN;
+  const m = mean(a);
+  return Math.sqrt(a.reduce((s, x) => s + (x - m) * (x - m), 0) / (a.length - 1));
+}
+
+function factorsOf(rows) {
+  const f = {};
+  for (const r of rows)
+    for (const k of Object.keys(r))
+      if (k.startsWith("factor.")) {
+        const v = typeof r[k] === "object" ? JSON.stringify(r[k]) : r[k];
+        (f[k] = f[k] || new Set()).add(v);
+      }
+  const out = {};
+  for (const [k, vs] of Object.entries(f))
+    out[k.slice(7)] = [...vs].sort((a, b) =>
+      typeof a === "number" && typeof b === "number" ? a - b :
+      String(a) < String(b) ? -1 : 1);
+  return out;
+}
+
+function metricsOf(rows) {
+  const m = new Set();
+  for (const r of rows)
+    for (const [k, v] of Object.entries(r))
+      if (!k.startsWith("factor.") && !META.has(k) &&
+          typeof v === "number") m.add(k);
+  return [...m].sort();
+}
+
+function fval(r, fac) {
+  const v = r["factor." + fac];
+  return typeof v === "object" ? JSON.stringify(v) : v;
+}
+
+function mainEffects(rows, factors, metric) {
+  const out = [];
+  for (const [fac, levels] of Object.entries(factors)) {
+    if (levels.length !== 2) continue;
+    const lo = rows.filter(r => fval(r, fac) === levels[0] &&
+                                r[metric] != null).map(r => r[metric]);
+    const hi = rows.filter(r => fval(r, fac) === levels[1] &&
+                                r[metric] != null).map(r => r[metric]);
+    if (lo.length < 2 || hi.length < 2) continue;
+    const eff = mean(hi) - mean(lo);
+    const se = Math.sqrt(sd(hi) ** 2 / hi.length + sd(lo) ** 2 / lo.length);
+    const t = se > 0 ? eff / se : 0;
+    const better = LOSS_LIKE.has(metric) === (eff < 0) ? levels[1] : levels[0];
+    out.push({ fac, levels, eff, se, t, better, signal: Math.abs(t) >= 2 });
+  }
+  return out.sort((a, b) => Math.abs(b.t) - Math.abs(a.t));
+}
+
+function interaction(rows, factors, metric, fa, fb) {
+  const hiA = factors[fa][1], hiB = factors[fb][1];
+  const pos = [], neg = [];
+  for (const r of rows) {
+    if (r[metric] == null) continue;
+    const sa = fval(r, fa) === hiA ? 1 : -1;
+    const sb = fval(r, fb) === hiB ? 1 : -1;
+    (sa * sb > 0 ? pos : neg).push(r[metric]);
+  }
+  if (pos.length < 2 || neg.length < 2) return null;
+  const eff = mean(pos) - mean(neg);
+  const se = Math.sqrt(sd(pos) ** 2 / pos.length + sd(neg) ** 2 / neg.length);
+  return { eff, se, t: se > 0 ? eff / se : 0 };
+}
+
+function cellMeans2x2(rows, factors, metric, fa, fb) {
+  const out = [];
+  for (const la of factors[fa])
+    for (const lb of factors[fb]) {
+      const ys = rows.filter(r => fval(r, fa) === la &&
+        fval(r, fb) === lb && r[metric] != null).map(r => r[metric]);
+      out.push({ la, lb, mean: ys.length ? mean(ys) : NaN, n: ys.length });
+    }
+  return out;
+}
+
+function cellTable(rows, factors, metric) {
+  const byCell = {};
+  for (const r of rows) {
+    if (r[metric] == null) continue;
+    const key = Object.keys(factors).map(f => `${f}=${fval(r, f)}`).join(" ");
+    (byCell[key] = byCell[key] || []).push(r[metric]);
+  }
+  const cells = Object.entries(byCell).map(([k, ys]) =>
+    ({ key: k, mean: mean(ys), sd: sd(ys), n: ys.length }));
+  cells.sort((a, b) => LOSS_LIKE.has(metric) ? a.mean - b.mean
+                                             : b.mean - a.mean);
+  return cells;
+}
+
+// Is every factor 2-level and fully crossed? (interactions only then)
+function isFullFactorial(rows, factors) {
+  const ks = Object.keys(factors);
+  if (!ks.every(k => factors[k].length === 2)) return false;
+  const seen = new Set(rows.map(r => ks.map(k => fval(r, k)).join("")));
+  return seen.size === 2 ** ks.length;
+}
+
+// node test hook (no DOM under node)
+if (typeof module !== "undefined") {
+  module.exports = { factorsOf, metricsOf, mainEffects, interaction,
+                     cellMeans2x2, cellTable, isFullFactorial };
+}
+
+// ---- DOM wiring ----
+if (typeof document !== "undefined") {
+  const $ = id => document.getElementById(id);
+  let ROWS = [], FACTORS = {}, FULL = false;
+
+  function load(text, name) {
+    ROWS = [];
+    for (const line of text.split("\n")) {
+      const t = line.trim();
+      if (!t) continue;
+      try { ROWS.push(JSON.parse(t)); } catch { /* skip */ }
+    }
+    ROWS = ROWS.filter(r => r.complete !== false);
+    FACTORS = factorsOf(ROWS);
+    FULL = isFullFactorial(ROWS, FACTORS);
+    const mets = metricsOf(ROWS);
+    $("metric").innerHTML = mets.map(m =>
+      `<option${m === "best_val" ? " selected" : ""}>${m}</option>`).join("");
+    $("status").textContent = `${name} · ${ROWS.length} complete runs · ` +
+      `${Object.keys(FACTORS).length} factors · ` +
+      (FULL ? "full factorial (interactions available)"
+            : "not a full 2-level factorial (main effects only)");
+    for (const id of ["p-metric", "p-effects", "p-cells"])
+      $(id).style.display = "";
+    $("p-inter").style.display = FULL ? "" : "none";
+    render();
+  }
+
+  function fmt(x, d = 4) { return Number.isFinite(x) ? x.toPrecision(d) : "–"; }
+
+  function render() {
+    const metric = $("metric").value;
+    $("metric-note").textContent = LOSS_LIKE.has(metric)
+      ? "loss-like: lower is better" : "higher is better";
+    const effs = mainEffects(ROWS, FACTORS, metric);
+    $("effects").innerHTML = "<table><tr><th>factor</th><th>low → high</th>" +
+      "<th>effect</th><th>SE</th><th>t</th><th>better</th><th>signal</th></tr>" +
+      effs.map(e =>
+        `<tr><td>${e.fac}</td><td>${e.levels[0]} → ${e.levels[1]}</td>` +
+        `<td>${fmt(e.eff)}</td><td>${fmt(e.se, 3)}</td>` +
+        `<td>${e.t >= 0 ? "+" : ""}${fmt(e.t, 3)}</td><td>${e.better}</td>` +
+        `<td class="${e.signal ? "sig" : ""}">${e.signal ? "YES" : "no"}</td></tr>`
+      ).join("") + "</table>";
+
+    if (FULL) {
+      const ks = Object.keys(FACTORS);
+      let html = "<tr><th></th>" + ks.map(k => `<th>${k}</th>`).join("") + "</tr>";
+      for (let i = 0; i < ks.length; i++) {
+        html += `<tr><th>${ks[i]}</th>`;
+        for (let j = 0; j < ks.length; j++) {
+          if (j <= i) { html += "<td></td>"; continue; }
+          const it = interaction(ROWS, FACTORS, metric, ks[i], ks[j]);
+          if (!it) { html += "<td>–</td>"; continue; }
+          const a = Math.min(1, Math.abs(it.t) / 4);
+          const col = it.t < 0 ? `rgba(88,166,255,${a})` : `rgba(248,81,73,${a})`;
+          html += `<td class="cell" style="background:${col}" ` +
+            `data-a="${ks[i]}" data-b="${ks[j]}" ` +
+            `title="t=${fmt(it.t, 3)}">${fmt(it.t, 2)}</td>`;
+        }
+        html += "</tr>";
+      }
+      $("imx").innerHTML = html;
+      for (const td of document.querySelectorAll("#imx td.cell"))
+        td.onclick = () => {
+          const fa = td.dataset.a, fb = td.dataset.b;
+          const cm = cellMeans2x2(ROWS, FACTORS, metric, fa, fb);
+          $("cellmeans").innerHTML =
+            `<b>${fa} × ${fb}</b> (${metric}): ` + cm.map(c =>
+              `[${fa}=${c.la}, ${fb}=${c.lb}] = ${fmt(c.mean)} (n=${c.n})`
+            ).join(" · ");
+        };
+    }
+
+    const cells = cellTable(ROWS, FACTORS, metric);
+    $("cells").innerHTML = "<table><tr><th>cell</th><th>mean</th>" +
+      "<th>± sd</th><th>n</th></tr>" + cells.map(c =>
+        `<tr><td>${c.key}</td><td>${fmt(c.mean)}</td>` +
+        `<td>${fmt(c.sd, 3)}</td><td>${c.n}</td></tr>`).join("") + "</table>";
+    if (cells.length >= 2) {
+      const gap = Math.abs(cells[0].mean - cells[1].mean);
+      const noise = mean(cells.map(c => c.sd).filter(Number.isFinite));
+      $("cellverdict").textContent = gap < noise
+        ? `top-2 gap ${fmt(gap, 3)} is WITHIN mean seed noise ${fmt(noise, 3)}` +
+          ` — cell ORDERING is not signal (the designed contrasts above are` +
+          ` where the power is)`
+        : `top-2 gap ${fmt(gap, 3)} vs mean seed noise ${fmt(noise, 3)}`;
+    }
+  }
+
+  $("metric").addEventListener("change", render);
+  const drop = $("drop"), file = $("file");
+  drop.addEventListener("click", () => file.click());
+  file.addEventListener("change", () => {
+    const f = file.files[0];
+    const r = new FileReader();
+    r.onload = () => load(r.result, f.name);
+    r.readAsText(f);
+  });
+  ["dragenter", "dragover"].forEach(ev => drop.addEventListener(ev, e => {
+    e.preventDefault(); drop.classList.add("armed"); }));
+  ["dragleave", "drop"].forEach(ev => drop.addEventListener(ev, e => {
+    e.preventDefault(); drop.classList.remove("armed"); }));
+  drop.addEventListener("drop", e => {
+    const f = e.dataTransfer.files[0];
+    if (!f) return;
+    const r = new FileReader();
+    r.onload = () => load(r.result, f.name);
+    r.readAsText(f);
+  });
+  // Served mode: if the out_dir carries atlas_rows.jsonl, load it.
+  if (location.protocol.startsWith("http"))
+    fetch("atlas_rows.jsonl").then(r => r.ok ? r.text() : null)
+      .then(t => { if (t) load(t, "atlas_rows.jsonl (served)"); })
+      .catch(() => {});
+}
+</script>
+</body>
+</html>
