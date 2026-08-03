@@ -263,6 +263,7 @@ can consume a run.
 | Gradient checkpointing | ✅ | `checkpoint(fn, x)` rematerializes block interiors on backward: loss+grads **bit-identical**, live tape nodes after forward 211→11 (GPT-2) / 229→9 (Llama) (`test_checkpointing`) |
 | Fused attention | ✅ | `fused_attention`: GEMMs + one in-place scale/mask/softmax pass, one tape node per head, mask never materialized; 12 FD receipts; 1.87x wall-clock (2.19x with batching) |
 | Checkpoint IO | ✅ | safetensors load **and** save (HF round-trip) |
+| **HF export** | ✅ | `tools/hf_export.py`: llama-family runs open in `transformers.from_pretrained` — weights re-laid out (incl. the interleaved→rotate-half RoPE permutation), config + WordLevel tokenizer emitted; **argmax parity verified** vs the tape (`hf_export_verify.py`) |
 | GGUF export | ✅ | `export_gguf_llama`: state_dict → .gguf for ember.cpp |
 | Cross-entropy loss | ✅ | Fused softmax backward |
 | Python bindings | ✅ | pybind11, numpy interop (`-DMICROTORCH_BUILD_PYTHON=ON`) |
