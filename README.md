@@ -404,7 +404,29 @@ rows in [experiments/atlas_stage2/](experiments/atlas_stage2/)):
 | **Head count doesn't matter at this scale** — a genuine null, recorded | \|t\| ≤ 0.5 on every metric |
 | **Best-cell ranking was inside seed noise while the designed contrasts ran 6–10σ** — the case for designed experiments over leaderboard-style cell-hunting, demonstrated in our own data | top-2 cell gap 0.021 < seed noise 0.027 |
 
-**Stage 3 is running**: a full 2⁴ factorial on the survivors
+**Every claim is a row in the [findings registry](atlas/FINDINGS.md)**
+(`atlas/findings.jsonl`): effect, SE, t, design, scope, status
+(`supported/replicated/superseded/retracted/pending`) and receipt paths —
+retractions are rows, never deletions, because a registry that visibly
+corrects itself is the trustworthy kind. Three verbs operate on it:
+
+```bash
+python tools/atlas_findings.py render          # the registry as a table
+python tools/atlas_findings.py advise "what lr with muon at tiny scale?"
+python tools/reproduce.py S3-lrxopt            # plan + honest cost estimate
+python tools/reproduce.py S3-lrxopt --run      # re-run the experiment, verdict:
+                                               # REPLICATED / DID-NOT-REPLICATE
+```
+
+The **advisor answers from the registry with citations — or refuses**
+("NO EVIDENCE … absence of evidence is the honest answer"), and surfaces
+corrected records alongside live ones. **`reproduce` makes replication a
+one-command verb**: cost quoted up front from the original run's own
+wall-clock receipts, fresh out_root, machine-checked verdict against the
+registered effect. All six checkable findings verify against their own
+committed rows.
+
+**Stage 3 is complete**: a full 2⁴ factorial on the survivors
 ({optimizer, context, lr, d} × 3 seeds, 48 runs) with **token-matched
 context** — T=128×1200 steps vs T=256×600 steps, both exactly 614,400
 tokens, de-aliasing "longer context" from "more data". Interactions are

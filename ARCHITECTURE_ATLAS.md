@@ -833,6 +833,16 @@ is null on every metric. Cell *ranking* was inside seed noise while the
 in our own data. Full writeup with caveats and the Stage 3 prescription:
 `ATLAS_STAGE2_RESULTS.md`; raw rows in `experiments/atlas_stage2/`.
 
+**THE FINDINGS REGISTRY (added 2026-08-04, the programme's spine):**
+`atlas/findings.jsonl` — every claim as a machine-readable row with
+effect/SE/t, scope, status (supported/replicated/superseded/retracted/
+pending) and receipts; `tools/atlas_findings.py` validates/renders/
+advises (cite-or-refuse), `tools/reproduce.py` re-runs any finding's
+manifest with an honest cost quote and issues a REPLICATED /
+DID-NOT-REPLICATE verdict. This is what "cumulative science" compiles
+to: the corpus (§6) holds runs, the registry holds *what they showed*,
+and both correct themselves in public.
+
 **Stage 3 — the resolution-V design (a weekend).** All main effects and pairwise
 interactions for surviving factors; fit the mixed-effects model.
 *Useful alone:* the interaction table is the scientific core of the idea.
