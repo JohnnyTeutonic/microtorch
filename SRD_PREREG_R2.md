@@ -1,0 +1,170 @@
+# SRD rung 2 — pre-registration: is the gate a RETRIEVAL router or a NOVELTY detector?
+
+**Written 2026-08-03, BEFORE any run.** Nothing below may be edited after
+the first result lands; outcomes go in a results section appended at the
+end, including the outcomes that embarrass the mechanism.
+
+## 0. Status of the claim being tested
+
+Established (do not re-litigate): the SRD gate's placement is
+information-dependent — the `shuffle_predictor` falsifier destroys
+alignment while preserving the gate's distribution, passing at 5–6σ
+twice, and tail-vs-filler concentration replicated across 5 runs
+(SPARSE_ATTENTION.md). Retracted: the recall-performance claim, which
+failed replication across seeds and is published as a negative.
+
+**The open question this rung answers.** Concentration is real. Its
+*interpretation* is not established. Two hypotheses survive:
+
+- **H_retrieval** — the gate fires where retrieval matters: on the
+  key/value pair that the query will ask for, and on the query tail.
+- **H_novelty** — the gate fires on whatever is locally
+  out-of-distribution, and in the current benchmark that is the *same
+  set of positions*, because the task construction makes needle tokens
+  distributionally distinct.
+
+**Why the current harness cannot separate them (the confound, stated
+plainly).** In `tools/srd_needle.cpp` the vocabulary is partitioned by
+role: keys occupy [2, 66), values [66, 130), filler [130, 250). A
+prediction-residual gate is *required* to fire on tokens drawn from a
+region the surrounding context never contains, regardless of whether
+those tokens are retrieval-critical. The 5× replication therefore
+replicates a quantity that both hypotheses predict identically. This is
+a construct-validity gap, not a statistical one, and no number of seeds
+closes it.
+
+It also offers the cleanest available explanation of the retraction:
+if the gate is a novelty detector, firing at the needle buys nothing on
+recall, and the recall claim was the mis-theorization — right about
+*where* it fires, wrong about *what that buys*.
+
+## 1. Design: 2 × 2, three seeds, plus one control lane
+
+Two orthogonal factors, both changes to sequence construction only
+(model, optimizer, schedule and probe protocol unchanged):
+
+**Factor A — needle distinctness.**
+- `A_distinct` (status quo): keys/values from their own vocabulary
+  ranges, as today.
+- `A_indist`: keys and values drawn from the SAME range as filler
+  ([130, 250)), with role carried only by POSITION (the pair layout)
+  and by the QUERY marker. Retrieval structure identical; the
+  distributional signature removed.
+
+**Factor B — decoy presence.**
+- `B_none` (status quo): no decoys.
+- `B_decoy`: two spans of tokens drawn from the *distinct* ranges
+  ([2, 130)) inserted into the filler region at random positions, in
+  pair layout, but NEVER queried. Maximally novel, zero retrieval
+  value.
+
+2 × 2 cells × 3 seeds (1, 2, 3) = 12 runs, SRD lane plus the
+exact/kimi/srd_f lanes the harness already runs. Steps/T/d/batch
+inherited from the last successful needle configuration so this rung is
+comparable to the 5× replication set.
+
+**Control lane (separate, runs alongside): matched-density quality.**
+At inference the gate hardens to `g > τ`. For each seed, compare
+final-loss/accuracy at matched exact-attention density ρ ∈ {0.1, 0.25}:
+SRD-hardened vs RANDOM gate at the same ρ vs POSITIONAL gate (last-k +
+first-token sink) at the same ρ. This tests the *efficiency* reading of
+SRD, which is the claim the mechanism's structure actually supports and
+which the retracted recall claim was standing in front of.
+
+## 2. Primary metric (new, replaces tail-vs-filler)
+
+The current `tail_gate` / `fill_gate` pair cannot express the
+distinction. Replace with a four-region gate profile, measured on the
+fixed probe set exactly as today:
+
+| Region | Definition |
+|---|---|
+| `g_target` | the key/value pair whose key the query asks for |
+| `g_nontarget` | the other (npairs − 1) key/value pairs |
+| `g_decoy` | the decoy pair spans (B_decoy cells only) |
+| `g_filler` | filler positions outside all of the above |
+| `g_tail` | the QUERY marker + queried key (unchanged) |
+
+**Primary statistic — the retrieval-selectivity index:**
+
+    RSI = (g_target − g_nontarget) / (g_target + g_nontarget)
+
+RSI isolates the discrimination that *only* H_retrieval predicts:
+target and non-target pairs are distributionally IDENTICAL (same
+ranges, same layout, same novelty) and differ only in whether the query
+asks for them. A novelty detector has no access to that difference.
+
+**Secondary statistic — the decoy-chasing index:**
+
+    DCI = g_decoy / g_target      (B_decoy cells)
+
+## 3. Pre-registered predictions
+
+| Prediction | H_retrieval | H_novelty |
+|---|---|---|
+| P1: RSI in `A_distinct, B_none` | > 0, ≥2 SE from 0 | ≈ 0 |
+| P2: RSI in `A_indist` | survives (no interaction with A) | ≈ 0 (nothing to fire on) |
+| P3: concentration (g_tail − g_filler) in `A_indist` | survives | collapses toward 0 |
+| P4: DCI | < 0.5 (decoys largely ignored) | ≈ 1 (decoys ≈ targets) |
+| P5: matched-ρ quality vs random gate | SRD better | SRD ≈ random |
+
+**The decisive cell is P4**, and it is decisive in one run per seed:
+decoys are maximally novel and carry zero retrieval value, so any gate
+that chases them is answering a novelty question. P2/P3 are the
+converse test — remove novelty, see whether selectivity survives.
+
+## 4. Decision rules (committed in advance)
+
+- **Mechanism supported as a retrieval router:** P1 AND P2 hold, and
+  P4 shows DCI < 0.5, in ≥2 of 3 seeds. Then the retraction's diagnosis
+  is "right mechanism, wrong payoff claim", and the efficiency lane
+  (P5) becomes the headline claim to develop.
+- **Mechanism reclassified as a novelty detector:** P3 collapses and/or
+  P4 ≈ 1 in ≥2 of 3 seeds. Then the 5× concentration replication stands
+  as a *true result about a different quantity* — SPARSE_ATTENTION.md
+  gets a correction stating that "retrieval-critical" was an
+  over-reading of a novelty signal, and SRD's remaining value proposition
+  is compute allocation, not retrieval.
+- **Mixed (P1 holds, P2 fails):** the gate needs distributional contrast
+  to express a retrieval preference — an honest, publishable
+  intermediate finding: a *conditional* router. No headline either way.
+- **Efficiency claim graduates only if** P5 holds at BOTH densities in
+  ≥2 of 3 seeds, against BOTH baselines (random and positional).
+  Beating random but losing to positional is a negative result and gets
+  published as one — sliding-window is the field's default control and
+  the sparse-phase S1 baseline for exactly this reason.
+
+**Seed discipline (the lesson that cost us rung 1):** no single-seed
+result is reportable. Three seeds minimum; any effect present in one
+seed only is noise until shown otherwise. Cell-level differences inside
+mean seed spread are not signal (the Atlas Stage 2/3 rule).
+
+## 5. Threats to validity, acknowledged in advance
+
+- **A_indist weakens the task.** In-distribution keys make retrieval
+  genuinely harder; if EXACT attention's accuracy collapses in
+  `A_indist`, the cell is uninformative about SRD and must be reported
+  as such rather than read as an SRD failure. Control-first rule:
+  the exact lane must clear its plateau in a cell before that cell's
+  SRD numbers are interpreted.
+- **Decoys change token statistics** (more distinct-range tokens
+  overall), which could shift the gate's global scale. RSI and DCI are
+  ratios within a run for exactly this reason.
+- **Two blocks, tiny d.** Nothing here transfers to scale without the
+  ladder; claims stay scoped.
+- **The efficiency lane's baselines must be honest.** Random gate at
+  matched ρ and positional gate at matched ρ, same seeds, same steps.
+
+## 6. Execution
+
+`tools/srd_needle.cpp` gains `--needle_dist {distinct|indist}`,
+`--decoys N`, and the four-region gate profile in its probe CSV;
+`experiments/srd_r2/` will carry the sweep manifest, rows and the
+generated analysis. Compute: 12 runs + 6 control-lane runs, polite
+profile, roughly one night at one worker.
+
+---
+
+## RESULTS
+
+*(empty by design — appended after the runs, whatever they say)*

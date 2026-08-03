@@ -50,26 +50,84 @@ constexpr int FILL0 = 130, NFILL = 120;  // fill  [130, 250)
 // Vocab layout is unchanged; smaller nkeys/npairs just restrict draws.
 int g_npairs = 8, g_nkeys = 64;
 
+// ---- rung 2 (SRD_PREREG_R2.md): separating H_retrieval from H_novelty ----
+// The status-quo task partitions the vocabulary BY ROLE (keys [2,66),
+// values [66,130), filler [130,250)), so needle tokens are
+// distributionally distinct by construction and a prediction-residual
+// gate must fire on them whether or not they are retrieval-critical.
+// Two knobs remove that confound:
+//   g_indist  keys/values drawn from the FILLER range — retrieval
+//             structure identical, distributional signature gone
+//   g_decoys  pairs of DISTINCT-range tokens in pair layout that are
+//             never queried: maximally novel, zero retrieval value
+bool g_indist = false;
+int g_decoys = 0;
+
+// Region labels for the four-region gate profile (the rung-2 primary
+// metric). Written into `regions` alongside the sequence.
+enum Region : unsigned char { R_FILLER = 0, R_TARGET, R_NONTARGET, R_DECOY, R_TAIL };
+
 // One sequence of length T+1; x = seq[0..T-1], y = seq[1..T].
-std::vector<int> make_seq(size_t T, std::mt19937& rng) {
+// regions (size T) labels each INPUT position for the gate profile.
+std::vector<int> make_seq(size_t T, std::mt19937& rng,
+                          std::vector<unsigned char>* regions = nullptr) {
     std::uniform_int_distribution<int> fill(FILL0, FILL0 + NFILL - 1);
     std::vector<int> keys(g_nkeys);
     for (int i = 0; i < g_nkeys; ++i) keys[i] = i;
     std::shuffle(keys.begin(), keys.end(), rng);  // distinct keys per seq
 
+    // In-distribution mode: keys and values become filler-range symbols.
+    // Distinct symbols per sequence keep the retrieval task well posed.
+    std::vector<int> key_sym(g_nkeys), val_sym(g_nkeys);
+    if (g_indist) {
+        std::vector<int> pool(NFILL);
+        for (int i = 0; i < NFILL; ++i) pool[i] = FILL0 + i;
+        std::shuffle(pool.begin(), pool.end(), rng);
+        for (int i = 0; i < g_nkeys; ++i) {
+            key_sym[i] = pool[i % NFILL];
+            val_sym[i] = pool[(i + g_nkeys) % NFILL];
+        }
+    }
+    auto key_tok = [&](int k) { return g_indist ? key_sym[k] : KEY0 + k; };
+    auto val_tok = [&](int v) { return g_indist ? val_sym[v] : VAL0 + v; };
+
     std::vector<int> seq(T + 1);
+    if (regions) regions->assign(T, R_FILLER);
     seq[0] = fill(rng);
     std::vector<int> val_of(g_npairs);
     for (int p = 0; p < g_npairs; ++p) {
-        val_of[p] = VAL0 + (rng() % g_nkeys);
-        seq[1 + 2 * p] = KEY0 + keys[p];
-        seq[2 + 2 * p] = val_of[p];
+        val_of[p] = rng() % g_nkeys;
+        seq[1 + 2 * p] = key_tok(keys[p]);
+        seq[2 + 2 * p] = val_tok(val_of[p]);
     }
     for (size_t i = 1 + 2 * g_npairs; i + 2 < T; ++i) seq[i] = fill(rng);
+
+    // Decoy pairs: distinct-range tokens in pair layout, never queried.
+    // Placed inside the filler span, clear of the pair block and tail.
+    const size_t dec_lo = 1 + 2 * g_npairs, dec_hi = T > 12 ? T - 12 : dec_lo;
+    for (int dcount = 0; dcount < g_decoys && dec_hi > dec_lo + 2; ++dcount) {
+        const size_t at = dec_lo + (rng() % (dec_hi - dec_lo - 1));
+        seq[at] = KEY0 + (rng() % g_nkeys);
+        seq[at + 1] = VAL0 + (rng() % g_nkeys);
+        if (regions) {
+            (*regions)[at] = R_DECOY;
+            (*regions)[at + 1] = R_DECOY;
+        }
+    }
+
     const int j = rng() % g_npairs;
     seq[T - 2] = QUERY;
-    seq[T - 1] = KEY0 + keys[j];
-    seq[T] = val_of[j];  // the answer
+    seq[T - 1] = key_tok(keys[j]);
+    seq[T] = val_tok(val_of[j]);  // the answer
+    if (regions) {
+        for (int p = 0; p < g_npairs; ++p) {
+            const unsigned char r = (p == j) ? R_TARGET : R_NONTARGET;
+            (*regions)[1 + 2 * p] = r;
+            (*regions)[2 + 2 * p] = r;
+        }
+        (*regions)[T - 2] = R_TAIL;
+        (*regions)[T - 1] = R_TAIL;
+    }
     return seq;
 }
 
@@ -101,6 +159,11 @@ int main(int argc, char** argv) {
     // Model-init seed (shared by all four lanes, as always). CLI-exposed
     // for the rung-1 breakthrough replication; 7 reproduces every prior run.
     const unsigned seed = argc > 8 ? static_cast<unsigned>(std::atoi(argv[8])) : 7;
+    // Rung 2 (SRD_PREREG_R2.md): argv[9] = needle distribution
+    // (distinct|indist), argv[10] = number of decoy pairs. Defaults
+    // reproduce every prior run exactly.
+    if (argc > 9) g_indist = std::string(argv[9]) == "indist";
+    if (argc > 10) g_decoys = std::max(0, std::atoi(argv[10]));
     const float lr = 3e-3f, lambda_gate = 0.05f;
     const int PROBE_EVERY = 25, NPROBE = 32;
 
@@ -115,7 +178,12 @@ int main(int argc, char** argv) {
     // Fixed held-out probe set.
     std::mt19937 probe_rng(9999);
     std::vector<std::vector<int>> probes;
-    for (int i = 0; i < NPROBE; ++i) probes.push_back(make_seq(T, probe_rng));
+    std::vector<std::vector<unsigned char>> probe_regions;
+    for (int i = 0; i < NPROBE; ++i) {
+        std::vector<unsigned char> reg;
+        probes.push_back(make_seq(T, probe_rng, &reg));
+        probe_regions.push_back(std::move(reg));
+    }
 
     const char* ck = std::getenv("SRD_CKPT_DIR");
     const std::string ckpt_dir = ck ? ck : "/tmp/srd_needle_ckpt";
@@ -136,7 +204,8 @@ int main(int argc, char** argv) {
     std::ofstream probe_csv(prefix + "_probe.csv", start_step ? std::ios::app : std::ios::out);
     if (!start_step) {
         train_csv << "step,exact,kimi,srd,srd_f\n";
-        probe_csv << "step,lane,answer_ce,answer_acc,tail_gate,fill_gate\n";
+        probe_csv << "step,lane,answer_ce,answer_acc,tail_gate,fill_gate,"
+                     "target_gate,nontarget_gate,decoy_gate\n";
     }
 
     std::mt19937 batch_rng(123);
@@ -155,7 +224,13 @@ int main(int argc, char** argv) {
         for (auto& lane : lanes) {
             lane.model.eval();
             double ce = 0, acc = 0, tail_g = 0, fill_g = 0;
+            // Rung-2 four-region profile (SRD_PREREG_R2.md): target vs
+            // non-target is the discrimination only H_retrieval predicts
+            // (identical distribution, differing only in being asked for).
+            double tgt_g = 0, non_g = 0, dec_g = 0;
+            size_t n_probe = 0;
             for (const auto& seq : probes) {
+                const std::vector<unsigned char>& reg = probe_regions[n_probe++];
                 std::vector<int> x(seq.begin(), seq.end() - 1);
                 Var logits = lane.model.forward(x);
                 // Softmax CE at the final position only.
@@ -178,11 +253,22 @@ int main(int argc, char** argv) {
                     size_t n = 0;
                     for (size_t t = 20; t < T - 10; ++t, ++n) fg += g->data(t, 0);
                     fill_g += fg / static_cast<double>(n);
+                    // Region means for this sequence, then accumulate.
+                    double s[5] = {0, 0, 0, 0, 0};
+                    size_t c[5] = {0, 0, 0, 0, 0};
+                    for (size_t t = 0; t < T; ++t) {
+                        s[reg[t]] += g->data(t, 0);
+                        ++c[reg[t]];
+                    }
+                    if (c[R_TARGET]) tgt_g += s[R_TARGET] / c[R_TARGET];
+                    if (c[R_NONTARGET]) non_g += s[R_NONTARGET] / c[R_NONTARGET];
+                    if (c[R_DECOY]) dec_g += s[R_DECOY] / c[R_DECOY];
                 }
             }
             const double N = probes.size();
             probe_csv << step << ',' << lane.name << ',' << ce / N << ',' << acc / N << ','
-                      << tail_g / N << ',' << fill_g / N << '\n';
+                      << tail_g / N << ',' << fill_g / N << ',' << tgt_g / N << ',' << non_g / N
+                      << ',' << dec_g / N << '\n';
             std::printf("  probe %-5s: answer_ce %.4f acc %.3f", lane.name, ce / N, acc / N);
             if (lane.is_srd) std::printf("  tail_gate %.3f fill_gate %.3f", tail_g / N, fill_g / N);
             std::printf("\n");
@@ -191,8 +277,11 @@ int main(int argc, char** argv) {
         probe_csv.flush();
     };
 
-    std::printf("batch=%d npairs=%d nkeys=%d seed=%u (uniform-CE floor %.4f)\n", B, g_npairs,
-                g_nkeys, seed, std::log(static_cast<double>(g_nkeys)));
+    std::printf(
+        "batch=%d npairs=%d nkeys=%d seed=%u needle=%s decoys=%d "
+        "(uniform-CE floor %.4f)\n",
+        B, g_npairs, g_nkeys, seed, g_indist ? "indist" : "distinct", g_decoys,
+        std::log(static_cast<double>(g_nkeys)));
     std::printf("%5s %9s %9s %9s %9s\n", "step", "exact", "kimi", "srd", "srd_f");
     for (int step = start_step + 1; step <= steps; ++step) {
         std::vector<std::vector<int>> batch;
