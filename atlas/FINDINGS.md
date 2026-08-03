@@ -1,6 +1,6 @@
 # Atlas findings registry
 
-12 claims; every row carries its receipts. Retractions are rows, not deletions.
+14 claims; every row carries its receipts. Retractions are rows, not deletions.
 
 | id | status | claim | evidence | scope |
 |---|---|---|---|---|
@@ -14,7 +14,9 @@
 | S3-ctx-null | ✅ supported | With tokens held equal, context length (T=128/1200steps vs T=256/600steps) has no val-loss effect | t=-1.48 (n=48) | llama family, tiny scale, 614400 tokens both levels |
 | S3-d-unpaid | ✅ supported | Width d=192 does not improve val loss over d=128 even at 3x token budget (crossover, if any, lies above this scale) | t=+1.10 (n=48) | llama family, tiny scale; throughput cost -209 tok/s (t=-6.6) is significant |
 | SRD-recall | ❌ retracted | Surprise-routed density improves needle recall over its falsifier lane |  | 2-block parity model, synthetic needle task |
-| SRD-gate-conc | ⏳ pending | The SRD gate concentrates on needle positions (interpretation OPEN: retrieval router vs novelty detector) |  | 2-block parity model; needle tokens are distributionally distinct BY CONSTRUCTION in this design |
+| SRD-gate-conc | ↻ superseded | The SRD gate concentrates on needle positions (interpretation OPEN: retrieval router vs novelty detector) |  | 2-block parity model; needle tokens are distributionally distinct BY CONSTRUCTION in this design |
 | EX-scorer | ✅ supported | Contribution-vs-mention scoring separates used from mentioned architecture flavors better than first-match, with zero wrong assertions | 0.882 [CI 0.75–1.0] | arXiv LaTeX sources; 47/65 verdicts correct, 0 wrong, abstention-first |
+| R2-novelty | ✅ supported | The SRD gate is a novelty detector: it tracks distributional out-of-place-ness, not retrieval-criticality (concentration +0.59 with distinct needles vs -0.003 in-distribution; decoy-chasing DCI 0.97-1.89; target/non-target selectivity ~0) |  | 2-block parity model, synthetic needle task, models that did NOT master retrieval (control lane 0.000 acc at this config) |
+| R2-efficiency | ⏳ pending | SRD-hardened gating beats random and positional gating at matched density (the efficiency reading of SRD) |  | UNINFORMATIVE at rung-2 config: no lane learned the task (exact control 0.000 acc); requires the calibrated rung-2b configuration |
 
 Reproduce any experimental row: `python tools/reproduce.py <id>`.

@@ -165,6 +165,61 @@ profile, roughly one night at one worker.
 
 ---
 
-## RESULTS
+## RESULTS — appended 2026-08-04, after the runs, per the rules above
 
-*(empty by design — appended after the runs, whatever they say)*
+Full tables: [experiments/srd_r2/results/prereg_analysis.md](experiments/srd_r2/results/prereg_analysis.md);
+raw probe + density CSVs alongside. 12/12 cells, 3 seeds each.
+
+**THE VERDICT, PER THE COMMITTED DECISION RULES: the SRD gate is
+reclassified as a NOVELTY DETECTOR.** The reclassification branch
+required "P3 collapses and/or P4 ≈ 1 in ≥2 of 3 seeds" — both happened,
+in all seeds, emphatically:
+
+- **P3 — concentration collapses without the distributional signature.**
+  Tail-minus-filler concentration is **+0.59 ± 0.04** with distinct
+  needles (reproducing the 5× replication) and **−0.003 ± 0.001** with
+  in-distribution needles. The entire concentration effect was the
+  vocabulary partition. Not attenuated: gone.
+- **P4 — the gate chases decoys.** DCI = **0.97** (distinct cells:
+  never-queried decoys gated identically to actual targets) and
+  **1.89** (indist cells: decoys gated at nearly TWICE the targets,
+  because there they are the only out-of-distribution tokens left).
+  A retrieval router has no reason to look at them; a novelty detector
+  can look at nothing else.
+- **P1/P2 — no query-driven selectivity worth the name.** RSI is
+  +0.0095 ± 0.0046 in the favourable design (technically 2 SE from
+  zero, microscopic against the 0.59 concentration scale) and ≈ 0
+  everywhere else. Target and non-target pairs — identical
+  distributions, differing only in being asked for — are gated alike.
+
+**What survives, restated honestly:** the 5×-replicated concentration
+and the twice-passed shuffle falsifier were TRUE results about a
+DIFFERENT quantity. The gate reliably, information-dependently tracks
+*distributional novelty*. "Retrieval-critical positions" was an
+over-reading licensed by a benchmark in which novel and
+retrieval-critical were the same positions by construction. This also
+completes the retraction post-mortem: firing on the needle buys no
+recall if firing tracks novelty rather than need.
+
+**P5 — UNINFORMATIVE, and reported as such.** The pre-registered
+control-first rule triggered: the exact-attention lane finished at
+0.000 answer accuracy in ALL cells — the rung ran at the harder default
+task (npairs=8, nkeys=64), not the calibrated configuration rung 1's
+control-first lesson produced. No lane learned retrieval, so
+matched-density QUALITY comparisons carry no information (all policies
+sit at the floor). The gate-profile conclusions above are unaffected —
+they measure where the gate looks, not whether the task was solved —
+but they carry the scope note: *in models that never mastered
+retrieval*. Whether task mastery changes gate semantics is precisely
+rung 2b's question.
+
+**Committed next step (rung 2b, if pursued):** the same 2×2 + density
+lanes at the control-passing configuration (reduced npairs/nkeys, the
+rung-1 calibration), so the exact lane clears its plateau and P5 plus
+the mastery question become answerable. The novelty-detector
+reclassification does not wait on it: the gate-profile evidence is
+seed-consistent and decisive.
+
+**Registry:** SRD-gate-conc → superseded by R2-novelty (supported);
+R2-efficiency remains open/pending. SPARSE_ATTENTION.md carries the
+correction, as this document committed it would.

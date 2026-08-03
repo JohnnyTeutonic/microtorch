@@ -5,6 +5,24 @@ mechanism validated in microtorch — not another commodity reimplementation.
 
 Survey date: 2026-07-30 (live arXiv sweep; refresh before each design round).
 
+> **CORRECTION — 2026-08-04 (rung 2, pre-registered:
+> [SRD_PREREG_R2.md](SRD_PREREG_R2.md)).** Wherever this document
+> describes the SRD gate as concentrating on "retrieval-critical
+> positions", read: **distributionally novel positions**. The 2×2
+> de-confounding experiment (12 runs, 3 seeds) showed the 5×-replicated
+> concentration collapses to zero when needles are in-distribution
+> (+0.59 → −0.003), never-queried decoys are gated at parity with or
+> above true targets (DCI 0.97 / 1.89), and target-vs-non-target
+> selectivity is microscopic. The concentration and the shuffle
+> falsifier were TRUE results about a DIFFERENT quantity: the gate is
+> an honest, information-dependent **novelty detector**, and the
+> benchmark had made novelty and retrieval-criticality the same
+> positions by construction. This also completes the recall
+> retraction's post-mortem — firing on the needle buys no recall if
+> firing tracks novelty rather than need. The matched-density
+> efficiency question remains open (control lane failed the task at
+> the rung-2 config; see the pre-reg's RESULTS for rung 2b).
+
 ## 1. The landscape, mapped to our opening questions
 
 ### Q: "Split dot-product attention into blocks?"

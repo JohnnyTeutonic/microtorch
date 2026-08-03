@@ -1,0 +1,9 @@
+policy,rho,answer_ce,answer_acc
+srd_top,0.1,4.23313,0
+random,0.1,10.1485,0
+positional,0.1,4.23193,0
+srd_top,0.25,4.23313,0
+random,0.25,8.70194,0
+positional,0.25,4.23193,0
+exact_ref,1,4.23313,0
+linear_ref,0,10.9734,0
