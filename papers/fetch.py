@@ -100,6 +100,9 @@ class Arch:
     # Flavor values seen in the text but judged mention-only (baselines,
     # related work): reported for transparency, never applied.
     mentions: dict[str, list] = field(default_factory=dict)
+    # {ancestor, evidence, section} when the paper declares it inherits an
+    # architecture; the source of any verdict-"inherited" field.
+    inherits: dict | None = None
 
 
 def _num(s: str) -> int:
@@ -172,6 +175,116 @@ FLAVOR = {
                    ("learned", r"learned\s+position")],
 }
 
+# ---- inheritance resolution (base + delta) ------------------------------
+# The dominant extraction failure is not mis-ranking, it is ABSENCE: BERT,
+# RoBERTa, ALBERT, GPT-3, OPT and Galactica never state their norm /
+# activation / position in extractable prose. They inherit an architecture
+# by citation ("we use the same architecture as GPT-2") and spend their
+# pages on data and training. No scorer refinement finds a sentence that
+# does not exist; the fix is to read the inheritance and resolve flavors
+# from a small curated ancestor table — constrained lookup, never
+# generation, and reported with its own verdict so a reader can tell an
+# inherited value from an extracted one.
+ANCESTORS: dict[str, dict[str, str]] = {
+    "transformer": {"norm": "layernorm", "activation": "relu",
+                    "positional": "sinusoidal"},
+    "bert": {"norm": "layernorm", "activation": "gelu",
+             "positional": "learned"},
+    "gpt-2": {"norm": "layernorm", "activation": "gelu",
+              "positional": "learned"},
+    "gpt-3": {"norm": "layernorm", "activation": "gelu",
+              "positional": "learned"},
+    "t5": {"norm": "rmsnorm", "activation": "relu"},
+    "llama": {"norm": "rmsnorm", "activation": "swiglu",
+              "positional": "rope"},
+    "palm": {"norm": "layernorm", "activation": "swiglu",
+             "positional": "rope"},
+    "gpt-neox": {"norm": "layernorm", "activation": "gelu",
+                 "positional": "rope"},
+    "opt": {"norm": "layernorm", "activation": "relu",
+            "positional": "learned"},
+}
+# How each ancestor is named in the wild. Ordered longest-first at match
+# time so "gpt-neox" wins over "gpt".
+ANCESTOR_ALIASES: dict[str, str] = {
+    "vaswani": "transformer", "original transformer": "transformer",
+    "transformer": "transformer",
+    "bert": "bert", "roberta": "bert",
+    "gpt-2": "gpt-2", "gpt2": "gpt-2",
+    "gpt-3": "gpt-3", "gpt3": "gpt-3",
+    "t5": "t5",
+    "llama": "llama", "llama 2": "llama", "llama-2": "llama",
+    "palm": "palm",
+    "gpt-neox": "gpt-neox", "neox": "gpt-neox", "gpt-j": "gpt-neox",
+    "opt": "opt",
+}
+# "we use the same architecture as X" / "follows the X architecture" /
+# "based on the X model". The architecture noun must be present — a bare
+# citation of X is NOT an inheritance claim.
+# "setup" is deliberately ABSENT: "in a setup similar to GPT-3 XL" is a
+# training-conditions comparison, not an architecture inheritance (the
+# Primer false positive). "configuration" stays — "the same configuration
+# as BERT_base" is exactly the RoBERTa signal we want.
+ARCH_NOUN = r"(?:architecture|model|design|configuration|backbone|transformer)"
+INHERIT_PATTERNS = [
+    # "the same model and architecture as GPT-2" (GPT-3's phrasing)
+    rf"(?:same|identical)\s+{ARCH_NOUN}(?:\s+and\s+{ARCH_NOUN})?\s+(?:as|to)\s+(?:the\s+|those\s+of\s+|that\s+of\s+)?([A-Za-z0-9\-\.]+)",
+    rf"follow(?:s|ing|ed)?\s+(?:the\s+)?([A-Za-z0-9\-\.]+)(?:'s)?\s+{ARCH_NOUN}",
+    rf"(?:based\s+on|built\s+on|adapted\s+from|derived\s+from)\s+(?:the\s+)?([A-Za-z0-9\-\.]+)\s+{ARCH_NOUN}",
+    rf"{ARCH_NOUN}\s+(?:is\s+)?(?:largely\s+|mostly\s+|essentially\s+)?(?:identical|similar)\s+to\s+(?:the\s+)?([A-Za-z0-9\-\.]+)",
+    rf"(?:use|uses|used|adopt|adopts|adopted)\s+(?:the\s+)?([A-Za-z0-9\-\.]+)\s+{ARCH_NOUN}",
+]
+
+
+SELF_REF = re.compile(r"\b(?:our|we|ours)\b", re.IGNORECASE)
+
+
+def find_inheritance(sections: list[tuple[str, str]]) -> dict | None:
+    """Detect an architecture-inheritance claim. Returns
+    {ancestor, evidence, section} or None. Method/abstract sections only —
+    a related-work sentence about someone else's lineage is not this
+    paper's inheritance — AND the claiming sentence must refer to the
+    authors' own model ("our"/"we"), which is what separates "our network
+    is based on the transformer architecture" (LLaMA, a real inheritance)
+    from "language models based on the Transformer architecture were
+    shown to..." (BLOOM, a statement about the field)."""
+    best = None
+    for sec_class, seg in sections:
+        # Method/abstract only. An inheritance claim about the authors'
+        # own model does not live in a data-pipeline aside (the Falcon
+        # false positive: "classifiers based on BERT models ... so we").
+        if sec_class not in ("method", "abstract"):
+            continue
+        for pat in INHERIT_PATTERNS:
+            for m in re.finditer(pat, seg, flags=re.IGNORECASE):
+                # The self-reference must PRECEDE the claim inside the
+                # same sentence ("our network is based on...", "we begin
+                # by training BERT models with the same configuration
+                # as..."); a trailing "so we" belongs to a different
+                # clause and does not make the claim the paper's own.
+                lo = seg.rfind(". ", 0, m.start())
+                head = seg[(lo + 2 if lo != -1 else max(0, m.start() - 120)):m.start()]
+                if not SELF_REF.search(head):
+                    continue
+                raw = m.group(1).lower().strip(".,;:")
+                # longest alias first so gpt-neox beats gpt
+                hit = None
+                for alias in sorted(ANCESTOR_ALIASES, key=len, reverse=True):
+                    if raw == alias or raw.startswith(alias):
+                        hit = ANCESTOR_ALIASES[alias]
+                        break
+                if not hit:
+                    continue
+                snippet = seg[max(0, m.start() - 40):m.end() + 40]
+                cand = {"ancestor": hit, "evidence": " ".join(snippet.split()),
+                        "section": sec_class}
+                # Prefer a method-section claim over an abstract one.
+                if best is None or (sec_class == "method" and
+                                    best["section"] != "method"):
+                    best = cand
+    return best
+
+
 # ---- contribution-vs-mention scoring for the flavor fields -------------
 # A paper MENTIONS many alternatives (baselines, related work, "such as"
 # lists); it USES one. First-match extraction confused the two (observed:
@@ -221,6 +334,14 @@ WEAK_MENTION_CUES = [
     (r"\bproposed\s+by\b|\bintroduced\s+by\b|\bsuggested\b", -1.0),
 ]
 SECTION_WEIGHTS = {"method": 1.5, "abstract": 1.0, "other": 0.0, "related": -3.0}
+# GLU-family naming soup: papers use these near-interchangeably (Mistral's
+# MLP is SiLU-gated, i.e. SwiGLU by another name). When two members of the
+# same family contest each other, the disagreement is about NAMING, not
+# architecture — assert the family instead of picking a coin-flip winner.
+FLAVOR_FAMILIES = {
+    "activation": {"swiglu": "gated-glu", "geglu": "gated-glu",
+                   "silu": "gated-glu"},
+}
 WIN_THRESHOLD = 1.5   # winner must clear this to be "used"
 WIN_MARGIN = 1.5      # ... and beat the runner-up by this, else "contested"
 
@@ -483,7 +604,9 @@ def extract(arxiv_id: str, tex: str) -> Arch:
     # is only ASSERTED ("used") when a clear winner exists; close calls
     # are "contested" (both reported); mention-only matches stay
     # unresolved with the mentions listed — reported, never guessed.
-    flavor_scores = score_flavors(split_sections(tex))
+    sections = split_sections(tex)
+    flavor_scores = score_flavors(sections)
+    inherit = find_inheritance(sections)
     for fieldname in FLAVOR:
         cands = flavor_scores.get(fieldname, [])
         if not cands:
@@ -491,6 +614,19 @@ def extract(arxiv_id: str, tex: str) -> Arch:
             continue
         top = cands[0]
         second = cands[1] if len(cands) > 1 else None
+        # GLU-family naming disagreement: if the top two are members of
+        # one family, they agree on architecture and differ only in name.
+        fam = FLAVOR_FAMILIES.get(fieldname, {})
+        if (second is not None and fam.get(top["value"]) and
+                fam.get(top["value"]) == fam.get(second["value"])):
+            arch.fields[fieldname] = Finding(
+                fam[top["value"]], top["evidence"], verdict="family",
+                score=top["score"],
+                runner_up={"value": second["value"], "score": second["score"],
+                           "evidence": second["evidence"]})
+            arch.mentions[fieldname] = [
+                {"value": c["value"], "score": c["score"]} for c in cands]
+            continue
         if "rejection-elsewhere" in top["cues"]:
             # The paper explicitly rejected this candidate somewhere
             # ("we choose not to adopt X", "(no X)"): it may never be
@@ -510,6 +646,32 @@ def extract(arxiv_id: str, tex: str) -> Arch:
             arch.unresolved.append(fieldname)
         arch.mentions[fieldname] = [
             {"value": c["value"], "score": c["score"]} for c in cands]
+
+    # Base + delta: whatever the paper's own text did not settle, the
+    # architecture it declares itself to inherit from does — reported as
+    # verdict "inherited" with the inheritance sentence as evidence, so
+    # it can never be mistaken for something the paper said directly.
+    # Fields the paper DID resolve win: the delta overrides the base.
+    if inherit:
+        arch.inherits = inherit
+        # NON-INHERITABLE ancestor: "based on the Transformer architecture"
+        # is said by essentially every decoder LM, and the deltas from
+        # vanilla Vaswani are usually LEFT UNSTATED — BERT is the clean
+        # counterexample (it is "based on the Transformer" and silently
+        # switches to GELU + learned positions, so inheriting vanilla
+        # would assert two wrong values). The claim is still recorded for
+        # provenance; only SPECIFIC named ancestors fill fields.
+        base = ({} if inherit["ancestor"] == "transformer"
+                else ANCESTORS.get(inherit["ancestor"], {}))
+        for fieldname, value in base.items():
+            if fieldname in arch.fields:
+                continue
+            arch.fields[fieldname] = Finding(
+                value, f"inherited from {inherit['ancestor']}: "
+                       f"“{inherit['evidence']}”",
+                verdict="inherited")
+            if fieldname in arch.unresolved:
+                arch.unresolved.remove(fieldname)
 
     # Model-size tables fill whatever prose left unresolved. Row 0 (the
     # smallest listed model) is taken as THE config; others are variants.
@@ -545,6 +707,7 @@ def to_json(arch: Arch) -> dict:
         "fields": {k: field_json(f) for k, f in arch.fields.items()},
         "unresolved": arch.unresolved,
         "mentions": arch.mentions,
+        "inherits": arch.inherits,
         "variants": arch.variants,
     }
 
@@ -700,6 +863,9 @@ def main() -> int:
     arch = extract(args.arxiv_id, tex)
 
     print(f"arXiv:{arch.arxiv_id}  {arch.title or ''}".strip())
+    if arch.inherits:
+        print(f"  [inherits {arch.inherits['ancestor']} — "
+              f"{arch.inherits['evidence'][:60]}]")
     for k, f in arch.fields.items():
         tag = f" ({f.verdict} {f.score})" if f.verdict else ""
         print(f"  {k:15} = {f.value!s:8}{tag}  [{f.evidence[:60]}]")

@@ -127,6 +127,61 @@ the GELU activation throughout.""")
           "explicit rejection vetoes")
 
 
+FIXTURE_INHERIT = r"""
+\section{Model}
+We use the same model and architecture as GPT-2, with one change: we use
+RMSNorm for all normalization layers.
+"""
+
+FIXTURE_INHERIT_GENERIC = r"""
+\section{Model}
+Our network is based on the transformer architecture \cite{vaswani}.
+"""
+
+FIXTURE_INHERIT_NOTOURS = r"""
+\section{Data}
+Training dedicated classifiers based on BERT models often resulted in
+over-fitting, so we filtered with heuristics instead.
+"""
+
+
+def test_inheritance() -> None:
+    # Strong claim on a SPECIFIC ancestor: unstated fields inherit, and
+    # the paper's own delta overrides the base.
+    a = extract("0000.00009", FIXTURE_INHERIT)
+    assert a.inherits and a.inherits["ancestor"] == "gpt-2", a.inherits
+    assert a.fields["activation"].value == "gelu", a.fields["activation"]
+    assert a.fields["activation"].verdict == "inherited"
+    assert a.fields["positional"].value == "learned"
+    # delta wins over base
+    assert a.fields["norm"].value == "rmsnorm", a.fields["norm"]
+    assert a.fields["norm"].verdict != "inherited"
+    # Generic "based on the Transformer" is recorded but NEVER fills
+    # fields (BERT is the counterexample: it silently changes two).
+    b = extract("0000.00010", FIXTURE_INHERIT_GENERIC)
+    assert b.inherits and b.inherits["ancestor"] == "transformer"
+    assert not any(f.verdict == "inherited" for f in b.fields.values()), b.fields
+    # A data-pipeline aside is not an architecture claim (self-reference
+    # must PRECEDE the claim; "so we" trails it).
+    c = extract("0000.00011", FIXTURE_INHERIT_NOTOURS)
+    assert c.inherits is None, c.inherits
+    print("inheritance ok: specific ancestor fills + delta overrides, "
+          "generic transformer refuses, data aside rejected")
+
+
+def test_glu_family() -> None:
+    tex = r"""
+\section{Model}
+We use SwiGLU in the feed-forward layers. Our GeGLU variant uses the same
+gating. We use SwiGLU and we use GeGLU throughout our model.
+"""
+    a = extract("0000.00012", tex)
+    f = a.fields.get("activation")
+    assert f is not None and f.value == "gated-glu", f
+    assert f.verdict == "family" and f.runner_up is not None
+    print(f"GLU family ok: contested swiglu/geglu -> {f.value}")
+
+
 def test_unresolved_reported() -> None:
     arch = extract("0000.00002", r"A paper with no architecture at all.")
     assert "d_model" in arch.unresolved and "norm" in arch.unresolved
@@ -155,6 +210,8 @@ def test_emit_html() -> None:
 if __name__ == "__main__":
     test_compact_notation()
     test_contribution_vs_mention()
+    test_inheritance()
+    test_glu_family()
     test_prose()
     test_table()
     test_unresolved_reported()

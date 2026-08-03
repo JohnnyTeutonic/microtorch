@@ -309,6 +309,35 @@ perfect grouped score over 7 groups is exactly what a small sample can
 gift. Jonathan's requirement: grow the sample until the law of large
 numbers is doing the work, then write the result up properly.
 
+**STATUS 2026-08-03: failure analysis + three refinements.** Where the
+scorer breaks, decomposed on the 26-paper corpus:
+1. **Recall, not ranking, is the dominant loss.** BERT, RoBERTa, ALBERT,
+   GPT-3, OPT, Galactica produce ZERO candidates for their truth fields:
+   they inherit an architecture by citation and never state norm /
+   activation / position in extractable prose. Fixed by **inheritance
+   resolution** (base + delta, `find_inheritance` + `ANCESTORS`):
+   verdict `inherited`, the inheritance sentence as evidence, and the
+   paper's own findings always override the base. Verdicts 40 → 47 of
+   65 correct, still **0 wrong**, 6 inherited fields all correct.
+   Guards earned by three real false positives found in tracing:
+   method/abstract sections only (Falcon's "classifiers based on BERT
+   models … so we" is a data-pipeline aside), self-reference must
+   PRECEDE the claim, "setup" is not an architecture noun (Primer's "in
+   a setup similar to GPT-3 XL"), and — the important one — the generic
+   `transformer` ancestor NEVER fills fields, because "based on the
+   Transformer" is said by every decoder LM while the deltas go
+   unstated. **BERT is the counterexample that proves the rule**: it is
+   "based on the Transformer" and silently switches to GELU + learned
+   positions, so inheriting vanilla would assert two wrong values.
+2. **The ablation-mention class is real but smaller** (Falcon, Primer):
+   handled by the veto. Since the deployed system can never assert a
+   vetoed candidate, the honest ranking metric is **post-veto pooled
+   AUROC = 0.799** (vs 0.788 with vetoed candidates still in).
+3. **`activation` is the weakest field (0.739)** because of GLU naming
+   soup. When two members of one family contest each other the
+   disagreement is about NAMING, not architecture, so the scorer now
+   asserts the family (`gated-glu`) rather than flipping a coin.
+
 **STATUS 2026-08-01 (same day): grown to 26 papers / 69 pairs / 17
 groups, bootstrap CIs implemented (resampling papers).** The prediction
 above came true on schedule: the perfect 1.000 deflated to grouped

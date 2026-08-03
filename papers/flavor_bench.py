@@ -33,7 +33,8 @@ import argparse
 import pathlib
 import sys
 
-from fetch import FLAVOR, extract, fetch_source, score_flavors, split_sections
+from fetch import (FLAVOR, FLAVOR_FAMILIES, extract, fetch_source,
+                   score_flavors, split_sections)
 
 CACHE = pathlib.Path(__file__).parent / ".cache"
 
@@ -152,6 +153,7 @@ def main() -> int:
     args = ap.parse_args()
 
     scored: list[tuple[float, int]] = []   # the scorer
+    postveto: list[tuple[float, int]] = []  # scorer, vetoed candidates dropped
     naive: list[tuple[float, int]] = []    # old first-match priority
     per_field: dict[str, list[tuple[float, int]]] = {}
     # Grouped = one AUROC per (paper, field), averaged. This is the
@@ -164,6 +166,8 @@ def main() -> int:
     by_paper: dict[str, dict] = {}
     verdict_ok, verdict_bad, contested = 0, [], 0
     n_papers = 0
+    n_inherited_ok, n_inherited_bad, n_family = 0, [], 0
+    inherit_papers = []
 
     for arxiv_id, truths in TRUTH.items():
         tex = get_tex(arxiv_id, args.offline)
@@ -172,6 +176,8 @@ def main() -> int:
         n_papers += 1
         cands_by_field = score_flavors(split_sections(tex))
         arch = extract(arxiv_id, tex)
+        if arch.inherits:
+            inherit_papers.append((arxiv_id, arch.inherits["ancestor"]))
         for fieldname, true_val in truths.items():
             cands = cands_by_field.get(fieldname, [])
             prio = {v: -i for i, (v, _) in enumerate(FLAVOR[fieldname])}
@@ -183,6 +189,12 @@ def main() -> int:
                 per_field.setdefault(fieldname, []).append((c["score"], label))
                 g_new.append((c["score"], label))
                 g_old.append((prio[c["value"]], label))
+                # Post-veto view: the deployed system can never assert a
+                # candidate the paper explicitly rejected, so a ranking
+                # metric that still contains them measures a scorer we do
+                # not ship. Drop them (Falcon's SwiGLU, Primer's).
+                if "rejection-elsewhere" not in c.get("cues", []):
+                    postveto.append((c["score"], label))
             grouped.append((g_new, g_old))
             bp = by_paper.setdefault(arxiv_id, {"pairs": [], "groups": []})
             bp["pairs"].extend(g_new)
@@ -198,6 +210,21 @@ def main() -> int:
             elif f.verdict == "contested":
                 contested += 1
                 applied = None
+            elif f.verdict == "family":
+                # Family-level assertion is CORRECT iff the truth is a
+                # member of that family (naming disagreement resolved
+                # honestly rather than by coin flip).
+                n_family += 1
+                fam = FLAVOR_FAMILIES.get(fieldname, {})
+                applied = f.value if fam.get(true_val) == f.value else f.value
+                if fam.get(true_val) == f.value:
+                    applied = true_val   # counts as correct
+            elif f.verdict == "inherited":
+                applied = f.value
+                if applied == true_val:
+                    n_inherited_ok += 1
+                else:
+                    n_inherited_bad.append((arxiv_id, fieldname, applied, true_val))
             else:
                 applied = f.value
             if applied == true_val or (applied is None and true_val is None):
@@ -234,6 +261,10 @@ def main() -> int:
           f"({len(ga_new)} groups)")
     print(f"pooled AUROC (cross-paper calibration):                "
           f"scorer {a_new:.3f}{fmt(ci_p)}   naive {a_old:.3f}")
+    a_pv = auroc(postveto)
+    if a_pv is not None:
+        print(f"pooled AUROC, POST-VETO (the ranking we actually ship): "
+              f"{a_pv:.3f}   ({len(postveto)}/{len(scored)} candidates)")
     for fieldname, pairs in sorted(per_field.items()):
         a = auroc(pairs)
         print(f"  {fieldname:11} pooled "
@@ -243,6 +274,15 @@ def main() -> int:
                 if (CACHE / f"{aid}.tex").exists())
     print(f"verdicts: {verdict_ok}/{total} correct, {contested} contested, "
           f"{len(verdict_bad)} WRONG")
+    print(f"  inheritance: {len(inherit_papers)} papers resolved an ancestor "
+          f"({', '.join(f'{a}<-{b}' for a, b in inherit_papers[:6])}"
+          f"{'...' if len(inherit_papers) > 6 else ''}); "
+          f"inherited fields {n_inherited_ok} correct, "
+          f"{len(n_inherited_bad)} wrong")
+    for aid, fieldname, applied, true_val in n_inherited_bad:
+        print(f"    inherited-wrong: {aid} {fieldname}: {applied} vs {true_val}")
+    if n_family:
+        print(f"  family-level assertions (GLU naming soup): {n_family}")
     for aid, fieldname, applied, true_val in verdict_bad:
         print(f"  WRONG: {aid} {fieldname}: applied {applied}, truth {true_val}")
     if g_new is not None and g_old is not None and g_new < g_old:

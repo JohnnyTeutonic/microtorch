@@ -451,16 +451,27 @@ penalized), ablation/comparative phrasing, possessive attribution ("the
 Transformer's ReLU"), plus-compound baseline names ("Transformer+GELU") — and
 a value is asserted only when a clear winner exists; close calls are
 **contested** (both candidates shown with evidence, nothing auto-applied).
+Papers that never *state* their flavors — they inherit an architecture by
+citation ("the same model and architecture as GPT-2") — are handled by
+**inheritance resolution**: a small curated ancestor table fills what the
+prose leaves open, marked `inherited` with the inheritance sentence as
+evidence, and the paper's own statements always override the base. The
+guard that matters: the generic `transformer` ancestor never fills
+fields, because "based on the Transformer" is said by every decoder LM
+while the deltas go unstated — BERT is "based on the Transformer" and
+silently switches to GELU and learned positions.
+
 Measured on `papers/flavor_bench.py`, **26 real papers** with ground-truth
 architectures (Vaswani through Gemma, including designed negatives whose
 true flavor is outside the lattice): **grouped AUROC 0.882** [bootstrap 95%
 CI 0.750–1.000, resampling papers] vs 0.863 for naive first-match, pooled
-0.788 [0.694–0.908] vs 0.754, and **zero wrong assertions** — where
-first-match extraction claimed RoPE for the ALiBi paper and SwiGLU for
-Primer *and* Falcon ("we choose not to adopt SwiGLU" now vetoes the
-candidate outright). The first 10-paper cut scored a grouped 1.000 — the
-larger sample deflated that honestly, which is exactly what the benchmark
-is for; the growth protocol continues (STUDIO_PLAN §13.1).
+0.799 post-veto, **47/65 field verdicts correct with zero wrong
+assertions** — where first-match extraction claimed RoPE for the ALiBi
+paper and SwiGLU for Primer *and* Falcon ("we choose not to adopt SwiGLU"
+now vetoes the candidate outright). The first 10-paper cut scored a
+grouped 1.000 — the larger sample deflated that honestly, which is exactly
+what the benchmark is for; the growth protocol continues
+(STUDIO_PLAN §13.1).
 
 Validated live against: *Attention Is All You Need* (d_model=512, N=6, h=8,
 d_ff=2048, sinusoidal), *LLaMA* (4096/32/32 from its model-size table +
