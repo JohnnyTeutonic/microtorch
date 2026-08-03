@@ -42,6 +42,14 @@ Var SurpriseRoutedAttention::forward(const Var& x, size_t seq_len) const {
     Var residual = ops::sub(pred_in, predicted);
     Var g = ops::sigmoid(
         ops::add_scalar(ops::scale(ops::rms_row(residual), GATE_SCALE), GATE_BIAS));  // [T,1]
+    // Matched-density override (SRD_PREREG_R2 P5): inference-only, a
+    // constant gate off the tape — policies are compared on the SAME
+    // trained weights.
+    if (!forced_gate.empty() && forced_gate.size() == T) {
+        Matrix fg(T, 1);
+        for (size_t i = 0; i < T; ++i) fg(i, 0) = forced_gate[i];
+        g = make_var(std::move(fg));
+    }
     last_gate_ = g;
     // 1 - g for the linear path's share.
     Var g_inv = ops::add_scalar(ops::scale(g, -1.0f), 1.0f);

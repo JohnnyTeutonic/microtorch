@@ -320,5 +320,83 @@ int main(int argc, char** argv) {
     }
     save_ckpt(steps);
     std::printf("done through %d; wrote %s_{train,probe}.csv\n", steps, prefix.c_str());
+
+    // ---- P5: matched-density controls (SRD_PREREG_R2.md, env-gated) ----
+    // On the SAME trained srd weights, evaluate the probe set with the
+    // gate REPLACED by three policies at equal density rho: the SRD
+    // gate's own top-rho queries, a random rho subset, and a positional
+    // baseline (the LAST rho*T queries — recency, the field's default).
+    // exact_ref (rho=1) and linear_ref (rho=0) bound the range.
+    if (std::getenv("SRD_DENSITY_EVAL")) {
+        NoGrad ng;
+        Lane& srd_lane = lanes[2];
+        srd_lane.model.eval();
+        std::ofstream dcsv(prefix + "_density.csv", std::ios::trunc);
+        dcsv << "policy,rho,answer_ce,answer_acc\n";
+        auto eval_forced = [&](const std::vector<std::vector<float>>& masks, const char* name,
+                               double rho) {
+            double ce = 0, acc = 0;
+            for (size_t pi = 0; pi < probes.size(); ++pi) {
+                for (auto& blk : srd_lane.model.srd) blk->forced_gate = masks[pi];
+                const auto& seq = probes[pi];
+                std::vector<int> x(seq.begin(), seq.end() - 1);
+                Var logits = srd_lane.model.forward(x);
+                const size_t last = T - 1;
+                float mx = -1e30f;
+                for (int v = 0; v < VOCAB; ++v) mx = std::max(mx, logits->data(last, v));
+                double z = 0;
+                for (int v = 0; v < VOCAB; ++v) z += std::exp(logits->data(last, v) - mx);
+                const int ans = seq[T];
+                ce += -(logits->data(last, ans) - mx - std::log(z));
+                int arg = 0;
+                for (int v = 1; v < VOCAB; ++v)
+                    if (logits->data(last, v) > logits->data(last, arg)) arg = v;
+                acc += (arg == ans) ? 1.0 : 0.0;
+            }
+            for (auto& blk : srd_lane.model.srd) blk->forced_gate.clear();
+            const double N = probes.size();
+            dcsv << name << ',' << rho << ',' << ce / N << ',' << acc / N << '\n';
+            std::printf("  density %-10s rho=%.2f: ce %.4f acc %.3f\n", name, rho, ce / N, acc / N);
+        };
+        // Natural gate values per probe (block 0, the profiled block).
+        std::vector<std::vector<float>> nat(probes.size());
+        for (size_t pi = 0; pi < probes.size(); ++pi) {
+            std::vector<int> x(probes[pi].begin(), probes[pi].end() - 1);
+            (void)srd_lane.model.forward(x);
+            const Var g = srd_lane.model.srd[0]->gate();
+            nat[pi].resize(T);
+            for (size_t t = 0; t < T; ++t) nat[pi][t] = g->data(t, 0);
+        }
+        std::mt19937 drng(4242);
+        for (double rho : {0.10, 0.25}) {
+            const size_t k = std::max<size_t>(1, static_cast<size_t>(rho * T));
+            std::vector<std::vector<float>> m_srd(probes.size()), m_rnd(probes.size()),
+                m_pos(probes.size());
+            for (size_t pi = 0; pi < probes.size(); ++pi) {
+                // SRD policy: top-k by the natural gate.
+                std::vector<size_t> idx(T);
+                for (size_t t = 0; t < T; ++t) idx[t] = t;
+                std::partial_sort(idx.begin(), idx.begin() + k, idx.end(),
+                                  [&](size_t a, size_t b) { return nat[pi][a] > nat[pi][b]; });
+                m_srd[pi].assign(T, 0.0f);
+                for (size_t j = 0; j < k; ++j) m_srd[pi][idx[j]] = 1.0f;
+                // Random policy at the same k.
+                std::shuffle(idx.begin(), idx.end(), drng);
+                m_rnd[pi].assign(T, 0.0f);
+                for (size_t j = 0; j < k; ++j) m_rnd[pi][idx[j]] = 1.0f;
+                // Positional: the last k queries.
+                m_pos[pi].assign(T, 0.0f);
+                for (size_t t = T - k; t < T; ++t) m_pos[pi][t] = 1.0f;
+            }
+            eval_forced(m_srd, "srd_top", rho);
+            eval_forced(m_rnd, "random", rho);
+            eval_forced(m_pos, "positional", rho);
+        }
+        std::vector<std::vector<float>> ones(probes.size(), std::vector<float>(T, 1.0f));
+        std::vector<std::vector<float>> zeros(probes.size(), std::vector<float>(T, 0.0f));
+        eval_forced(ones, "exact_ref", 1.0);
+        eval_forced(zeros, "linear_ref", 0.0);
+        std::printf("wrote %s_density.csv\n", prefix.c_str());
+    }
     return 0;
 }

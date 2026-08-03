@@ -118,9 +118,39 @@ def analyse(out_dir):
             lines.append(verdict(d < 0.5,
                                  f"P4 decoys ignored ({key[0]}): DCI {d:.3f} "
                                  f"(<0.5 = retrieval router; ~1 = novelty detector)"))
-    lines += ["", "P5 (matched-density quality vs random/positional gates) is",
-              "the separate control lane — see the results document.", "",
-              "## Control-first check", ""]
+    # ---- P5: matched-density control lane (run_r2_density.sh) ----
+    dens = {}
+    for p in glob.glob(os.path.join(out_dir, "*_density.csv")):
+        with open(p, newline="", encoding="utf-8") as f:
+            for r in csv.DictReader(f):
+                key = (r["policy"], float(r["rho"]))
+                dens.setdefault(key, []).append(float(r["answer_acc"]))
+    if dens:
+        lines += ["", "## P5 — matched-density quality (accuracy, mean ± SE "
+                      "over all cells/seeds)", "",
+                  "| policy | ρ=0.10 | ρ=0.25 |", "|---|---|---|"]
+        for pol in ("srd_top", "random", "positional"):
+            cells_ = []
+            for rho in (0.10, 0.25):
+                m, se = mean_se(dens.get((pol, rho), []))
+                cells_.append(f"{m:.3f} ± {se:.3f}" if m == m else "–")
+            lines.append(f"| {pol} | {cells_[0]} | {cells_[1]} |")
+        for name, rho in (("exact_ref", 1.0), ("linear_ref", 0.0)):
+            m, _ = mean_se(dens.get((name, rho), []))
+            if m == m:
+                lines.append(f"| {name} (bound) | {m:.3f} | |")
+        ok = []
+        for rho in (0.10, 0.25):
+            s, _ = mean_se(dens.get(("srd_top", rho), []))
+            r, _ = mean_se(dens.get(("random", rho), []))
+            p, _ = mean_se(dens.get(("positional", rho), []))
+            ok.append(s == s and r == r and p == p and s > r and s > p)
+        lines += ["", verdict(all(ok),
+                  "P5 SRD beats BOTH baselines at BOTH densities "
+                  "(beating random but losing to positional is a negative "
+                  "result and gets published as one)")]
+
+    lines += ["", "## Control-first check", ""]
     for key, st in stats.items():
         if st["exact"] < 0.3:
             lines.append(f"- ⚠ {key[0]} decoys={key[1]}: exact lane at "
@@ -141,11 +171,22 @@ def selftest():
                 f.write(hdr)
                 f.write(f"100,exact,1.0,0.90,0,0,0,0,0\n")
                 f.write(f"100,srd,1.0,0.85,0.9,0.4,0.80,0.40,0.30\n")
+        # Synthetic P5 lane: srd_top above both baselines at both rhos.
+        for s in SEEDS:
+            with open(os.path.join(td, f"distinct_d2_s{s}_density.csv"), "w",
+                      encoding="utf-8") as f:
+                f.write("policy,rho,answer_ce,answer_acc\n")
+                for rho in (0.1, 0.25):
+                    f.write(f"srd_top,{rho},1.0,{0.70 + 0.02 * s}\n")
+                    f.write(f"random,{rho},1.2,{0.40 + 0.02 * s}\n")
+                    f.write(f"positional,{rho},1.1,{0.50 + 0.02 * s}\n")
+                f.write("exact_ref,1.0,0.9,0.90\nlinear_ref,0.0,1.4,0.20\n")
         txt = analyse(td)
         assert "P1" in txt or "P4" in txt
         assert "HOLDS" in txt, txt
         # RSI = (.8-.4)/1.2 = .333 ; DCI = .3/.8 = .375 (<0.5 -> router)
         assert "0.375" in txt, txt
+        assert "P5 SRD beats BOTH" in txt and txt.count("HOLDS") >= 2, txt
     print("SELFTEST OK: RSI/DCI computed from a synthetic router cell "
           "(RSI +0.333, DCI 0.375 -> P4 holds)")
     return 0
