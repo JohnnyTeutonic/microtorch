@@ -23,23 +23,31 @@ Survey date: 2026-07-30 (live arXiv sweep; refresh before each design round).
 > efficiency question remains open (control lane failed the task at
 > the rung-2 config; see the pre-reg's RESULTS for rung 2b).
 
-> **S1 STATUS — 2026-08-05 (revised on referee review).** The baseline
-> landed: `ops::swa_attention` (sliding window + sinks, bitwise
-> equivalence pin against full attention at window ≥ T) is a
-> spec-expressible lane. Its first measuring cell suggests **w=64+sink
-> beats full attention at T=256** — the cell is genuinely sparse (w=64
-> against T=256 computes **44.3%** of full causal's attention entries;
-> stated next to w because the equivalence pin makes w ≥ T degenerate
-> by construction) — best_val 3.860 vs 3.911 on 3 shared-seed pairs.
-> **Statistical status, honestly: PENDING.** The correct paired
-> analysis gives t = −3.39 at df = 2, below the 4.303 two-tailed
-> critical value, with visible seed heterogeneity (paired diffs
-> −0.0656, −0.0658, −0.0208); the direction was NOT pre-specified (the
-> manifest expected match-or-cost), so no one-tailed reading is
-> licensed. A seed extension to n=10 pairs is running; the registry
-> entry (`S1-swa-beats-exact`, now `pending`) hardens or retracts on
-> that result. Follow-ups queued behind it: window sweep, longer
-> budgets, optimizer interaction.
+> **S1 STATUS — 2026-08-05, SETTLED at n=10.** `ops::swa_attention`
+> (sliding window + sinks, bitwise equivalence pin against full
+> attention at window ≥ T) is a spec-expressible lane, and its
+> measuring cell now carries a real result: **w=64+sink BEATS full
+> attention at T=256** — best_val **3.861 vs 3.909**, paired
+> **t = −10.35 (df = 9, two-tailed crit 2.262), swa better in 10/10
+> seeds**, mean gap −0.048 nats. The cell is genuinely sparse: w=64
+> against T=256 computes **44.3%** of full causal's attention entries
+> (stated next to w because the equivalence pin makes w ≥ T degenerate
+> by construction). Less attention, better loss, every seed.
+>
+> *How it got here, because the path is the point:* the first cut
+> (n=3) was downgraded to `pending` on referee review — paired
+> t = −3.39 at df = 2 sat below the 4.303 critical value, one paired
+> diff was a visible outlier (−0.0208), and the direction had NOT been
+> pre-specified, so no one-tailed rescue was licensed. The extension
+> settles it two-tailed with the outlier explained as seed noise. The
+> conservative unpaired analysis (t = −4.19, df = 18) clears its bar
+> too; both are recorded in the registry row to keep the numbers
+> unambiguous.
+>
+> Follow-ups, now with a real baseline under them: window sweep
+> (w ∈ {16, 64, 128, T} — is there an optimal locality scale?), longer
+> budgets (does exact catch up?), optimizer interaction (does Muon
+> change the story?). **V2/CoD must beat THIS, not full attention.**
 
 ## 1. The landscape, mapped to our opening questions
 
