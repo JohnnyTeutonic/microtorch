@@ -1,0 +1,18 @@
+{
+  "_comment": "Sparse S1 baseline cell: swa(window=64,sinks=1) vs exact attention, everything else identical (gpt2 2-block, T=256, adamw at lr=1e-3 per registry finding S3-lrxopt's safe-AdamW quadrant, 400 steps, batch 4, 3 seeds). Finding candidate: does the sliding window match full attention on LM loss at T=256 (a supported null), or cost measurably (a supported positive for exact)? Either answer is a finding; both make future sparse mechanisms' comparisons honest.",
+  "base": {
+    "arch": {"preset": "gpt2-nano", "custom": {}},
+    "data": {"corpus": "/mnt/c/Users/jonat/OneDrive/Documents/research_portfolio_complete/transformer_cpp/data/tinystories-txt/train-0-small.txt",
+              "vocab": "/mnt/c/Users/jonat/OneDrive/Documents/research_portfolio_complete/transformer_cpp/releases/chat7b.gguf",
+              "vocab_cap": 4096, "T": 256},
+    "train": {"batch": 4, "lr": 0.001, "steps": 400, "eval_every": 100,
+               "checkpoint_every": 1000000, "gradmap_every": 0},
+    "export": {"formats": []}
+  },
+  "factors": {
+    "arch.custom.attention": ["exact", "swa"]
+  },
+  "design": "grid",
+  "seeds": [1, 2, 3],
+  "out_root": "/tmp/sparse_s1"
+}
