@@ -48,11 +48,12 @@ TAXONOMY = {
     "attention": {
         "status": "implemented",
         "path": "arch.custom.attention",
-        "alternatives": ["exact", "kimi", "srd", "attnres"],
+        "alternatives": ["exact", "kimi", "srd", "attnres", "swa"],
         "aliases": {"softmax": "exact", "full": "exact",
                     "linear": "kimi", "kimi-linear": "kimi",
                     "surprise": "srd", "surprise-routed": "srd",
-                    "attention-residuals": "attnres"},
+                    "attention-residuals": "attnres",
+                    "sliding-window": "swa", "sliding_window": "swa"},
     },
     "optimizer": {
         "status": "implemented",

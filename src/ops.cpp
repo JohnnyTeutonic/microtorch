@@ -867,6 +867,91 @@ Var fused_attention(const Var& q, const Var& k, const Var& v, float scale, size_
     });
 }
 
+// Sliding-window causal attention with attention sinks (S1 baseline of
+// the sparse phase, SPARSE_ATTENTION.md): query i sees the first `sinks`
+// positions of its block plus the last `window` positions up to i. The
+// field's default control (Longformer/Mistral lineage; sinks per
+// StreamingLLM). Cost intuition O(T·(w+s)·d); this reference
+// implementation still materializes [T,T] weights — the honest fast
+// kernel belongs to coalfire (ECOSYSTEM.md §1.1 role 4).
+//
+// EQUIVALENCE PIN (tests/test_swa.cpp): window >= seq_len with sinks=0
+// visits exactly fused_attention's causal range in exactly its order, so
+// the outputs are BITWISE identical — the sparse path cannot silently
+// diverge from the exact one.
+Var swa_attention(const Var& q, const Var& k, const Var& v, float scale, size_t window,
+                  size_t sinks, size_t seq_len) {
+    const size_t T = q->data.rows();
+    if (k->data.rows() != T || v->data.rows() != T || q->data.cols() != k->data.cols()) {
+        throw std::runtime_error("swa_attention: shape mismatch");
+    }
+    if (window == 0) throw std::runtime_error("swa_attention: window must be >= 1");
+    const size_t sl = seq_len == 0 ? T : seq_len;
+    if (T % sl != 0) throw std::runtime_error("swa_attention: rows not a multiple of seq_len");
+
+    // Visible set for query i, expressed as two disjoint ranges inside
+    // its block: [b0, sink_hi) then [win_lo, i+1).
+    auto ranges = [sl, window, sinks](size_t i, size_t& b0, size_t& sink_hi, size_t& win_lo) {
+        b0 = (i / sl) * sl;
+        const size_t ii = i - b0;
+        win_lo = b0 + (ii + 1 > window ? ii + 1 - window : 0);
+        sink_hi = std::min(b0 + std::min(sinks, ii + 1), win_lo);
+    };
+
+    auto A = std::make_shared<Matrix>(device::matmul(q->data, k->data.transpose()));
+    for (size_t i = 0; i < T; ++i) {
+        size_t b0, sink_hi, win_lo;
+        ranges(i, b0, sink_hi, win_lo);
+        float mx = -1e30f;
+        for (size_t j = b0; j < sink_hi; ++j) {
+            (*A)(i, j) *= scale;
+            mx = std::max(mx, (*A)(i, j));
+        }
+        for (size_t j = win_lo; j <= i; ++j) {
+            (*A)(i, j) *= scale;
+            mx = std::max(mx, (*A)(i, j));
+        }
+        float z = 0.0f;
+        for (size_t j = b0; j < sink_hi; ++j) {
+            (*A)(i, j) = std::exp((*A)(i, j) - mx);
+            z += (*A)(i, j);
+        }
+        for (size_t j = win_lo; j <= i; ++j) {
+            (*A)(i, j) = std::exp((*A)(i, j) - mx);
+            z += (*A)(i, j);
+        }
+        for (size_t j = 0; j < T; ++j) {
+            const bool vis = (j >= b0 && j < sink_hi) || (j >= win_lo && j <= i);
+            (*A)(i, j) = vis ? (*A)(i, j) / z : 0.0f;
+        }
+    }
+    Matrix y = device::matmul(*A, v->data);
+
+    return record(std::move(y), {q, k, v}, [A, scale, sl, window, sinks](Variable* self) {
+        const Var& q = self->parents[0];
+        const Var& k = self->parents[1];
+        const Var& v = self->parents[2];
+        const size_t T = q->data.rows();
+        if (v->requires_grad) {
+            v->accumulate(device::matmul(A->transpose(), self->grad));
+        }
+        if (!q->requires_grad && !k->requires_grad) return;
+        // Same softmax backward as fused_attention: masked entries carry
+        // A == 0, so ds vanishes there with no mask bookkeeping.
+        Matrix ds = device::matmul(self->grad, v->data.transpose());
+        for (size_t i = 0; i < T; ++i) {
+            const size_t b0 = (i / sl) * sl;
+            float dot = 0.0f;
+            for (size_t j = b0; j <= i; ++j) dot += ds(i, j) * (*A)(i, j);
+            for (size_t j = 0; j < T; ++j) {
+                ds(i, j) = (*A)(i, j) != 0.0f ? scale * (*A)(i, j) * (ds(i, j) - dot) : 0.0f;
+            }
+        }
+        if (q->requires_grad) q->accumulate(device::matmul(ds, k->data));
+        if (k->requires_grad) k->accumulate(device::matmul(ds.transpose(), q->data));
+    });
+}
+
 Matrix attention_mask(size_t rows, size_t seq_len, bool causal) {
     if (seq_len == 0) seq_len = rows;
     if (rows % seq_len != 0) {

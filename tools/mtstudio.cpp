@@ -45,7 +45,8 @@ struct Spec {
     size_t d = 128, layers = 2, heads = 4, T = 128;
     // Paper-faithful flavor knobs (the flex family; empty = family default).
     std::string norm, activation, position;
-    size_t d_ff = 0;  // 0 = family default (4d gpt2/flex, 3d llama)
+    size_t d_ff = 0;                // 0 = family default (4d gpt2/flex, 3d llama)
+    size_t window = 64, sinks = 1;  // swa lane only (S1 baseline)
     // data
     std::string corpus, vocab_gguf;
     size_t vocab_cap = 4096;
@@ -75,6 +76,7 @@ const std::map<std::string, std::array<size_t, 4>> PRESETS = {
     {"gpt2-nano", {128, 2, 4, 128}},  {"llama-tiny", {128, 2, 4, 128}},
     {"gpt2-small", {256, 4, 8, 256}}, {"kimi-tiny", {128, 2, 4, 128}},
     {"srd-tiny", {128, 2, 4, 128}},   {"attnres-tiny", {128, 2, 4, 128}},
+    {"swa-tiny", {128, 2, 4, 128}},
 };
 
 Spec parse_spec(const std::string& path) {
@@ -95,6 +97,7 @@ Spec parse_spec(const std::string& path) {
         s.T = it->second[3];
         if (p.rfind("kimi", 0) == 0) s.attention = "kimi";
         if (p.rfind("srd", 0) == 0) s.attention = "srd";
+        if (p.rfind("swa", 0) == 0) s.attention = "swa";
         if (p.rfind("attnres", 0) == 0) s.attention = "attnres";
         if (p.rfind("llama", 0) == 0) s.family = "llama";
     }
@@ -108,6 +111,8 @@ Spec parse_spec(const std::string& path) {
         s.activation = c.value("activation", s.activation);
         s.position = c.value("position", s.position);
         s.d_ff = c.value("d_ff", s.d_ff);
+        s.window = c.value("window", s.window);
+        s.sinks = c.value("sinks", s.sinks);
     }
     // Family resolution for the flavor knobs. RoPE lives inside the llama
     // block (rmsnorm/swiglu come with it); every other flavor combination
@@ -124,7 +129,7 @@ Spec parse_spec(const std::string& path) {
         if (s.attention != "exact")
             throw std::runtime_error(
                 "flavor knobs (norm/activation/position) require exact "
-                "attention; kimi/srd/attnres are their own presets");
+                "attention; kimi/srd/swa/attnres are their own presets");
         s.family = "flex";
     }
     // The 2-block ParityLM cannot honor depth; flex CAN, and with
@@ -134,9 +139,9 @@ Spec parse_spec(const std::string& path) {
     if (s.family == "gpt2" && s.layers != 2) {
         if (s.attention == "exact")
             s.family = "flex";
-        else if (s.attention == "kimi" || s.attention == "srd")
+        else if (s.attention == "kimi" || s.attention == "srd" || s.attention == "swa")
             throw std::runtime_error(
-                "kimi/srd presets are 2-block parity models (layers must be 2)");
+                "kimi/srd/swa presets are 2-block parity models (layers must be 2)");
     }
 
     const json data = j.value("data", json::object());
@@ -194,6 +199,7 @@ std::vector<int> tokenize(const std::string& text, const std::map<std::string, i
 parity::AttnKind attn_kind(const std::string& s) {
     if (s == "kimi") return parity::AttnKind::KIMI;
     if (s == "srd") return parity::AttnKind::SRD;
+    if (s == "swa") return parity::AttnKind::SWA;
     return parity::AttnKind::EXACT;
 }
 
@@ -241,7 +247,7 @@ int run(const Spec& s, bool plan_only) {
     // Only the kimi/srd parity lanes are depth-fixed; flex and llama take
     // any depth, and attnres wires s.layers into its stack.
     if (s.family == "gpt2" && s.attention != "attnres" && s.layers != 2)
-        throw std::runtime_error("kimi/srd parity lanes: layers must be 2");
+        throw std::runtime_error("kimi/srd/swa parity lanes: layers must be 2");
 
     std::system(("mkdir -p " + s.out_dir).c_str());
     Events ev(s.out_dir + "/events.jsonl");
@@ -314,7 +320,7 @@ int run(const Spec& s, bool plan_only) {
         llama->checkpoint_blocks = s.ckpt_act;
     } else {
         gpt = std::make_shared<parity::ParityLM>(attn_kind(s.attention), tokens.size(), s.d,
-                                                 s.heads, s.T, s.seed);
+                                                 s.heads, s.T, s.seed, s.window, s.sinks);
         if (s.ckpt_act) {
             throw std::runtime_error(
                 "train.checkpoint_activations requires the llama family for now");
@@ -761,7 +767,7 @@ int sample_cmd(const Spec& s, const std::string& prompt, int n_new, float temp, 
         llama = std::make_shared<nn::Llama>(lc, s.seed);
     } else {
         gpt = std::make_shared<parity::ParityLM>(attn_kind(s.attention), tokens.size(), s.d,
-                                                 s.heads, s.T, s.seed);
+                                                 s.heads, s.T, s.seed, s.window, s.sinks);
     }
     nn::Module& model_ref =
         flex      ? static_cast<nn::Module&>(*flex)

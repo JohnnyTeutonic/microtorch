@@ -15,11 +15,13 @@ namespace parity {
 
 using namespace microtorch;
 
-enum class AttnKind { EXACT, KIMI, SRD };
+enum class AttnKind { EXACT, KIMI, SRD, SWA };
 
 class ParityLM : public nn::Module {
 public:
-    ParityLM(AttnKind kind, size_t vocab, size_t d, size_t n_heads, size_t n_ctx, unsigned seed)
+    // swa_window/swa_sinks are read only for AttnKind::SWA (S1 baseline).
+    ParityLM(AttnKind kind, size_t vocab, size_t d, size_t n_heads, size_t n_ctx, unsigned seed,
+             size_t swa_window = 64, size_t swa_sinks = 1)
         : kind_(kind) {
         wte = mod<nn::Embedding>("wte", vocab, d, seed + 1);
         wpe = mod<nn::Embedding>("wpe", n_ctx, d, seed + 2);
@@ -40,6 +42,10 @@ public:
                 case AttnKind::SRD:
                     srd.push_back(mod<nn::SurpriseRoutedAttention>("attn_" + std::to_string(b), d,
                                                                    n_heads, s));
+                    break;
+                case AttnKind::SWA:
+                    swa.push_back(mod<nn::SlidingWindowAttention>(
+                        "attn_" + std::to_string(b), d, n_heads, swa_window, swa_sinks, s));
                     break;
             }
         }
@@ -68,6 +74,9 @@ public:
                 case AttnKind::SRD:
                     a = srd[b]->forward(n1, seq_len);
                     break;
+                case AttnKind::SWA:
+                    a = swa[b]->forward(n1, seq_len);
+                    break;
             }
             h = ops::add(h, a);
             h = ops::add(h, mlp[b]->forward(ln2[b]->forward(h)));
@@ -89,6 +98,7 @@ public:
     std::vector<std::shared_ptr<nn::CausalSelfAttention>> exact;
     std::vector<std::shared_ptr<nn::KimiLinearAttention>> kimi;
     std::vector<std::shared_ptr<nn::SurpriseRoutedAttention>> srd;
+    std::vector<std::shared_ptr<nn::SlidingWindowAttention>> swa;
     std::shared_ptr<nn::LayerNorm> ln_f;
     std::shared_ptr<nn::Linear> head;
 };

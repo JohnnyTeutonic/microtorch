@@ -102,6 +102,18 @@ public:
     bool causal;
 };
 
+// Sparse-phase S1 baseline: sliding-window attention with sinks.
+// Interface-identical to CausalSelfAttention (same qkv/proj layout, same
+// seeds), differing only in the attention op — swap one line to compare.
+class SlidingWindowAttention : public Module {
+public:
+    SlidingWindowAttention(size_t d, size_t n_heads, size_t window, size_t sinks = 1,
+                           unsigned seed = 0);
+    Var forward(const Var& x, size_t seq_len = 0) const;
+    std::shared_ptr<Linear> c_attn, c_proj;
+    size_t H, dk, window, sinks;
+};
+
 class KimiLinearAttention : public Module {  // Phase 3a: O(n*d²) linear-time attention
 public:
     KimiLinearAttention(size_t d, size_t n_heads, unsigned seed = 0, bool causal = true);

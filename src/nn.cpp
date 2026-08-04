@@ -151,6 +151,33 @@ Var CausalSelfAttention::forward(const Var& x, size_t seq_len) const {
     return c_proj->forward(ops::concat_cols(heads));
 }
 
+// Sparse-phase S1 baseline: identical layout and seeds to
+// CausalSelfAttention — the ONLY difference is the attention op, so any
+// behavioural difference is the sparsity pattern and nothing else.
+SlidingWindowAttention::SlidingWindowAttention(size_t d, size_t n_heads, size_t window_,
+                                               size_t sinks_, unsigned seed)
+    : H(n_heads), dk(d / n_heads), window(window_), sinks(sinks_) {
+    if (d % n_heads != 0) {
+        throw std::runtime_error("attention: d must divide by n_heads");
+    }
+    c_attn = mod<Linear>("c_attn", d, 3 * d, true, seed + 11);
+    c_proj = mod<Linear>("c_proj", d, d, true, seed + 13);
+}
+
+Var SlidingWindowAttention::forward(const Var& x, size_t seq_len) const {
+    const size_t d = H * dk;
+    Var qkv = c_attn->forward(x);
+    const float sc = 1.0f / std::sqrt(static_cast<float>(dk));
+    std::vector<Var> heads;
+    for (size_t h = 0; h < H; ++h) {
+        Var q = ops::slice_cols(qkv, h * dk, (h + 1) * dk);
+        Var k = ops::slice_cols(qkv, d + h * dk, d + (h + 1) * dk);
+        Var v = ops::slice_cols(qkv, 2 * d + h * dk, 2 * d + (h + 1) * dk);
+        heads.push_back(ops::swa_attention(q, k, v, sc, window, sinks, seq_len));
+    }
+    return c_proj->forward(ops::concat_cols(heads));
+}
+
 // Phase 3a: Kimi Linear Attention (O(n*d²) vs O(n²*d) standard attention)
 KimiLinearAttention::KimiLinearAttention(size_t d, size_t n_heads, unsigned seed, bool causal_)
     : H(n_heads), dk(d / n_heads), causal(causal_) {

@@ -141,6 +141,14 @@ Var relu(const Var& x);             // out-of-place sibling (parity + FD anchor)
 Var fused_attention(const Var& q, const Var& k, const Var& v, float scale, size_t seq_len,
                     bool causal);
 
+// Sliding-window causal attention + attention sinks (sparse phase S1
+// baseline): query i sees the first `sinks` positions of its block plus
+// the trailing `window` positions. window >= seq_len with sinks=0 is
+// BITWISE-identical to fused_attention causal (the equivalence pin,
+// test_swa). Backward mirrors fused_attention's; FD-checked.
+Var swa_attention(const Var& q, const Var& k, const Var& v, float scale, size_t window,
+                  size_t sinks, size_t seq_len = 0);
+
 // ---- phase 3a additions (Novel architectures: Kimi Linear) ----
 Var kimi_attention(const Var& q, const Var& k, const Var& v, bool causal,
                    size_t seq_len = 0);  // O(n*d²) linear-time attention
