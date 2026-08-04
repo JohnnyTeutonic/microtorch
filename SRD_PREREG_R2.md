@@ -223,3 +223,28 @@ seed-consistent and decisive.
 **Registry:** SRD-gate-conc → superseded by R2-novelty (supported);
 R2-efficiency remains open/pending. SPARSE_ATTENTION.md carries the
 correction, as this document committed it would.
+
+### Rung 2b addendum — 2026-08-04, same day: the calibration ladder
+closed NEGATIVE, and 2b is PARKED
+
+Two calibration cells at the easiest task setting ever tried
+(npairs=2, nkeys=8, batch=4, 1500 steps, distinct needles):
+
+- **Cell A (lr=3e-3, the historical hardcode):** every lane at the CE
+  floor (~2.14 vs ln 8 = 2.08), one probe correct each.
+- **Cell B (lr=1e-3):** motivated by registry finding S3-lrxopt
+  (AdamW@3e-3 is the unstable-bad quadrant) — a genuine
+  registry-advises-the-lab moment, and it was **disconfirmed**: floors
+  identically. The plateau is not the learning rate. (That is a useful
+  scope boundary on S3-lrxopt's transfer, recorded in the registry.)
+
+Combined with rung-1 history (best exact accuracy ever: 18.75% at
+3000 steps), the conclusion is structural: **the needle family does not
+resolve at 2-block/d=128 for ANY lane, exact attention included** —
+registered as NEEDLE-scale-negative. P5 and the
+gate-semantics-under-mastery question are unanswerable at this model
+scale; rung 2b is parked pending model-scale escalation under a new
+pre-registration. One side observation, consistent with R2-novelty: at
+lr=1e-3 the gate still concentrates hard on distinct needles
+(tail 0.85 vs filler 0.28) while the task remains unlearned — novelty
+detection operates independently of task mastery.

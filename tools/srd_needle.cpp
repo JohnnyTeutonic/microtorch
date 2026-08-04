@@ -164,7 +164,12 @@ int main(int argc, char** argv) {
     // reproduce every prior run exactly.
     if (argc > 9) g_indist = std::string(argv[9]) == "indist";
     if (argc > 10) g_decoys = std::max(0, std::atoi(argv[10]));
-    const float lr = 3e-3f, lambda_gate = 0.05f;
+    // argv[11]: learning rate. Registry finding S3-lrxopt says 3e-3 (the
+    // historical hardcode) is the WORST setting under AdamW — the 2b
+    // calibration tests whether that finding explains the task's
+    // universal non-learning. Default preserves every prior run.
+    const float lr = argc > 11 ? static_cast<float>(std::atof(argv[11])) : 3e-3f;
+    const float lambda_gate = 0.05f;
     const int PROBE_EVERY = 25, NPROBE = 32;
 
     std::vector<Lane> lanes;

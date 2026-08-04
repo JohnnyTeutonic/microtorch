@@ -1,6 +1,6 @@
 # Atlas findings registry
 
-14 claims; every row carries its receipts. Retractions are rows, not deletions.
+15 claims; every row carries its receipts. Retractions are rows, not deletions.
 
 | id | status | claim | evidence | scope |
 |---|---|---|---|---|
@@ -17,6 +17,7 @@
 | SRD-gate-conc | ↻ superseded | The SRD gate concentrates on needle positions (interpretation OPEN: retrieval router vs novelty detector) |  | 2-block parity model; needle tokens are distributionally distinct BY CONSTRUCTION in this design |
 | EX-scorer | ✅ supported | Contribution-vs-mention scoring separates used from mentioned architecture flavors better than first-match, with zero wrong assertions | 0.882 [CI 0.75–1.0] | arXiv LaTeX sources; 47/65 verdicts correct, 0 wrong, abstention-first |
 | R2-novelty | ✅ supported | The SRD gate is a novelty detector: it tracks distributional out-of-place-ness, not retrieval-criticality (concentration +0.59 with distinct needles vs -0.003 in-distribution; decoy-chasing DCI 0.97-1.89; target/non-target selectivity ~0) |  | 2-block parity model, synthetic needle task, models that did NOT master retrieval (control lane 0.000 acc at this config) |
-| R2-efficiency | ⏳ pending | SRD-hardened gating beats random and positional gating at matched density (the efficiency reading of SRD) |  | UNINFORMATIVE at rung-2 config: no lane learned the task (exact control 0.000 acc); requires the calibrated rung-2b configuration |
+| R2-efficiency | ⏳ pending | SRD-hardened gating beats random and positional gating at matched density (the efficiency reading of SRD) |  | UNANSWERABLE at 2-block/d=128: the task family does not resolve at this scale for any lane (see NEEDLE-scale-negative); requires model-scale escalation under a new pre-registration |
+| NEEDLE-scale-negative | ✅ supported | The synthetic needle associative-recall family does not resolve at 2-block/d=128: NO lane (exact attention included) exceeds ~19% answer accuracy; typical outcome is the CE floor, across lr {1e-3, 3e-3}, difficulty (npairs,nkeys) from (2,8) to (8,64), batch {1,4}, and budgets up to 3000 steps |  | 2-block parity model, d=128, learned positions, word-level synthetic vocab. Also tested and DISCONFIRMED here: the S3-lrxopt hypothesis that AdamW@3e-3 explained the plateau (lr=1e-3 floors identically) — a scope boundary for that finding's transfer. |
 
 Reproduce any experimental row: `python tools/reproduce.py <id>`.
