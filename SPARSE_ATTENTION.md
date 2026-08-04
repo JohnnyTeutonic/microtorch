@@ -23,16 +23,23 @@ Survey date: 2026-07-30 (live arXiv sweep; refresh before each design round).
 > efficiency question remains open (control lane failed the task at
 > the rung-2 config; see the pre-reg's RESULTS for rung 2b).
 
-> **S1 STATUS — 2026-08-04.** The baseline landed and immediately paid:
-> `ops::swa_attention` (sliding window + sinks, bitwise equivalence pin
-> against full attention at window ≥ T) is a spec-expressible lane, and
-> its first measuring cell produced the programme's first
-> ordering-is-signal positive: **w=64+sink BEATS full attention at tiny
-> scale on TinyStories** (best_val 3.860 vs 3.911, t = −3.41, 3 seeds;
-> registry: `S1-swa-beats-exact`, scoped and caveated there). The
-> field's default control is not a straw man on our rig — it is the
-> bar. Follow-ups queued: window sweep, longer budgets, optimizer
-> interaction.
+> **S1 STATUS — 2026-08-05 (revised on referee review).** The baseline
+> landed: `ops::swa_attention` (sliding window + sinks, bitwise
+> equivalence pin against full attention at window ≥ T) is a
+> spec-expressible lane. Its first measuring cell suggests **w=64+sink
+> beats full attention at T=256** — the cell is genuinely sparse (w=64
+> against T=256 computes **44.3%** of full causal's attention entries;
+> stated next to w because the equivalence pin makes w ≥ T degenerate
+> by construction) — best_val 3.860 vs 3.911 on 3 shared-seed pairs.
+> **Statistical status, honestly: PENDING.** The correct paired
+> analysis gives t = −3.39 at df = 2, below the 4.303 two-tailed
+> critical value, with visible seed heterogeneity (paired diffs
+> −0.0656, −0.0658, −0.0208); the direction was NOT pre-specified (the
+> manifest expected match-or-cost), so no one-tailed reading is
+> licensed. A seed extension to n=10 pairs is running; the registry
+> entry (`S1-swa-beats-exact`, now `pending`) hardens or retracts on
+> that result. Follow-ups queued behind it: window sweep, longer
+> budgets, optimizer interaction.
 
 ## 1. The landscape, mapped to our opening questions
 
