@@ -130,13 +130,51 @@ price with aux loss; (b) the residual signal may proxy token frequency rather
 than contextual novelty — probe with synthetic sequences; (c) soft training
 cost is exact+linear together — acceptable at research scale.
 
-### V2 — Sketch-State Attention (CoD/FD)
+### V2 — Sketch-State Attention (CoD/FD)  ← **PROMOTED to lead candidate (2026-08-05)**
 Replace linear attention's unbounded K^T V accumulation with a Co-occurring
 Directions sketch: fixed sketch size ℓ, deterministic error bounds, streaming-
 native, O(n·ℓ·d). The deterministic-guarantee counterpart to Performer's random
 features. No prior attention use found. Design question: differentiating through
 the SVD-based shrink step (options: straight-through the shrink, periodic
 detached re-sketch, or replace SVD with a differentiable power-iteration).
+
+**Why this outranks V1 as a novelty claim (assessment 2026-08-05, and the
+lesson the SRD arc paid for).** SRD's claim was BEHAVIOURAL — "the gate
+routes on retrieval-relevant surprise" — a hypothesis about what a learned
+component would end up doing, which is exactly the kind of claim that
+survives replication and still gets reclassified out from under you
+(R2-novelty). V2's claim is STRUCTURAL: CoD sketches the product of two
+matrix streams, and linear attention's state IS that product (K^T V). The
+correspondence is a mathematical identity, checkable before a single model
+trains — it cannot be reinterpreted by a later experiment the way a
+behavioural story can. Three consequences that make it the better bet:
+
+- **The novelty is defensible by inspection.** "CoD applied to linear
+  attention state" is either prior art or it is not; the literature search
+  found no attention paper using it (recheck at design time — names rot).
+  Compare SRD, whose novelty was always contingent on the mechanism doing
+  what we said it did.
+- **It inherits deterministic error bounds.** Performer-class methods give
+  probabilistic guarantees over random features; FD/CoD give worst-case
+  bounds as a function of sketch size ℓ. A quality claim with a
+  deterministic bound attached is a fundamentally stronger artifact than a
+  benchmark table.
+- **Its main risk is ENGINEERING, not epistemic.** The differentiation-
+  through-the-shrink question has three named, testable options (above);
+  each fails loudly and quickly. SRD's risk was that the mechanism might
+  mean something other than we thought — a failure mode that took two
+  rungs, a falsifier and a de-confounding 2×2 to even detect.
+
+**Falsifiers to pre-register before implementation** (the S1 lesson: fix the
+direction and the analysis first): (a) sketch-size sweep ℓ ∈ {8, 16, 32, 64,
+d} — if quality only arrives at ℓ ≈ n the compression claim is dead and that
+is a negative worth publishing; (b) a RANDOM-projection state of equal size
+as the honest control (deterministic bounds must buy something over a random
+sketch, or the theory is decorative); (c) the equivalence check — as ℓ grows
+to full rank, the sketch state must converge to exact K^T V, giving a pin of
+the same character as SWA's bitwise one. Baseline to beat is not full
+attention alone: it is **sliding-window+sink** (S1), which is currently the
+bar at our scale.
 
 ### V3 — Cheap-proxy block-scoring bake-off
 Head-to-head, trained end-to-end NSA-lite: PQ codebook lookup vs SimHash Hamming
