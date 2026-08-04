@@ -51,6 +51,16 @@
   <input type="file" id="file" accept=".jsonl,.json" hidden>
 </div>
 
+<div class="panel" id="p-findings" style="display:none">
+  <h2>findings registry — claims with receipts</h2>
+  <div id="findings"></div>
+  <div class="legend">from <code>atlas/findings.jsonl</code>: every claim
+    carries its design, scope, status and receipt paths. Retractions and
+    supersessions are rows, never deletions — the registry corrects itself
+    in public. Reproduce any experimental row:
+    <code>python tools/reproduce.py &lt;id&gt;</code></div>
+</div>
+
 <div class="panel" id="p-metric" style="display:none">
   <h2>metric</h2>
   <select id="metric"></select>
@@ -308,11 +318,38 @@ if (typeof document !== "undefined") {
     r.onload = () => load(r.result, f.name);
     r.readAsText(f);
   });
-  // Served mode: if the out_dir carries atlas_rows.jsonl, load it.
-  if (location.protocol.startsWith("http"))
+  // Served mode: if the out_dir carries atlas_rows.jsonl, load it; the
+  // findings registry rides the /findings endpoint from the repo.
+  if (location.protocol.startsWith("http")) {
     fetch("atlas_rows.jsonl").then(r => r.ok ? r.text() : null)
       .then(t => { if (t) load(t, "atlas_rows.jsonl (served)"); })
       .catch(() => {});
+    const BADGE = { supported: ["✅", "var(--good)"],
+                    replicated: ["✅✅", "var(--good)"],
+                    superseded: ["↻", "var(--warn)"],
+                    retracted: ["❌", "var(--bad)"],
+                    pending: ["⏳", "var(--dim)"] };
+    fetch("/findings").then(r => r.ok ? r.text() : null).then(t => {
+      if (!t) return;
+      const fs = t.split("\n").filter(l => l.trim())
+                  .map(l => { try { return JSON.parse(l); } catch { return null; } })
+                  .filter(Boolean);
+      if (!fs.length) return;
+      $("p-findings").style.display = "";
+      $("findings").innerHTML = fs.map(f => {
+        const [icon, col] = BADGE[f.status] || ["?", "var(--dim)"];
+        const ev = "t" in f ? ` · t=${f.t >= 0 ? "+" : ""}${f.t} (n=${f.runs ?? "?"})`
+                 : "ci" in f ? ` · ${f.effect} [CI ${f.ci[0]}–${f.ci[1]}]` : "";
+        const sup = f.superseded_by
+          ? ` <span style="color:var(--warn)">→ ${f.superseded_by}</span>` : "";
+        return `<div style="border:1px solid var(--border);border-radius:6px;` +
+          `padding:.5rem .7rem;margin-bottom:.45rem">` +
+          `<span style="color:${col}">${icon} ${f.status}</span>` +
+          ` <b>${f.id}</b>${sup}${ev}<br>${f.claim}<br>` +
+          `<span class="legend">${f.scope}</span></div>`;
+      }).join("");
+    }).catch(() => {});
+  }
 }
 </script>
 </body>

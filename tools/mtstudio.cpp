@@ -1025,6 +1025,18 @@ int serve_ui(const std::string& out_dir, int port, const std::string& ui_path,
             respond(c, "200 OK", "application/jsonl", slurp(out_dir + "/events.jsonl"));
         } else if (line.rfind("GET / ", 0) == 0 || line.rfind("GET /index.html", 0) == 0) {
             respond(c, "200 OK", "text/html; charset=utf-8", ui);
+        } else if (line.rfind("GET /findings", 0) == 0) {
+            // The findings registry, served from the repo beside the UI
+            // (studio/../atlas/findings.jsonl) — the viewer renders it
+            // as cards with status badges.
+            const auto cut = ui_path.find_last_of("/\\");
+            const std::string dir = cut == std::string::npos ? "." : ui_path.substr(0, cut);
+            const std::string body = slurp(dir + "/../atlas/findings.jsonl");
+            if (!body.empty()) {
+                respond(c, "200 OK", "application/jsonl", body);
+            } else {
+                respond(c, "404 Not Found", "text/plain", "404");
+            }
         } else if (line.rfind("GET /atlas", 0) == 0) {
             // The designed-experiment viewer, served from beside the UI;
             // in served mode it auto-loads the out_dir's atlas_rows.jsonl.
