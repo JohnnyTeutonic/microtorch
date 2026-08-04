@@ -1,5 +1,11 @@
 # SRD rung 2 — pre-registration: is the gate a RETRIEVAL router or a NOVELTY detector?
 
+*Lineage note: an independent, unfinished draft of this same
+pre-registration exists at
+[experiments/srd_2x2/PREREGISTRATION.md](experiments/srd_2x2/PREREGISTRATION.md)
+(Jonathan's hand) — same hypotheses, same construct-validity diagnosis,
+converged separately. Kept in the record per repo policy.*
+
 **Written 2026-08-03, BEFORE any run.** Nothing below may be edited after
 the first result lands; outcomes go in a results section appended at the
 end, including the outcomes that embarrass the mechanism.
