@@ -1,0 +1,18 @@
+{
+  "_comment": "S1-b window sweep. Pre-registered in PREREGISTRATION.md BEFORE running; predictions and decision rules are committed there. One factor (window), 5 seeds, everything else matched to experiments/sparse_s1 so the w=64 and exact rows from that cell are paired anchors at seeds 1-5. The w=256 rung is the equivalence pin verified in-situ: sinks=1 with w>=T reduces to the full causal range by construction, so it must reproduce the exact lane bitwise or the cell is void (P1).",
+  "base": {
+    "arch": {"preset": "swa-tiny", "custom": {"attention": "swa", "sinks": 1}},
+    "data": {"corpus": "/mnt/c/Users/jonat/OneDrive/Documents/research_portfolio_complete/transformer_cpp/data/tinystories-txt/train-0-small.txt",
+              "vocab": "/mnt/c/Users/jonat/OneDrive/Documents/research_portfolio_complete/transformer_cpp/releases/chat7b.gguf",
+              "vocab_cap": 4096, "T": 256},
+    "train": {"batch": 4, "lr": 0.001, "steps": 400, "eval_every": 100,
+               "checkpoint_every": 1000000, "gradmap_every": 0},
+    "export": {"formats": []}
+  },
+  "factors": {
+    "arch.custom.window": [16, 32, 128, 256]
+  },
+  "design": "grid",
+  "seeds": [1, 2, 3, 4, 5],
+  "out_root": "/tmp/sparse_s1_window"
+}
