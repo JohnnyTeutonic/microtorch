@@ -123,6 +123,42 @@ positive result — the failures funded the finding.
   status lifecycle plus machine-checked reproduction*, not "tracking
   experiments," and the paper dies if that line is fuzzy.
 
+### G4a — POSITIONING (settled 2026-08-06, do not drift from it)
+
+**Do NOT frame the contribution as "the integration."** Reviewers read
+"system X combines A, B and C" as an absence of scientific
+contribution; it survives in a software track and struggles in a
+science venue. The integration is real and is the distinctive asset,
+but it must be argued through the CAPABILITY it enables.
+
+**The capability: a CLOSED LOOP, not a record.** W&B and MLflow are
+passive stores that make no epistemic claims — a deliberate design
+choice on their part, not a gap. Our registry participates in the
+design of the next experiment and can be falsified by it. Two
+receipts, the second stronger than the first:
+- `S3-lrxopt` selected the learning rate for the S1 cell.
+- The registry advised a needle-task hypothesis, was **WRONG**, and the
+  wrongness became `NEEDLE-scale-negative`, a scope boundary on the
+  advising row. A logging tool cannot be wrong; being wrong and
+  capturing it as structure is the whole point.
+
+**The comparison class is the argument.** Against MLOps tooling this
+looks like a feature. The correct reference class is the **clinical
+trials registry** (ClinicalTrials.gov, and the Cochrane apparatus) —
+institutions a field built once it concluded its evidentiary base
+needed structural enforcement rather than good intentions.
+Pre-registration is itself an import from that lineage. Framed this
+way the paper is "we ported an evidentiary institution into ML, and
+here is what had to change."
+
+**What had to change IS the novel contribution:** a trial registry
+cannot re-run its trials. ML experiments are cheap and rerunnable, so
+the registry can VERIFY ITS OWN ROWS — `reproduce.py` re-derives the
+registered effect from the receipts and returns
+REPLICATED / DID-NOT-REPLICATE / UNDERPOWERED. That capability does not
+exist in the institution being ported from, and does not exist in the
+ML tooling being distinguished from. State it in those terms.
+
 ## 6. What this paper does NOT claim
 
 - Not that sliding windows are a contribution (they are prior art; our
