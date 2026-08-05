@@ -1,0 +1,143 @@
+# PAPER PLAN — the methodology paper
+
+*Started 2026-08-06. Argument spine only: what the paper claims, what
+receipt backs each claim, and what is MISSING. No drafting until the
+gaps close (strength over shipping). Companion paper — the
+paper-to-model extraction pipeline — is deliberately SEPARATE; see
+§7.*
+
+Working title: **"Replication Is Not Enough: Pre-Registered Ablation
+for Architecture Claims, and a Registry That Enforces It"**
+
+Venue: JMLR (unoccupied in the current spread; MLJ holds the ablation
+metric paper, JAIR holds the multi-agent governance paper).
+
+---
+
+## 1. The thesis, in one paragraph
+
+Architecture claims in machine learning are evaluated against a bar
+that is insufficient for the claims being made. The normal evidentiary
+package — a mechanism, an ablation table, a replication, sometimes a
+falsifier — can be fully satisfied by a mechanism that is real, whose
+placement is causally driven by the signal it is said to track, and
+which is still WRONG about what it buys. We demonstrate this with a
+worked case in which every conventional check passed and the
+interpretation was nonetheless false, show that the error was
+detectable only by a pre-registered de-confounding design, and provide
+an implemented discipline (a findings registry with machine-checkable
+reproduction and cite-or-refuse advising) under which such errors are
+recorded, downgraded, and superseded rather than silently propagated.
+
+## 2. The case study (the paper's spine — this is the contribution)
+
+Surprise-Routed Density attention (SRD): a learned gate routes tokens
+between exact and linear attention paths.
+
+| Evidence stage | What passed | Receipt |
+|---|---|---|
+| Mechanism | gate concentrates on needle positions | `SRD-gate-conc` (superseded) |
+| Replication | concentration replicated **5×** | same row |
+| Falsifier | shuffled-predictor lane worse at **5–6σ**, twice | `SPARSE_ATTENTION.md` graduation + T=256 runs |
+| Downstream claim | recall improves | `SRD-recall` — **RETRACTED** |
+| De-confounding | needle vocab partitioned BY ROLE (keys/vals/filler), decoys crossed | `SRD_PREREG_R2.md` |
+| Verdict | gate is a **novelty detector**, not a retrieval router | `R2-novelty` |
+
+The pivot: needles in the standard benchmark are out-of-distribution
+BY CONSTRUCTION, so "concentrates on retrieval sites" and "concentrates
+on distributionally novel sites" are **observationally identical** under
+the conventional protocol. Both are true of the same gate. Only one is
+the claim people would cite. The in-distribution cell collapses the
+effect (+0.59 → −0.003) while the decoy contrast (DCI 0.97 vs 1.89)
+separates the hypotheses.
+
+**Why this generalizes and is not an anecdote:** the confound is
+structural, not incidental. Any benchmark that marks the positions it
+wants a mechanism to find will mark them with *something*, and that
+something is a rival explanation for any mechanism that fires on them.
+This is a general hazard for interpretability-flavored architecture
+claims, and the paper should say so in exactly those terms.
+
+## 3. The proposed discipline (implemented, not proposed-in-principle)
+
+1. **Pre-registration with committed direction.** Design, predictions,
+   decision rules in version control before runs. Receipt: three
+   pre-registrations in-repo with git timestamps preceding their own
+   result files (`SRD_PREREG_R2.md`, `experiments/sparse_s1_window/`).
+2. **A findings registry.** Each claim = one row: scope, effect, SE, t,
+   seeds, manifest, receipts on disk, and a machine `check`. Status is
+   mutable (`supported` / `replicated` / `superseded` / `retracted` /
+   `pending`); rows are never deleted. Receipt: `atlas/findings.jsonl`,
+   16 rows, validator enforces link and status rules.
+3. **Machine-checkable reproduction.** `reproduce.py` re-derives the
+   registered effect from the receipts and returns REPLICATED /
+   DID-NOT-REPLICATE / UNDERPOWERED. Receipt: 6/6 on committed rows.
+4. **Cite-or-refuse advising.** The registry answers configuration
+   questions with citations or refuses; it surfaces corrections
+   automatically, so a superseded claim cannot be cited as live.
+
+## 4. The reflexive demonstration (the part reviewers will test)
+
+The discipline is shown catching **our own** errors, in public, with
+commit hashes:
+
+- `SRD-recall` retracted after failed replication.
+- `SRD-gate-conc` superseded by `R2-novelty` — our own mechanism story
+  reclassified against us.
+- `S2-ctx`, `S2-spike-metric` retracted (the latter a metric-definition
+  error we shipped and then killed).
+- `NEEDLE-scale-negative`: a registry-derived hypothesis (`S3-lrxopt`
+  → lr=1e-3) was DISCONFIRMED, recorded as a scope boundary rather
+  than dropped.
+- `S1-swa-beats-exact`: published, then **downgraded to pending** on
+  referee review (paired t=−3.39 at df=2, below the two-tailed critical
+  value; direction not pre-specified so no one-tailed rescue), then
+  re-earned at n=10 (t=−10.35, 10/10 seeds). The full sequence is in
+  the commit history.
+
+**The strongest single sentence available to this paper:** the registry
+chose the learning rate for the experiment that produced our only
+positive result — the failures funded the finding.
+
+## 5. GAPS — nothing is drafted until these close
+
+- **G1 — SCALE.** Everything is 2-block, d=128, T=256. First referee
+  question is whether the discipline survives where the claims people
+  care about live. Answer = the Stage 4 scale ladder (queued; likely
+  Colab). **Blocking.**
+- **G2 — n=1 ON THE REFLEXIVE CLAIM.** Every row came from us. "This
+  discipline catches errors" is far stronger when a claim from an
+  outside run enters and gets constrained. `CONTRIBUTING-FINDINGS.md`
+  is the door; nobody has walked through it. **Blocking for the
+  strongest version; the paper survives without it by scoping the
+  claim to a single lab.**
+- **G3 — the case study is one mechanism.** A second, independent
+  instance of "conventional bar passed, interpretation wrong" would
+  move this from case study to phenomenon. The V2/CoD line may supply
+  one; do not manufacture one.
+- **G4 — prior art sweep not done.** Pre-registration in ML (Bayesian
+  workflow, the ML Reproducibility Challenge, registered reports in
+  psychology and their ML analogues), experiment-tracking systems
+  (W&B, MLflow) and their explicit NON-claims about epistemics.
+  Position against these precisely — the novelty is the *enforced
+  status lifecycle plus machine-checked reproduction*, not "tracking
+  experiments," and the paper dies if that line is fuzzy.
+
+## 6. What this paper does NOT claim
+
+- Not that sliding windows are a contribution (they are prior art; our
+  S1 row is a *baseline*, and its role in the paper is to show the
+  discipline applied to an uninteresting-but-real result).
+- Not that SRD is a good mechanism. It is the specimen.
+- Not that the tiny-scale findings transfer. Scope is stated in every
+  row and must be stated in every claim in the paper.
+
+## 7. The companion paper (separate, do not merge)
+
+Paper-to-model extraction: arXiv → architecture with base+delta
+inheritance resolution, measured against a 26-paper truth set
+(grouped AUROC 0.882 [0.750–1.000] vs naive 0.863; post-veto pooled
+0.799; 47/65 verdicts with 0 wrong). Its own gaps: truth set is small
+(target 40+ with a CI-band gate) and inheritance accounting needs an
+error taxonomy. Merging the two papers would give one paper doing both
+jobs at 70%.
