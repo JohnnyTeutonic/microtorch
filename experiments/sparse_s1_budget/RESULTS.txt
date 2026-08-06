@@ -1,0 +1,27 @@
+========================================================================
+S1-c PRE-REGISTERED ANALYSIS (predictions committed in 8a01a92)
+========================================================================
+
+Delta(400)  = -0.04721  (n=5, t=-5.43)   [S1, same seeds]
+  diffs: ['-0.0656', '-0.0658', '-0.0208', '-0.0480', '-0.0358']
+Delta(1200) = +0.01229  (n=5, t=2.74)
+  diffs: ['+0.0180', '+0.0246', '+0.0093', '-0.0022', '+0.0118']
+
+lane means at 1200 steps:
+  exact: 3.5909 (sd 0.0180)
+    swa: 3.6032 (sd 0.0209)
+
+------------------------------------------------------------------------
+P1 (H-BUDGET): Delta(1200) > Delta(400) -- the advantage shrinks
+  per-seed change in Delta: ['+0.0836', '+0.0904', '+0.0301', '+0.0458', '+0.0476']
+  mean change +0.05950   t = 5.09   df = 4   crit 2.776
+  VERDICT: P1 SUPPORTED: the advantage shrinks with budget -> H-BUDGET holds
+
+P2 (strong form): reversal, Delta(1200) > 0
+  Delta(1200) = +0.01229 -> REVERSED (swa still better in 1/5 seeds)
+
+------------------------------------------------------------------------
+THREAT CHECK (pre-registered): did best_val stall well before 1200?
+  exact: final_step [1200, 1200, 1200, 1200, 1200]  early_stopped [False, False, False, False, False]  n_evals [12, 12, 12, 12, 12]
+    swa: final_step [1200, 1200, 1200, 1200, 1200]  early_stopped [False, False, False, False, False]  n_evals [12, 12, 12, 12, 12]
+  (if both lanes early-stopped far below 1200, the cell measures the overfitting regime, not the converged one -- say so in the row)

@@ -69,11 +69,44 @@ Survey date: 2026-07-30 (live arXiv sweep; refresh before each design round).
 > and running: capacity-artifact predicts the advantage shrinks;
 > optimum-below-16 does not.
 >
-> Remaining follow-ups: optimizer interaction (does Muon change the
-> story?), and the sinks-vs-window decomposition if budget falsifies
-> too. **V2/CoD must beat THIS, not full attention** — and "this" is
-> now a window at 12.3% density, which is a harder bar than it was
-> yesterday.
+> **S1-c — 2026-08-07: THE ADVANTAGE REVERSES. The S1 positive was a
+> short-budget artifact.** Paired Δ (swa@64 − exact) moves from
+> **−0.0472 at 400 steps** to **+0.0123 at 1200 steps** — a change of
+> **+0.0595 (t = 5.09, df = 4)**, in the same direction on every seed.
+> swa was ahead in 5/5 seeds at 400 and 1/5 at 1200. Both lanes were
+> still improving at the cutoff (no early stop, 12 evals, loss ~3.86 →
+> ~3.59), so this is the still-training regime, not overfitting — the
+> pre-registered threat was checked and did not fire.
+>
+> `S1-swa-beats-exact` is **SUPERSEDED** by `S1c-budget-reversal`, per
+> the decision rule committed before these runs. The 400-step
+> measurement remains correct; what it cannot support is the ordering.
+>
+> *Stated precisely:* the SHRINKAGE is established two-tailed
+> (t = 5.09, crit 2.776). The REVERSAL itself (t = 2.74) clears the
+> one-tailed crit 2.132 but **not** the two-tailed 2.776 — and the
+> one-tailed reading is licensed **only** because P2 committed the
+> direction to git before the runs. S1's surprise direction forbade
+> exactly that test three days ago. Same lab, same week, opposite
+> entitlements, decided entirely by what was written down first.
+>
+> **What this does and does not license.** At this scale the *sign* of
+> a sparse-vs-dense comparison depends on where you stop, so a
+> comparison reported at one short budget carries no information about
+> the ordering at a longer one. It does NOT establish that any
+> published result is wrong — our scope is 2-block, d=128, T=256,
+> TinyStories. The general claim is about **reporting discipline**:
+> state the budget, vary it, report both.
+>
+> **Consequence for V2/CoD: the bar changed shape.** "Beat
+> sliding-window" is now under-specified, because which lane leads
+> depends on the stopping point. Any V2 comparison must run at ≥2
+> budgets and report both, fixed in its pre-registration before it
+> runs.
+>
+> Remaining follow-ups: the sinks-vs-window decomposition (which also
+> unlocks cross-engine comparison — coalfire has no sinks), and the
+> optimizer interaction.
 
 ## 1. The landscape, mapped to our opening questions
 

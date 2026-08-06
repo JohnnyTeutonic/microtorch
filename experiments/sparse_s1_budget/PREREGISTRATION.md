@@ -85,3 +85,87 @@ support for P1.
   comparison changes character. If best_val stops improving well
   before step 1200 in both lanes, say so and treat the cell as
   measuring the overfitting regime rather than the converged one.
+
+---
+---
+
+# RESULTS (appended 2026-08-07; nothing above this line was edited)
+
+Full output: `RESULTS.txt`. Receipts: `atlas_rows.jsonl`, `cells.jsonl`,
+`effects.md`, `analyze.py`.
+
+## Headline: P1 and P2 both hold. The advantage does not merely shrink — it REVERSES.
+
+| budget | Δ = swa@64 − exact (paired, 5 seeds) | t |
+|---|---|---|
+| 400 steps | **−0.0472** (swa better) | −5.43 |
+| 1200 steps | **+0.0123** (exact better) | +2.74 |
+
+Per-seed change in Δ: +0.0836, +0.0904, +0.0301, +0.0458, +0.0476.
+Mean change **+0.0595, t = 5.09, df = 4** (two-tailed crit 2.776).
+Every seed moved the same direction.
+
+## P1 — SUPPORTED (two-tailed)
+
+The shrinkage is established outright: t = 5.09 against a 2.776
+two-tailed critical value. H-BUDGET's core prediction holds.
+
+## P2 — SUPPORTED (one-tailed, and the one-tailed reading IS licensed)
+
+Δ(1200) = +0.0123, t = 2.74. Two-tailed crit at df=4 is 2.776, so the
+reversal **misses two-tailed significance by 0.04**. One-tailed crit is
+2.132, which it clears.
+
+**The one-tailed test is legitimate here and was not legitimate for
+S1.** P2 committed the direction of reversal to git before the runs
+("H-BUDGET's strongest version predicts the advantage eventually
+REVERSES (Δ > 0)"). S1's manifest expected match-or-cost, so its
+surprise direction forbade one-tailed. Same lab, same week, opposite
+entitlements — determined entirely by what was written down first.
+Recorded because it is the cleanest demonstration in the repo of what
+pre-registration actually buys.
+
+Stated precisely, so no one has to reconstruct it: **the shrinkage is
+established two-tailed; the reversal is established one-tailed under a
+direction committed in advance, and would not survive a two-tailed
+test.**
+
+swa remains better in 1/5 seeds at 1200 (it was 5/5 at 400).
+
+## THREAT CHECK — passed cleanly
+
+All ten runs reached step 1200 with `early_stopped = False` and 12
+evaluations each. Loss fell from ~3.86/3.91 at 400 steps to 3.603
+(swa) / 3.591 (exact) at 1200. Both lanes were **still improving** at
+the cutoff, so this cell measures the still-training regime, not an
+overfitting artifact. The pre-registered threat did not materialise.
+
+## Verdict, per the committed decision rules
+
+Rule for P2: *"the sparse advantage is formally scoped to short-budget
+regimes — a strong constraint on every sparse-attention comparison run
+at small scale, including the ones in the literature that stop early."*
+Executed. `S1-swa-beats-exact` is **SUPERSEDED** by
+`S1c-budget-reversal`; the 400-step measurement remains correct and on
+the record, but anyone citing "sliding window beats full attention"
+from it would draw a conclusion this cell contradicts, which is exactly
+what the superseded status exists to prevent.
+
+## What we can and cannot say
+
+**Can:** at this scale, on this corpus, the SIGN of the sparse-vs-dense
+comparison flips between 400 and 1200 steps. A comparison reported at a
+single short budget carries no information about the ordering at a
+longer one.
+
+**Cannot:** that any published result is wrong. Our scope is 2-block,
+d=128, T=256, TinyStories. The defensible general claim is about
+*reporting discipline* — budget must be stated and varied — not about
+other people's conclusions.
+
+## Consequence for the programme
+
+The V2/CoD bar changes shape. "Beat sliding-window" is now an
+under-specified target, because which lane is ahead depends on the
+budget you stop at. Any V2 comparison must be run at ≥2 budgets and
+report both, and its pre-registration must say so before it runs.

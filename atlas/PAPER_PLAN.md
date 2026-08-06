@@ -99,6 +99,39 @@ commit hashes:
 chose the learning rate for the experiment that produced our only
 positive result — the failures funded the finding.
 
+## 4b. The result that may outrank the case study (added 2026-08-07)
+
+`S1c-budget-reversal` is the strongest thing in the registry, and it is
+a negative about our own positive.
+
+Paired Δ (sliding-window minus full attention) moves from **−0.047 at
+400 steps to +0.012 at 1200** — same direction on every seed, change
+t = 5.09. The sparse advantage we published four days earlier is a
+short-budget artifact that reverses with training.
+
+**Why this may belong in the abstract rather than §4.** The SRD case
+study demonstrates the failure mode on OUR mechanism. This one
+generalizes to a practice the field runs constantly: comparing a sparse
+attention variant against dense attention at a small scale and a short
+budget. We show the SIGN of that comparison flipping between two
+budgets that are both short. The claim we can defend is narrow and
+about reporting discipline — state the budget, vary it, report both —
+and the paper must NOT overreach into "published results are wrong."
+But a referee will recognise the shape of the risk immediately,
+because it is their own protocol.
+
+**It also contains the cleanest demonstration of what pre-registration
+buys, and it is a within-week A/B.** S1's manifest expected
+match-or-cost, so its surprising direction forbade a one-tailed test
+and the finding had to be downgraded at n=3. S1-c committed the
+reversal direction to git before running, so the one-tailed test IS
+licensed — and it needs to be, because the reversal clears the
+one-tailed critical value (2.132) and misses the two-tailed (2.776) by
+0.04. Same lab, same effect size regime, same week, opposite
+statistical entitlements, decided entirely by what was written down
+first. That is a better argument for the discipline than any amount of
+prose about it, and it should be shown as a table.
+
 ## 5. GAPS — nothing is drafted until these close
 
 - **G1 — SCALE.** Everything is 2-block, d=128, T=256. First referee
