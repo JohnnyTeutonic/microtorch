@@ -86,3 +86,73 @@ decorating the existing result.
   crit 2.776) — adequately powered for effects of the S1 size (~0.048
   nats at sd ~0.015) and NOT for effects three times smaller. If a rung
   lands inside noise, that is reported as inconclusive, not as a null.
+
+---
+---
+
+# RESULTS (appended 2026-08-06; nothing above this line was edited)
+
+Full analyzer output: `RESULTS.txt`. Receipts: `atlas_rows.jsonl`,
+`cells.jsonl`, `effects.md`, `analyze.py`.
+
+## P1 — HARNESS CHECK: **PASS**, and exactly
+
+swa@w=256,sinks=1 reproduced the exact lane with **diff = 0.00e+00 on
+all five seeds** — bitwise, not merely within tolerance. The
+equivalence pin now holds through 400 optimizer steps of real training,
+not only in a unit test. The cell counts.
+
+## Means (seeds 1-5)
+
+| window | best_val | density |
+|---|---|---|
+| 16 | **3.7847** | 12.3% |
+| 32 | 3.8215 | 22.4% |
+| 64 | 3.8516 | 44.3% |
+| 128 | 3.8936 | 74.6% |
+| 256 = exact | 3.8989 | 100% |
+
+## P2 vs P3 — **P3 SUPPORTED. H-PRIOR IS DEAD AT THIS SCALE.**
+
+Paired (w=16 − w=64): diffs −0.0459, −0.0717, −0.1080, −0.0469,
+−0.0620; mean **−0.0669**, **t = −5.89**, df=4 (crit 2.776).
+w=32 − w=64 also signal (mean −0.0301, t = −4.05).
+
+The curve is **monotone**: every reduction in window improved loss,
+down to 12.3% density. There is no interior optimum above w=16. The
+prediction we committed to for H-PRIOR — that too small a window
+starves the model and hurts — **did not occur at any rung we tested**.
+
+P4 HOLDS (w=128 sits between w=64 and exact, t = 8.00), which is
+consistent with both hypotheses and discriminates nothing; recorded
+for completeness.
+
+## Verdict, per the committed decision rule
+
+The rule said: *"P3 holds (monotone down to 16) → H-PRIOR is WRONG at
+this scale, the S1 win is likely a budget/capacity artifact, and
+`S1-swa-beats-exact` gets a scope amendment saying so."* Executed:
+the row is amended and the mechanism claim removed from it.
+
+**What survives:** the empirical fact. Sliding-window attention beats
+full attention here, and beats it MORE the sparser it gets. That is
+real, replicated across five window scales and ten seeds.
+
+**What died:** the interpretation. "Locality is a favorable inductive
+bias matched to this data" predicted a shape the data does not have.
+We do not get to keep it.
+
+## Limitation we must state (the design's own boundary)
+
+The pre-registration framed P2/P3 as exhaustive at the w=16 rung. They
+are not, strictly: a monotone curve down to 16 is also consistent with
+an interior optimum sitting BELOW 16 (at w=8, w=4, or a single token).
+This cell cannot separate "capacity artifact" from "optimum lower than
+we looked". Reporting the P3 verdict without this caveat would
+overstate what 20 runs can carry.
+
+The discriminating test is therefore NOT another window rung — it is
+the budget cell, which was named in this document as the follow-up
+before the result was known: H-BUDGET predicts the advantage shrinks
+at longer training, and an optimum-below-16 story does not.
+`experiments/sparse_s1_budget/` is pre-registered and running.

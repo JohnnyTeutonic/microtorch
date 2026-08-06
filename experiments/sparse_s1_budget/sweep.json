@@ -1,0 +1,18 @@
+{
+  "_comment": "S1-c budget cell. Pre-registered in PREREGISTRATION.md BEFORE running, and named as the discriminating follow-up inside the S1-b pre-registration before S1-b's result was known. Identical to experiments/sparse_s1 except steps 400 -> 1200. Tests whether the sparse advantage shrinks at longer budget (H-BUDGET) or persists (falsifying it). Seeds match the S1 rows so Delta(400) and Delta(1200) are measured on the same seeds.",
+  "base": {
+    "arch": {"preset": "gpt2-nano", "custom": {"window": 64, "sinks": 1}},
+    "data": {"corpus": "/mnt/c/Users/jonat/OneDrive/Documents/research_portfolio_complete/transformer_cpp/data/tinystories-txt/train-0-small.txt",
+              "vocab": "/mnt/c/Users/jonat/OneDrive/Documents/research_portfolio_complete/transformer_cpp/releases/chat7b.gguf",
+              "vocab_cap": 4096, "T": 256},
+    "train": {"batch": 4, "lr": 0.001, "steps": 1200, "eval_every": 100,
+               "checkpoint_every": 1000000, "gradmap_every": 0},
+    "export": {"formats": []}
+  },
+  "factors": {
+    "arch.custom.attention": ["exact", "swa"]
+  },
+  "design": "grid",
+  "seeds": [1, 2, 3, 4, 5],
+  "out_root": "/tmp/sparse_s1_budget"
+}

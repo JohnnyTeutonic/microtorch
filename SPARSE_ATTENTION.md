@@ -44,10 +44,36 @@ Survey date: 2026-07-30 (live arXiv sweep; refresh before each design round).
 > too; both are recorded in the registry row to keep the numbers
 > unambiguous.
 >
-> Follow-ups, now with a real baseline under them: window sweep
-> (w ∈ {16, 64, 128, T} — is there an optimal locality scale?), longer
-> budgets (does exact catch up?), optimizer interaction (does Muon
-> change the story?). **V2/CoD must beat THIS, not full attention.**
+> **S1-b — 2026-08-06: the window sweep killed our own explanation.**
+> Loss falls MONOTONICALLY as the window shrinks — w=16 (3.785) <
+> w=32 (3.822) < w=64 (3.852) < w=128 (3.894) < exact (3.899), every
+> adjacent contrast clearing its paired test, down to **12.3% density**.
+> We had pre-registered two mutually exclusive predictions at the w=16
+> rung: locality-as-inductive-prior required an interior optimum (too
+> small a window should starve the model); capacity-artifact required
+> monotone. **Monotone won.** Per the decision rule committed before
+> the runs, `S1-swa-beats-exact` has been amended and its mechanism
+> claim withdrawn — the effect is real and replicated, the explanation
+> we gave for it is not supported. Registry: `S1b-window-monotone`.
+>
+> The harness verified itself on the way: swa@w=256 with sinks=1
+> reproduced the exact lane **bitwise (diff 0.00e+00, all 5 seeds)**
+> through 400 steps of real training, so the equivalence pin holds
+> outside the unit test.
+>
+> Stated limitation, from the pre-registration rather than added after:
+> monotone down to w=16 is ALSO consistent with an optimum below 16.
+> The discriminating test is budget, not another window rung — and it
+> was named as the follow-up before this result was known.
+> `experiments/sparse_s1_budget/` (steps 400 → 1200) is pre-registered
+> and running: capacity-artifact predicts the advantage shrinks;
+> optimum-below-16 does not.
+>
+> Remaining follow-ups: optimizer interaction (does Muon change the
+> story?), and the sinks-vs-window decomposition if budget falsifies
+> too. **V2/CoD must beat THIS, not full attention** — and "this" is
+> now a window at 12.3% density, which is a harder bar than it was
+> yesterday.
 
 ## 1. The landscape, mapped to our opening questions
 

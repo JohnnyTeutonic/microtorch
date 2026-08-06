@@ -1,0 +1,4 @@
+{"best_val_mean": 3.7847256660461426, "best_val_min": 3.755152702331543, "best_val_std": 0.02289268347940884, "cell": 0, "factors": {"arch.custom.window": 16}, "n_seeds": 5}
+{"best_val_mean": 3.8215310096740724, "best_val_min": 3.798804759979248, "best_val_std": 0.01843169388534417, "cell": 1, "factors": {"arch.custom.window": 32}, "n_seeds": 5}
+{"best_val_mean": 3.8936092853546143, "best_val_min": 3.85920786857605, "best_val_std": 0.020610119787742152, "cell": 2, "factors": {"arch.custom.window": 128}, "n_seeds": 5}
+{"best_val_mean": 3.898853063583374, "best_val_min": 3.864478349685669, "best_val_std": 0.023725851540981297, "cell": 3, "factors": {"arch.custom.window": 256}, "n_seeds": 5}

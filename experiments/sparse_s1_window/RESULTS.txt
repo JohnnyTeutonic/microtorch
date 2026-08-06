@@ -1,0 +1,34 @@
+======================================================================
+S1-b PRE-REGISTERED ANALYSIS  (predictions committed in b2f44e4)
+======================================================================
+
+means by window (seeds 1-5):
+  w= 16  3.7847  (n=5, sd 0.0256)
+  w= 32  3.8215  (n=5, sd 0.0206)
+  w=128  3.8936  (n=5, sd 0.0230)
+  w=256  3.8989  (n=5, sd 0.0265)
+  w= 64  3.8516  (n=5, sd 0.0205)   [S1 anchor]
+  exact  3.8989  (n=5, sd 0.0265)   [S1 anchor]
+
+----------------------------------------------------------------------
+P1 (HARNESS, must pass or cell is VOID): swa@w=256 == exact bitwise
+  seed 1: swa256 3.931914  exact 3.931914  diff +0.00e+00
+  seed 2: swa256 3.916658  exact 3.916658  diff +0.00e+00
+  seed 3: swa256 3.884014  exact 3.884014  diff +0.00e+00
+  seed 4: swa256 3.864478  exact 3.864478  diff +0.00e+00
+  seed 5: swa256 3.897201  exact 3.897201  diff +0.00e+00
+  worst |diff| = 0.00e+00   threshold 1e-6
+  P1: PASS
+
+----------------------------------------------------------------------
+P2 (H-PRIOR: w=16 WORSE than w=64)  vs  P3 (H-BUDGET: w=16 <= w=64)
+  paired diffs (w16 - w64): ['-0.0459', '-0.0717', '-0.1080', '-0.0469', '-0.0620']
+  mean -0.06691   t = -5.89   df = 4   two-tailed crit 2.776
+  VERDICT: P3 SUPPORTED (w=16 better) -> H-BUDGET, our S1 row needs amending
+  (w=32 - w=64): mean -0.03011  t -4.05  signal
+
+----------------------------------------------------------------------
+P4: best_val(128) sits between best_val(64) and best_val(256)
+  w=64 3.8516  <  w=128 3.8936  <  w=256 3.8989 ?
+  P4: HOLDS
+  (w=128 - w=64): mean +0.04197  t 8.00  signal

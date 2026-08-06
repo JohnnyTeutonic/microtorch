@@ -115,6 +115,19 @@ positive result — the failures funded the finding.
   instance of "conventional bar passed, interpretation wrong" would
   move this from case study to phenomenon. The V2/CoD line may supply
   one; do not manufacture one.
+  **PARTIALLY CLOSED 2026-08-06 — and this one is stronger than SRD in
+  one specific respect.** `S1b-window-monotone` is a second instance of
+  the same failure shape (a real, replicated effect carrying a
+  mechanism story that turned out to be unsupported), but unlike SRD it
+  was caught **PROSPECTIVELY**: the two hypotheses were declared
+  mutually exclusive at a named rung, the decision rule bound us to
+  amend our own supported row if the wrong one won, the commit
+  predates the runs, and we executed the amendment. SRD demonstrates
+  the discipline recovering from an error already made; S1-b
+  demonstrates it catching one at the moment of formation. The paper
+  wants BOTH, in that order — retrospective repair, then prospective
+  interception. That pairing is a better argument than two SRDs would
+  be.
 - **G4 — prior art sweep not done.** Pre-registration in ML (Bayesian
   workflow, the ML Reproducibility Challenge, registered reports in
   psychology and their ML analogues), experiment-tracking systems
