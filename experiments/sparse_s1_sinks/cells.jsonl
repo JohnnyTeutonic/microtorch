@@ -1,0 +1,2 @@
+{"best_val_mean": 3.8519177436828613, "best_val_min": 3.8202128410339355, "best_val_std": 0.016798512867073612, "cell": 0, "factors": {"train.steps": 400}, "n_seeds": 5}
+{"best_val_mean": 3.6031675815582274, "best_val_min": 3.586099863052368, "best_val_std": 0.015558217473639066, "cell": 1, "factors": {"train.steps": 1200}, "n_seeds": 5}
