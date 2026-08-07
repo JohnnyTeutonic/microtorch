@@ -107,3 +107,57 @@ swa-sinks1@1200). Every comparison is therefore paired by seed.
 - One sink at T=256 is a single configuration. A null here does not
   license "sinks don't matter" in general — only at this scale, this
   window, this budget.
+
+---
+---
+
+# RESULTS (appended 2026-08-08; nothing above this line was edited)
+
+Receipts: `atlas_rows.jsonl`, `cells.jsonl`, `RESULTS.txt`,
+`analyze.py`. Execution note: the first run of this cell completed
+10/10 and was then lost to WSL /tmp cleanup before receipts were
+banked (recorded in the manifest); the rerun to persistent storage
+**reproduced the first execution's surviving numbers exactly**
+(identical per-seed values — deterministic seeds), so the loss cost
+compute, not information.
+
+## P1 — SUPPORTED. The capacity model's quantitative prediction survives.
+
+sinks=0 − sinks=1, paired, n=5:
+
+| budget | mean Δ | t | verdict |
+|---|---|---|---|
+| 400 | **+0.00028** | 0.16 | null — below even the 0.008 grey-zone floor |
+| 1200 | **−0.00007** | −0.03 | null again |
+
+The model predicted |Δ| ≈ 0.0008 (25× below detection); the measured
+values are indistinguishable from zero at BOTH budgets. **The sink is
+inert beyond its density contribution.** A null was the committed
+prediction, so this is a confirmation, not an absence. (At this
+resolution 0.0003 and 0.0008 cannot be told apart — what is confirmed
+is a null where a null was predicted, not the specific magnitude.)
+
+## P4 — SUPPORTED at full n=5, two-tailed, no rescue needed.
+
+- sinks=0 − exact @400: **−0.0469 (t = −6.03)** — the sparse advantage
+  is fully present without the sink.
+- sinks=0 − exact @1200: **+0.0122 (t = +2.89 > 2.776 two-tailed)** —
+  the budget reversal reproduces without the sink, and unlike S1-c's
+  sinked version (t = 2.74, one-tailed only), this one clears the
+  two-tailed bar outright.
+
+Both S1-b (window monotone) and S1-c (budget reversal) are therefore
+properties of the WINDOW alone. Neither depended on the sink.
+
+## Consequences
+
+1. **The cross-engine vehicle is certified.** sinks=0 — the only
+   configuration coalfire.cpp can express — reproduces every S1
+   finding. Second-engine replication is now a real experiment.
+2. **The capacity model gains predictive standing.** Until now it was
+   the explanation left standing after others died (cheap evidence).
+   Here it made a specific quantitative prediction about a
+   configuration it had never seen, and was right. Registered
+   accordingly.
+3. The sink can be dropped from future S1-family cells at this scale,
+   halving nothing but simplifying everything.

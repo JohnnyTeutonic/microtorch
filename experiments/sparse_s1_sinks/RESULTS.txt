@@ -1,0 +1,26 @@
+========================================================================
+S1-d PRE-REGISTERED ANALYSIS  (predictions committed in e0999e5)
+========================================================================
+
+400-step cell  (sinks=0 n=5, anchors n=10/10)
+  means: sinks0 3.8519  sinks1 3.8516  exact 3.8989
+
+------------------------------------------------------------------------
+PRIMARY TEST — P1 vs P2/P3: sinks=0 minus sinks=1 at 400 steps
+  capacity model predicts |delta| ~ 0.0008; detection floor 0.021
+  sinks0 - sinks1 @400: n=5  mean +0.00028  se 0.00170  t=+0.16
+    diffs ['+0.0026', '+0.0019', '-0.0011', '+0.0038', '-0.0057']
+  significance: |t|=0.16 vs crit 2.776 -> not detectable
+  VERDICT: P1 SUPPORTED — null, and the capacity model's QUANTITATIVE prediction survives (|delta| below even the grey zone)
+
+------------------------------------------------------------------------
+SECONDARY — is the sparse advantage still there without sinks?
+  sinks0 - exact @400 : n=5  mean -0.04694  se 0.00778  t=-6.03
+    diffs ['-0.0631', '-0.0639', '-0.0219', '-0.0443', '-0.0415']
+
+------------------------------------------------------------------------
+P4 (partial, n=5/5) — reversal without sinks at 1200
+  sinks0 - exact @1200: n=5  mean +0.01222  se 0.00423  t=+2.89
+    diffs ['+0.0192', '+0.0168', '+0.0166', '-0.0042', '+0.0127']
+  sinks0 - sinks1 @1200: n=5  mean -0.00007  se 0.00244  t=-0.03
+    diffs ['+0.0012', '-0.0077', '+0.0073', '-0.0020', '+0.0009']
