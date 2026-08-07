@@ -109,8 +109,16 @@ def advise(rows, query):
     q = set(w.lower().strip("?,.") for w in query.split())
     scored = []
     for r in rows:
-        text = (r["claim"] + " " + r["scope"] + " " + r.get("note", "")).lower()
-        hits = sum(1 for w in q if len(w) > 2 and w in text)
+        # Field-weighted retrieval: the CLAIM is what a finding is about;
+        # scope and note are qualifiers. A query term matching the claim
+        # outweighs the same term matching a scope aside (caught by the
+        # selftest at 19 rows: optimizer queries surfaced S1 rows whose
+        # scope mentions AdamW above the muon rows whose claim IS about
+        # optimizers).
+        claim = r["claim"].lower()
+        rest = (r["scope"] + " " + r.get("note", "")).lower()
+        hits = sum(3 if w in claim else 1
+                   for w in q if len(w) > 2 and (w in claim or w in rest))
         if hits:
             scored.append((hits, r))
     scored.sort(key=lambda x: -x[0])
