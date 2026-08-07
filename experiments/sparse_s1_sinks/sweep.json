@@ -1,18 +1,44 @@
 {
-  "_comment": "S1-d sinks decomposition. Pre-registered in PREREGISTRATION.md BEFORE running, with a QUANTITATIVE prediction (capacity model predicts |delta| ~0.0008 nats, ~25x below our 0.021 detection floor at n=5) so that a null is a successful prediction rather than an absence. Only the swa(w=64, sinks=0) lane is new — exact and swa-sinks1 already exist at matched seeds in experiments/sparse_s1 (400 steps) and experiments/sparse_s1_budget (1200 steps), so every comparison is paired. Also certifies the only cross-engine-comparable configuration: coalfire.cpp has no sink support.",
+  "_comment": "S1-d sinks decomposition. Pre-registered in PREREGISTRATION.md BEFORE running, with a QUANTITATIVE prediction (capacity model predicts |delta| ~0.0008 nats, ~25x below our 0.021 detection floor at n=5) so that a null is a successful prediction rather than an absence. Only the swa(w=64, sinks=0) lane is new \u00e2\u20ac\u201d exact and swa-sinks1 already exist at matched seeds in experiments/sparse_s1 (400 steps) and experiments/sparse_s1_budget (1200 steps), so every comparison is paired. Also certifies the only cross-engine-comparable configuration: coalfire.cpp has no sink support. RERUN NOTE 2026-08-08: the first execution completed 10/10 but wrote out_root to WSL /tmp, which was cleaned during concurrent builds before receipts were copied into the repo - all per-run results lost (aggregate summary survived in the task log; interim n=8 analysis in session transcript). Cell relaunched with out_root on persistent ext4 home. Lesson encoded: sweep outputs go to ~, receipts copied into the repo the moment runs land.",
   "base": {
-    "arch": {"preset": "swa-tiny", "custom": {"attention": "swa", "window": 64, "sinks": 0}},
-    "data": {"corpus": "/mnt/c/Users/jonat/OneDrive/Documents/research_portfolio_complete/transformer_cpp/data/tinystories-txt/train-0-small.txt",
-              "vocab": "/mnt/c/Users/jonat/OneDrive/Documents/research_portfolio_complete/transformer_cpp/releases/chat7b.gguf",
-              "vocab_cap": 4096, "T": 256},
-    "train": {"batch": 4, "lr": 0.001, "eval_every": 100,
-               "checkpoint_every": 1000000, "gradmap_every": 0},
-    "export": {"formats": []}
+    "arch": {
+      "preset": "swa-tiny",
+      "custom": {
+        "attention": "swa",
+        "window": 64,
+        "sinks": 0
+      }
+    },
+    "data": {
+      "corpus": "/mnt/c/Users/jonat/OneDrive/Documents/research_portfolio_complete/transformer_cpp/data/tinystories-txt/train-0-small.txt",
+      "vocab": "/mnt/c/Users/jonat/OneDrive/Documents/research_portfolio_complete/transformer_cpp/releases/chat7b.gguf",
+      "vocab_cap": 4096,
+      "T": 256
+    },
+    "train": {
+      "batch": 4,
+      "lr": 0.001,
+      "eval_every": 100,
+      "checkpoint_every": 1000000,
+      "gradmap_every": 0
+    },
+    "export": {
+      "formats": []
+    }
   },
   "factors": {
-    "train.steps": [400, 1200]
+    "train.steps": [
+      400,
+      1200
+    ]
   },
   "design": "grid",
-  "seeds": [1, 2, 3, 4, 5],
-  "out_root": "/tmp/sparse_s1_sinks"
+  "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "out_root": "/home/jonat/sparse_s1_sinks"
 }
